@@ -1983,7 +1983,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 14px 0; }
 
             <div class="comparison-bar-row">
               <div class="bar-label">
-                <span>OKF-Guided (Bootstrap + Tasks)</span>
+                <span id="lbl-okf-type">OKF-Guided (Bootstrap + Tasks)</span>
                 <span class="bar-val" id="val-okf">~ 46,000 tokens</span>
               </div>
               <div class="bar-container">
@@ -2114,11 +2114,13 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 14px 0; }
       }
 
       if (includeBootstrap) {
+        document.getElementById('lbl-okf-type').textContent = 'OKF-Guided (Bootstrap + Tasks)';
         document.getElementById('sim-breakdown').innerHTML = `
           Traditional Exploration: ~${traditionalTaskCost.toLocaleString()} tokens/task<br>
           OKF Setup: ~${okfBootstrapCost.toLocaleString()} tokens (one-time bootstrap) + ~${okfTaskCost.toLocaleString()} tokens/task
 `;
       } else {
+        document.getElementById('lbl-okf-type').textContent = 'OKF-Guided (Tasks Only)';
         document.getElementById('sim-breakdown').innerHTML = `
           Traditional Exploration: ~${traditionalTaskCost.toLocaleString()} tokens/task<br>
           OKF Setup: Excluded (Already Bootstrapped) | Ongoing: ~${okfTaskCost.toLocaleString()} tokens/task
