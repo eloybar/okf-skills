@@ -20,8 +20,12 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
 4. **Update reserved files.** If the bundle has an `index.md`, add the new concept to it. Append a dated line to `log.md` if one exists. See **Reserved files**.
    - Done when `index.md` lists the concept and `log.md` records the change — for each reserved file the bundle actually uses.
 
-5. **Conformance gate.** Verify the bundle still conforms. See **Conformance**.
+5. **Steering Notice (AGENTS.md).** If bootstrapping a new bundle or if the repository root-level `AGENTS.md` (or `CLAUDE.md`) does not mention the OKF bundle, create or update it to include instructions telling future agents to read and maintain the OKF directory (e.g., `./okf/` or `./docs/solutions/`).
+   - Done when a root-level instruction file exists and directs agents to read and maintain the OKF bundle.
+
+6. **Conformance gate.** Verify the bundle still conforms. See **Conformance**.
    - Done when every non-reserved `.md` has parseable frontmatter with a non-empty `type`, and each reserved file matches its structure.
+
 
 ## Frontmatter
 
