@@ -116,6 +116,43 @@ If you want to install the skills **locally inside a specific project workspace*
 
 ----
 
+## 🚀 Quick Start (OKF in Action)
+
+Once you have installed the skills, here is how you use them in your development workflow:
+
+### Scenario A: Greenfield Project (Bootstrapping New Repositories)
+If you are starting a fresh project and want to lay down solid agent-steering guidelines from Day 1:
+
+1. **Launch your agent** in the project directory:
+   ```bash
+   agy
+   ```
+2. **Bootstrap the OKF bundle**: Ask the agent to initialize OKF:
+   > "initialize OKF" (or run the `/okf` custom command)
+3. **What happens**:
+   * The agent automatically creates an `okf/` folder at the root.
+   * It populates it with standard index and log files.
+   * It writes a root-level `AGENTS.md` file directing all future agent sessions to read and maintain the OKF bundle.
+   * It begins drafting initial concept files describing the starting code architecture.
+
+---
+
+### Scenario B: Brownfield Project (Maintaining Existing Codebases)
+If you have an existing codebase and are making changes (like refactoring a module, adding a database table, or introducing a service):
+
+1. **Work on your task** as usual using the agent:
+   > "add a new checkouts database table and API endpoint"
+2. **Synchronize the documentation**: Before ending your task session, ask the agent to run the maintenance check:
+   > "run OKF upkeep" (which triggers the `okf-maintain` skill)
+3. **What happens**:
+   * The agent scans your codebase modifications.
+   * It detects that the checkout database structure and API endpoint were added.
+   * It automatically generates or updates the concept files (e.g. `okf/tables/checkouts.md`).
+   * It updates the global `okf/index.md` index and appends an entry to `okf/log.md`.
+   * Your codebase and its agent-navigable documentation remain in perfect, automated sync!
+
+----
+
 ## 🛠️ Repository Contents
 
 This repository implements the above pipeline via the following custom agent skills:
