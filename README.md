@@ -101,6 +101,11 @@ If your agent environment supports the `npx skills` tool:
 > [!TIP]
 > **Node.js Requirement:** The `npx skills` tool requires Node.js v16+ (v18+ or v20+ recommended). If you get an `Unexpected token import` or `ERR_REQUIRE_ESM` error, either upgrade Node.js or use **Method 1** above (which bypasses Node.js entirely).
 
+> [!IMPORTANT]
+> **CLI Global Limitation:** The `skills` CLI does not support installing markdown/PromptScript skills globally; running it with `-g` or `--global` will fail with a `PromptScript does not support global skill installation` error.
+> 
+> If you want to use these skills **globally** across all projects (working in any directory), you must use **Method 1 (One-liner)** or **Method 3 (Manual)** instead, which install them directly to your agent's global configuration path.
+
 ---
 
 ### Method 3: Manual Installation (Git & Copy)
