@@ -59,11 +59,11 @@ This method auto-detects your agent configuration and handles setup, updates, an
 * **Windows (PowerShell)**:
   * **To Install / Update**:
     ```powershell
-    Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/eloybar/okf-skills/main/install.ps1'))
+    Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/eloybar/okf-skills/main/install.ps1?t=' + (Get-Date).Ticks))
     ```
   * **To Remove**:
     ```powershell
-    Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/eloybar/okf-skills/main/install.ps1')) -Action Remove
+    Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; & ([scriptblock]::Create((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/eloybar/okf-skills/main/install.ps1?t=' + (Get-Date).Ticks))) -Action Remove
     ```
 
 * **macOS / Linux (Bash)**:

@@ -1,15 +1,21 @@
 # install.ps1 - Installer/Updater/Remover for OKF Skills on Windows PowerShell
 param(
     [Parameter(Mandatory=$false)]
-    [ValidateSet("Install", "Update", "Remove")]
     [string]$Action = "Install",
 
     [Parameter(Mandatory=$false)]
-    [ValidateSet("Antigravity", "Claude")]
     [string]$Agent
 )
 
 $ErrorActionPreference = "Stop"
+
+# Validate inputs manually to avoid iex metadata validation errors
+if ($Action -notin @("Install", "Update", "Remove")) {
+    throw "Invalid Action: $Action. Must be 'Install', 'Update', or 'Remove'."
+}
+if ($Agent -and $Agent -notin @("Antigravity", "Claude")) {
+    throw "Invalid Agent: $Agent. Must be 'Antigravity' or 'Claude'."
+}
 
 # Define default paths
 $Paths = @{
