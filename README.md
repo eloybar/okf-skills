@@ -61,22 +61,38 @@ npx skills add eloybar/okf-skills
 
 
 ### Method 2: Windows (PowerShell)
-To clone and install all skills along with their assets/subfolders:
+Define the target directory for your agent (e.g., `$HOME\.claude\skills` or `$HOME\.gemini\config\plugins\agy-skills\skills`), clone the repo, and copy the folders recursively:
 ```powershell
+# 1. Define your agent's skills directory path
+$AgentSkillsDir = "$HOME\.claude\skills" 
+
+# 2. Clone and copy
 git clone https://github.com/eloybar/okf-skills.git
-New-Item -ItemType Directory -Force -Path "$HOME\.claude\skills"
-Copy-Item -Path "okf-skills\okf", "okf-skills\okf-maintain", "okf-skills\okf-visualize" -Destination "$HOME\.claude\skills\" -Recurse -Force
+New-Item -ItemType Directory -Force -Path $AgentSkillsDir
+Copy-Item -Path "okf-skills\okf", "okf-skills\okf-maintain", "okf-skills\okf-visualize" -Destination "$AgentSkillsDir\" -Recurse -Force
 Remove-Item -Path "okf-skills" -Recurse -Force
 ```
 
 ### Method 3: macOS / Linux (Bash)
-To clone and install all skills along with their assets/subfolders:
+Define the target directory for your agent (e.g., `~/.claude/skills` or `~/.gemini/config/plugins/agy-skills/skills`), clone the repo, and copy the folders recursively:
 ```bash
+# 1. Define your agent's skills directory path
+AGENT_SKILLS_DIR="$HOME/.claude/skills"
+
+# 2. Clone and copy
 git clone https://github.com/eloybar/okf-skills.git
-mkdir -p ~/.claude/skills
-cp -r okf-skills/okf okf-skills/okf-maintain okf-skills/okf-visualize ~/.claude/skills/
+mkdir -p "$AGENT_SKILLS_DIR"
+cp -r okf-skills/okf okf-skills/okf-maintain okf-skills/okf-visualize "$AGENT_SKILLS_DIR/"
 rm -rf okf-skills
 ```
+
+> [!NOTE]
+> **Common Agent Skills Directories:**
+> * **Claude Code**: `~/.claude/skills`
+> * **Antigravity / Gemini CLI**: `~/.gemini/config/plugins/agy-skills/skills`
+> * **Hermes**: `~/.hermes/skills`
+> * **Codex**: `~/.codex/skills`
+
 
 
 ---
