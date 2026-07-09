@@ -125,7 +125,12 @@ If you are starting a fresh project and want to lay down solid agent-steering gu
 
 1. **Launch your agent** in the project directory:
    ```bash
-   agy
+   # Run the startup command for your preferred agent CLI:
+   agy      # Google Antigravity
+   claude   # Claude Code
+   pi       # Pi
+   hermes   # Hermes
+   codex    # Codex
    ```
 2. **Bootstrap the OKF bundle**: Ask the agent to initialize OKF:
    > "initialize OKF" (or run the `/okf` custom command)
