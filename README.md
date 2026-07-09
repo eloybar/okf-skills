@@ -113,12 +113,17 @@ rm -rf okf-skills
 To keep your skills up to date with the latest improvements:
 
 ### If installed using the `skills` CLI (Method 1)
-You can check for updates and pull them automatically:
+You can check for updates and update all or specific skills:
 ```bash
 # Check for updates to all installed skills
 npx skills check
 
-# Update all of your installed skills
+# Update ONLY the OKF skills
+npx skills update okf
+npx skills update okf-maintain
+npx skills update okf-visualize
+
+# Alternatively, update ALL installed skills on your system
 npx skills update
 ```
 
