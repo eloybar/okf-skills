@@ -52,8 +52,7 @@ if ($Action -eq "Remove") {
         }
     }
     Write-Host "Removal complete!" -ForegroundColor Green
-}
-else {
+} else {
     # Install or Update (both perform the same download & overwrite action)
     Write-Host "Installing/Updating OKF skills in $TargetDir..." -ForegroundColor Yellow
 
@@ -76,8 +75,7 @@ else {
             Copy-Item -Path $srcPath -Destination $TargetDir -Recurse -Force
             Write-Host "✔ Copied $skill" -ForegroundColor Green
         }
-    }
-    else {
+    } else {
         Write-Host "ℹ Downloading latest version from GitHub..." -ForegroundColor Gray
         $tempZip = [System.IO.Path]::GetTempFileName() + ".zip"
         $tempFolder = Join-Path $env:TEMP "okf-skills-temp"
