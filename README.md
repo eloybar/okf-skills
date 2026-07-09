@@ -118,7 +118,10 @@ You can check for updates and update all or specific skills:
 # Check for updates to all installed skills
 npx skills check
 
-# Update ONLY the OKF skills
+# Update all OKF skills in one command (re-run the add command):
+npx skills add eloybar/okf-skills
+
+# Update specific OKF skills individually:
 npx skills update okf
 npx skills update okf-maintain
 npx skills update okf-visualize
