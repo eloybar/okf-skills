@@ -53,33 +53,34 @@ Generates dynamic Cytoscape.js HTML graph visualizations of concepts, dependenci
 
 You can install, update, or remove these skills using any of the following methods:
 
-### Method 1: Unified One-liner Installer (Recommended)
-This method auto-detects your agent configuration and handles setup, updates, and removal. It works without Node.js dependencies.
+### Method 1: Local Script Installer (Recommended)
+This is the simplest and most robust method. It works locally, has no external dependencies, and is immune to network or copy-paste line-wrapping errors.
 
-* **Windows (PowerShell)**:
-  * **To Install / Update**:
-    ```powershell
-    Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/eloybar/okf-skills/main/install.ps1?t=' + (Get-Date).Ticks))
-    ```
-  * **To Remove**:
-    ```powershell
-    Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; & ([scriptblock]::Create((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/eloybar/okf-skills/main/install.ps1?t=' + (Get-Date).Ticks))) -Action Remove
-    ```
+1. **Clone the repository and run the installer**:
+   * **Windows (PowerShell)**:
+     ```powershell
+     git clone https://github.com/eloybar/okf-skills.git; cd okf-skills; .\install.ps1
+     ```
+   * **macOS / Linux (Bash)**:
+     ```bash
+     git clone https://github.com/eloybar/okf-skills.git && cd okf-skills && ./install.sh
+     ```
 
-* **macOS / Linux (Bash)**:
-  * **To Install / Update**:
-    ```bash
-    curl -fsSL https://raw.githubusercontent.com/eloybar/okf-skills/main/install.sh | bash
-    ```
-  * **To Remove**:
-    ```bash
-    curl -fsSL https://raw.githubusercontent.com/eloybar/okf-skills/main/install.sh | bash -s -- --action Remove
-    ```
+2. **Clean up the clone** (Optional — the installer copies the skills to your global agent path, so you can delete the repository folder afterward):
+   * *Windows*: `cd ..; Remove-Item -Path okf-skills -Recurse -Force`
+   * *macOS/Linux*: `cd .. && rm -rf okf-skills`
+
+* **To Update**: Navigate to your cloned `okf-skills` folder, pull changes, and run the script again:
+  * *Windows*: `git pull; .\install.ps1`
+  * *macOS/Linux*: `git pull && ./install.sh`
+* **To Remove**: Run the installer with the remove action:
+  * *Windows*: `.\install.ps1 -Action Remove`
+  * *macOS/Linux*: `./install.sh --action Remove`
 
 ---
 
 ### Method 2: Using the `skills` CLI
-If your agent environment supports the `npx skills` tool:
+If you want to install the skills **locally inside a specific project workspace** (rather than globally), and your agent environment supports the `npx skills` tool:
 
 * **To Install / Update**:
   ```bash
@@ -99,12 +100,12 @@ If your agent environment supports the `npx skills` tool:
   ```
 
 > [!TIP]
-> **Node.js Requirement:** The `npx skills` tool requires Node.js v16+ (v18+ or v20+ recommended). If you get an `Unexpected token import` or `ERR_REQUIRE_ESM` error, either upgrade Node.js or use **Method 1** above (which bypasses Node.js entirely).
+> **Node.js Requirement:** The `npx skills` tool requires Node.js v16+ (v18+ or v20+ recommended). If you get an `Unexpected token import` or `ERR_REQUIRE_ESM` error, either upgrade Node.js or use **Method 1** above.
 
 > [!IMPORTANT]
-> **CLI Global Limitation:** The `skills` CLI does not support installing markdown/PromptScript skills globally; running it with `-g` or `--global` will fail with a `PromptScript does not support global skill installation` error.
+> **CLI Global Limitation:** The `skills` CLI does not support installing Markdown/PromptScript skills globally; running it with `-g` or `--global` will fail with a `PromptScript does not support global skill installation` error.
 > 
-> If you want to use these skills **globally** across all projects (working in any directory), you must use **Method 1 (One-liner)** or **Method 3 (Manual)** instead, which install them directly to your agent's global configuration path.
+> To use these skills globally across all folders, use **Method 1 (Local Script)** or **Method 3 (Manual)** instead.
 
 ---
 
