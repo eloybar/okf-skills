@@ -59,6 +59,10 @@ If your agent supports the `npx skills` installation tool, you can install all s
 npx skills add eloybar/okf-skills
 ```
 
+> [!TIP]
+> **Node.js Requirement:** This command requires Node.js v16+ (v18+ or v20+ recommended). If you get errors like `Unexpected token import` or `The "path" argument must be of type string`, your Node.js version is outdated. Either upgrade Node.js or use **Method 2** (PowerShell) / **Method 3** (Bash) instead, which bypass Node.js completely.
+
+
 
 ### Method 2: Windows (PowerShell)
 Define the target directory for your agent (e.g., `$HOME\.claude\skills` or `$HOME\.gemini\config\plugins\agy-skills\skills`), clone the repo, and copy the folders recursively:
