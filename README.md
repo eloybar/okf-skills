@@ -49,114 +49,98 @@ Generates dynamic Cytoscape.js HTML graph visualizations of concepts, dependenci
 
 ---
 
-## 📥 Installation
+## 📥 Installation & Setup
 
-You can install these skills to your local coding agent using any of the following methods:
+You can install, update, or remove these skills using any of the following methods:
 
-### Method 1: Using the `skills` CLI (Recommended)
-If your agent supports the `npx skills` installation tool, you can install all skills in this repository with a single command:
-```bash
-npx skills add eloybar/okf-skills
-```
+### Method 1: Unified One-liner Installer (Recommended)
+This method auto-detects your agent configuration and handles setup, updates, and removal. It works without Node.js dependencies.
+
+* **Windows (PowerShell)**:
+  * **To Install / Update**:
+    ```powershell
+    Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/eloybar/okf-skills/main/install.ps1'))
+    ```
+  * **To Remove**:
+    ```powershell
+    Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/eloybar/okf-skills/main/install.ps1')) -Action Remove
+    ```
+
+* **macOS / Linux (Bash)**:
+  * **To Install / Update**:
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/eloybar/okf-skills/main/install.sh | bash
+    ```
+  * **To Remove**:
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/eloybar/okf-skills/main/install.sh | bash -s -- --action Remove
+    ```
+
+---
+
+### Method 2: Using the `skills` CLI
+If your agent environment supports the `npx skills` tool:
+
+* **To Install / Update**:
+  ```bash
+  npx skills add eloybar/okf-skills
+  ```
+* **To Check for Updates**:
+  ```bash
+  npx skills check
+  ```
+* **To Update Specific Skills**:
+  ```bash
+  npx skills update okf okf-maintain okf-visualize
+  ```
+* **To Remove**:
+  ```bash
+  npx skills remove okf okf-maintain okf-visualize
+  ```
 
 > [!TIP]
-> **Node.js Requirement:** This command requires Node.js v16+ (v18+ or v20+ recommended). If you get errors like `Unexpected token import` or `The "path" argument must be of type string`, your Node.js version is outdated.
-> 
-> **How to upgrade Node.js:**
-> * **Windows**: Run `winget install OpenJS.NodeJS` (or `winget upgrade OpenJS.NodeJS` if already managed by winget) in PowerShell, or download from [nodejs.org](https://nodejs.org/).
-> * **macOS**: Run `brew upgrade node` (using Homebrew).
-> * **Linux (Ubuntu/Debian)**: Run `curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs`.
-> * **All OS (via fnm/nvm)**: Run `fnm install --lts` or `nvm install --lts`.
-> 
-> *Alternatively, use **Method 2** (PowerShell) or **Method 3** (Bash) below, which bypass Node.js entirely.*
+> **Node.js Requirement:** The `npx skills` tool requires Node.js v16+ (v18+ or v20+ recommended). If you get an `Unexpected token import` or `ERR_REQUIRE_ESM` error, either upgrade Node.js or use **Method 1** above (which bypasses Node.js entirely).
 
+---
 
+### Method 3: Manual Installation (Git & Copy)
+If you prefer manual control:
 
-
-### Method 2: Windows (PowerShell)
-Define the target directory for your agent (e.g., `$HOME\.claude\skills` or `$HOME\.gemini\config\plugins\agy-skills\skills`), clone the repo, and copy the folders recursively:
-```powershell
-# 1. Define your agent's skills directory path
-$AgentSkillsDir = "$HOME\.claude\skills" 
-
-# 2. Clone and copy
-git clone https://github.com/eloybar/okf-skills.git
-New-Item -ItemType Directory -Force -Path $AgentSkillsDir
-Copy-Item -Path "okf-skills\okf", "okf-skills\okf-maintain", "okf-skills\okf-visualize" -Destination "$AgentSkillsDir\" -Recurse -Force
-Remove-Item -Path "okf-skills" -Recurse -Force
-```
-
-### Method 3: macOS / Linux (Bash)
-Define the target directory for your agent (e.g., `~/.claude/skills` or `~/.gemini/config/plugins/agy-skills/skills`), clone the repo, and copy the folders recursively:
-```bash
-# 1. Define your agent's skills directory path
-AGENT_SKILLS_DIR="$HOME/.claude/skills"
-
-# 2. Clone and copy
-git clone https://github.com/eloybar/okf-skills.git
-mkdir -p "$AGENT_SKILLS_DIR"
-cp -r okf-skills/okf okf-skills/okf-maintain okf-skills/okf-visualize "$AGENT_SKILLS_DIR/"
-rm -rf okf-skills
-```
+1. **Define your agent's skills directory** (see paths in the Note below).
+   * *Windows*: `$AgentSkillsDir = "$HOME\.gemini\config\skills"`
+   * *macOS/Linux*: `AGENT_SKILLS_DIR="$HOME/.gemini/config/skills"`
+2. **Clone & Copy (Install / Update)**:
+   * *Windows (PowerShell)*:
+     ```powershell
+     git clone https://github.com/eloybar/okf-skills.git
+     New-Item -ItemType Directory -Force -Path $AgentSkillsDir
+     Copy-Item -Path "okf-skills\okf", "okf-skills\okf-maintain", "okf-skills\okf-visualize" -Destination "$AgentSkillsDir\" -Recurse -Force
+     Remove-Item -Path "okf-skills" -Recurse -Force
+     ```
+   * *macOS / Linux (Bash)*:
+     ```bash
+     git clone https://github.com/eloybar/okf-skills.git
+     mkdir -p "$AGENT_SKILLS_DIR"
+     cp -r okf-skills/okf okf-skills/okf-maintain okf-skills/okf-visualize "$AGENT_SKILLS_DIR/"
+     rm -rf okf-skills
+     ```
+3. **Removal**:
+   * *Windows (PowerShell)*:
+     ```powershell
+     Remove-Item -Path "$AgentSkillsDir\okf", "$AgentSkillsDir\okf-maintain", "$AgentSkillsDir\okf-visualize" -Recurse -Force
+     ```
+   * *macOS / Linux (Bash)*:
+     ```bash
+     rm -rf "$AGENT_SKILLS_DIR/okf" "$AGENT_SKILLS_DIR/okf-maintain" "$AGENT_SKILLS_DIR/okf-visualize"
+     ```
 
 > [!NOTE]
 > **Common Agent Skills Directories:**
+> * **Google Antigravity / Gemini CLI**: `~/.gemini/config/skills`
 > * **Claude Code**: `~/.claude/skills`
-> * **Antigravity / Gemini CLI**: `~/.gemini/config/skills`
 > * **Hermes**: `~/.hermes/skills`
 > * **Codex**: `~/.codex/skills`
 
----
-
-## 🔄 Updating Installed Skills
-
-To keep your skills up to date with the latest improvements:
-
-### If installed using the `skills` CLI (Method 1)
-You can check for updates and update all or specific skills:
-```bash
-# Check for updates to all installed skills
-npx skills check
-
-# Update all OKF skills in one command (re-run the add command):
-npx skills add eloybar/okf-skills
-
-# Update specific OKF skills individually:
-npx skills update okf
-npx skills update okf-maintain
-npx skills update okf-visualize
-
-# Alternatively, update ALL installed skills on your system
-npx skills update
-```
-
-### If installed manually (Method 2 & 3)
-Simply run the installation script again. The copy commands will overwrite your local files with the latest versions from the repository.
-
----
-
-## 🗑️ Removing Installed Skills
-
-To remove these skills from your agent environment:
-
-### If installed using the `skills` CLI (Method 1)
-You can remove the skills together using the CLI:
-```bash
-# Remove the OKF skills
-npx skills remove okf okf-maintain okf-visualize
-```
-
-### If installed manually (Method 2 & 3)
-Ensure your target skills directory variable is set, then run the deletion command for your platform:
-
-* **Windows (PowerShell)**:
-  ```powershell
-  Remove-Item -Path "$AgentSkillsDir\okf", "$AgentSkillsDir\okf-maintain", "$AgentSkillsDir\okf-visualize" -Recurse -Force
-  ```
-* **macOS / Linux (Bash)**:
-  ```bash
-  rm -rf "$AGENT_SKILLS_DIR/okf" "$AGENT_SKILLS_DIR/okf-maintain" "$AGENT_SKILLS_DIR/okf-visualize"
-  ```
 
 ---
 
