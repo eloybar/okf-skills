@@ -63,7 +63,7 @@ npx skills add eloybar/okf-skills
 > **Node.js Requirement:** This command requires Node.js v16+ (v18+ or v20+ recommended). If you get errors like `Unexpected token import` or `The "path" argument must be of type string`, your Node.js version is outdated.
 > 
 > **How to upgrade Node.js:**
-> * **Windows**: Run `winget upgrade OpenJS.NodeJS` in PowerShell, or download the installer from [nodejs.org](https://nodejs.org/).
+> * **Windows**: Run `winget install OpenJS.NodeJS` (or `winget upgrade OpenJS.NodeJS` if already managed by winget) in PowerShell, or download from [nodejs.org](https://nodejs.org/).
 > * **macOS**: Run `brew upgrade node` (using Homebrew).
 > * **Linux (Ubuntu/Debian)**: Run `curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs`.
 > * **All OS (via fnm/nvm)**: Run `fnm install --lts` or `nvm install --lts`.
