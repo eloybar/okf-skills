@@ -977,7 +977,7 @@ Everything else is soft guidance. When reading a bundle, degrade gracefully: tol
         <div class="details-grid">
           <div class="details-info">
             <h3>AGENTS.md Steering Notice</h3>
-            <p>The project-level agent configuration file acts as the developer's guide for LLMs. Putting clear boundaries in AGENTS.md directs the agent to read the maps before writing files.</p>
+            <p>The project-level agent configuration file acts as the developer's guide for LLMs. The <code>/okf</code> bootstrapping skill automatically handles creating or updating this file to ensure future agent sessions read the maps before writing files.</p>
             <ul>
               <li>Informs incoming agents about the existence of the bundle at okf/.</li><li>Instructs agents to do progressive lookups (system.md -> details).</li><li>Requires the use of the okf-maintain skill upon making code edits.</li><li>Sets up explicit constraint rules to prevent doc drifts.</li>
             </ul>
