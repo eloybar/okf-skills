@@ -54,12 +54,11 @@ Generates dynamic Cytoscape.js HTML graph visualizations of concepts, dependenci
 You can install these skills to your local coding agent using any of the following methods:
 
 ### Method 1: Using the `skills` CLI (Recommended)
-If your agent supports the `npx skills` installation tool, run:
+If your agent supports the `npx skills` installation tool, you can install all skills in this repository with a single command:
 ```bash
-npx skills@latest add eloybar/okf-skills/okf
-npx skills@latest add eloybar/okf-skills/okf-maintain
-npx skills@latest add eloybar/okf-skills/okf-visualize
+npx skills add eloybar/okf-skills
 ```
+
 
 ### Method 2: Windows (PowerShell)
 To download the skills directly into your local agent skills folder:
