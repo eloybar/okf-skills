@@ -1,0 +1,2139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Closed-Loop Agentic Knowledge Pipeline (OKF)</title>
+  <meta name="description" content="An interactive, visual breakdown of the Open Knowledge Format (OKF) pipeline for software agents navigating brownfield and greenfield codebases.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Outfit:wght@300;400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    /* Design Tokens */
+    :root {
+      --bg-base: hsl(222, 47%, 9%);
+      --bg-surface: hsla(222, 47%, 14%, 0.6);
+      --bg-surface-hover: hsla(222, 47%, 18%, 0.85);
+      --border-color: hsla(217, 91%, 60%, 0.15);
+      --border-color-hover: hsla(217, 91%, 60%, 0.35);
+      
+      --text-primary: hsl(210, 40%, 98%);
+      --text-secondary: hsl(215, 20%, 65%);
+      --text-muted: hsl(215, 14%, 45%);
+      
+      --accent-sky: hsl(199, 89%, 48%);
+      --accent-indigo: hsl(245, 82%, 67%);
+      --accent-emerald: hsl(142, 72%, 45%);
+      
+      --gradient-primary: linear-gradient(135deg, var(--accent-sky), var(--accent-indigo));
+      --gradient-surface: linear-gradient(180deg, hsla(222, 47%, 16%, 0.3) 0%, hsla(222, 47%, 12%, 0.6) 100%);
+      
+      --font-display: 'Outfit', sans-serif;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+      --font-mono: 'Fira Code', monospace;
+      
+      --transition-smooth: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    /* Reset & Base Styles */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* Ambient Glow Backgrounds */
+    .glow-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: -1;
+      overflow: hidden;
+    }
+
+    .glow-circle {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(140px);
+      opacity: 0.12;
+    }
+
+    .glow-1 {
+      top: -10%;
+      right: 10%;
+      width: 50vw;
+      height: 50vw;
+      background: var(--accent-sky);
+    }
+
+    .glow-2 {
+      bottom: -10%;
+      left: -5%;
+      width: 45vw;
+      height: 45vw;
+      background: var(--accent-indigo);
+    }
+
+    /* Layout Structure */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    /* Hero Section */
+    header {
+      text-align: center;
+      margin-bottom: 5rem;
+      padding-top: 3rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      background: hsla(217, 91%, 60%, 0.1);
+      border: 1px solid hsla(217, 91%, 60%, 0.2);
+      color: var(--accent-sky);
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 0.85rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: clamp(2.5rem, 5vw, 4rem);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      margin-bottom: 1.5rem;
+      background: linear-gradient(135deg, #ffffff 30%, #a5b4fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .lead {
+      font-size: clamp(1.1rem, 2vw, 1.25rem);
+      color: var(--text-secondary);
+      max-width: 700px;
+      margin: 0 auto;
+      font-weight: 300;
+    }
+
+    /* Interactive Pipeline diagram */
+    .pipeline-section {
+      margin-bottom: 6rem;
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      text-align: center;
+      margin-bottom: 3rem;
+      position: relative;
+    }
+
+    .section-title::after {
+      content: '';
+      display: block;
+      width: 50px;
+      height: 4px;
+      background: var(--gradient-primary);
+      margin: 0.75rem auto 0 auto;
+      border-radius: 2px;
+    }
+
+    .pipeline-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1.25rem;
+      position: relative;
+    }
+
+    @media (max-width: 968px) {
+      .pipeline-grid {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+      }
+    }
+
+    .pipeline-card {
+      background: var(--bg-surface);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.75rem;
+      position: relative;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .pipeline-card:hover {
+      transform: translateY(-5px);
+      background: var(--bg-surface-hover);
+      border-color: var(--border-color-hover);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2), 
+                  0 0 20px hsla(217, 91%, 60%, 0.08);
+    }
+
+    .pipeline-card:focus-visible {
+      outline: 2px solid var(--accent-sky);
+      outline-offset: 4px;
+    }
+
+    .card-step {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--accent-sky);
+      font-weight: 500;
+      margin-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-step::after {
+      content: '';
+      flex-grow: 1;
+      height: 1px;
+      background: hsla(217, 91%, 60%, 0.15);
+      margin-left: 1rem;
+    }
+
+    .card-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: hsla(217, 91%, 60%, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.25rem;
+      color: var(--accent-sky);
+      transition: var(--transition-smooth);
+    }
+
+    .card-title {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+
+    .card-desc {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      flex-grow: 1;
+    }
+
+    /* Details Panel */
+    .details-panel {
+      margin-top: 0;
+      background: var(--gradient-surface);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid transparent;
+      border-radius: 20px;
+      padding: 0 2.5rem;
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      pointer-events: none;
+      transition: max-height 0.4s cubic-bezier(0, 1, 0, 1), opacity 0.3s ease, padding 0.3s ease, margin-top 0.3s ease, border-color 0.3s ease;
+    }
+
+    .details-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .details-info h3 {
+      font-family: var(--font-display);
+      font-size: 1.75rem;
+      margin-bottom: 1rem;
+      background: var(--gradient-primary);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .details-info p {
+      color: var(--text-secondary);
+      margin-bottom: 1.5rem;
+    }
+
+    .details-info ul {
+      list-style-type: none;
+    }
+
+    .details-info li {
+      position: relative;
+      padding-left: 1.75rem;
+      margin-bottom: 0.75rem;
+      color: var(--text-primary);
+      font-size: 0.95rem;
+    }
+
+    .details-info li::before {
+      content: '✦';
+      position: absolute;
+      left: 0;
+      top: 0;
+      color: var(--accent-sky);
+    }
+
+    .details-code {
+      background: rgba(10, 15, 30, 0.85);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      overflow-x: auto;
+      overflow-y: auto;
+      max-height: 550px;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5);
+    }
+
+    .details-code pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      word-break: break-word;
+    }
+
+    .details-code::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .details-code::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.15);
+      border-radius: 3px;
+    }
+    .details-code::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 3px;
+    }
+    .details-code::-webkit-scrollbar-thumb:hover {
+      background: var(--border-color-hover);
+    }
+
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid hsla(217, 91%, 60%, 0.1);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    .code-comment { color: var(--text-muted); }
+    .code-keyword { color: #f43f5e; font-weight: 600; }
+    .code-string { color: #10b981; }
+    .code-variable { color: #60a5fa; }
+
+    .copy-btn {
+      background: hsla(217, 91%, 60%, 0.12);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--accent-sky);
+      padding: 0.25rem 0.65rem;
+      font-family: var(--font-body);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+      outline: none;
+    }
+
+    .copy-btn:hover {
+      background: var(--gradient-primary);
+      color: var(--text-primary);
+      border-color: transparent;
+      box-shadow: 0 0 10px hsla(199, 89%, 48%, 0.3);
+    }
+
+    .copy-btn.copied {
+      background: var(--accent-emerald);
+      color: var(--text-primary);
+      border-color: transparent;
+    }
+
+    /* Code Tabs styling */
+    .code-tab-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .code-tabs {
+      display: flex;
+      gap: 0.4rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid hsla(217, 91%, 60%, 0.15);
+      padding-bottom: 0.5rem;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .tab-btn {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      padding: 0.35rem 0.75rem;
+      font-family: var(--font-body);
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+      display: inline-block;
+    }
+
+    .tab-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    /* PURE CSS TAB SELECTION FOR STEP 5 */
+    #s5-tab-1:checked ~ .code-tab-container #s5-panel-1,
+    #s5-tab-2:checked ~ .code-tab-container #s5-panel-2,
+    #s5-tab-3:checked ~ .code-tab-container #s5-panel-3,
+    #s5-tab-4:checked ~ .code-tab-container #s5-panel-4,
+    #s5-tab-5:checked ~ .code-tab-container #s5-panel-5 {
+      display: block;
+    }
+
+    #s5-tab-1:checked ~ .code-tab-container label[for="s5-tab-1"],
+    #s5-tab-2:checked ~ .code-tab-container label[for="s5-tab-2"],
+    #s5-tab-3:checked ~ .code-tab-container label[for="s5-tab-3"],
+    #s5-tab-4:checked ~ .code-tab-container label[for="s5-tab-4"],
+    #s5-tab-5:checked ~ .code-tab-container label[for="s5-tab-5"] {
+      background: hsla(217, 91%, 60%, 0.25);
+      color: var(--accent-sky);
+      border-color: var(--accent-sky);
+      box-shadow: 0 0 10px hsla(199, 89%, 48%, 0.15);
+    }
+
+    /* PURE CSS INTERACTIVE SELECTORS */
+    #toggle-step-1:checked ~ .pipeline-section #details-panel-1,
+    #toggle-step-2:checked ~ .pipeline-section #details-panel-2,
+    #toggle-step-3:checked ~ .pipeline-section #details-panel-3,
+    #toggle-step-4:checked ~ .pipeline-section #details-panel-4,
+    #toggle-step-5:checked ~ .pipeline-section #details-panel-5 {
+      margin-top: 2.5rem;
+      padding: 2.5rem;
+      border-color: var(--border-color);
+      max-height: 3500px;
+      opacity: 1;
+      pointer-events: auto;
+      transition: max-height 0.6s cubic-bezier(0.1, 1, 0.1, 1), opacity 0.4s ease, padding 0.3s ease, margin-top 0.3s ease, border-color 0.3s ease;
+    }
+
+    #toggle-step-1:checked ~ .pipeline-section #step-card-1,
+    #toggle-step-2:checked ~ .pipeline-section #step-card-2,
+    #toggle-step-3:checked ~ .pipeline-section #step-card-3,
+    #toggle-step-4:checked ~ .pipeline-section #step-card-4,
+    #toggle-step-5:checked ~ .pipeline-section #step-card-5 {
+      transform: translateY(-5px);
+      background: var(--bg-surface-hover);
+      border-color: var(--accent-sky);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3), 
+                  0 0 25px hsla(217, 91%, 60%, 0.15);
+    }
+
+    #toggle-step-1:checked ~ .pipeline-section #step-card-1 .card-icon,
+    #toggle-step-2:checked ~ .pipeline-section #step-card-2 .card-icon,
+    #toggle-step-3:checked ~ .pipeline-section #step-card-3 .card-icon,
+    #toggle-step-4:checked ~ .pipeline-section #step-card-4 .card-icon,
+    #toggle-step-5:checked ~ .pipeline-section #step-card-5 .card-icon {
+      background: var(--gradient-primary);
+      color: var(--text-primary);
+    }
+
+    /* Core Philosophy Section */
+    .philosophy-section {
+      margin-bottom: 6rem;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2rem;
+    }
+
+    @media (max-width: 768px) {
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .feature-card {
+      background: var(--gradient-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 2rem;
+      transition: var(--transition-smooth);
+    }
+
+    .feature-card:hover {
+      border-color: var(--border-color-hover);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .feature-icon-circle {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: hsla(217, 91%, 60%, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+      color: var(--accent-indigo);
+    }
+
+    .feature-card:hover .feature-icon-circle {
+      background: hsla(245, 82%, 67%, 0.15);
+      color: var(--accent-indigo);
+      box-shadow: 0 0 15px hsla(245, 82%, 67%, 0.2);
+    }
+
+    .feature-title {
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+
+    .feature-desc {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    /* Interactive Simulator */
+    .simulator-section {
+      background: var(--gradient-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 3rem;
+      margin-bottom: 6rem;
+    }
+
+    .simulator-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 4rem;
+      align-items: center;
+    }
+
+    @media (max-width: 900px) {
+      .simulator-grid {
+        grid-template-columns: 1fr;
+        gap: 3rem;
+      }
+    }
+
+    .sim-controls h3 {
+      font-family: var(--font-display);
+      font-size: 1.8rem;
+      margin-bottom: 1rem;
+    }
+
+    .sim-controls p {
+      color: var(--text-secondary);
+      margin-bottom: 2rem;
+    }
+
+    .control-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    .control-label span {
+      color: var(--accent-sky);
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    /* Project type toggle styling */
+    .project-type-toggle {
+      display: flex;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 3px;
+      margin-top: 0.5rem;
+    }
+
+    .toggle-btn {
+      flex: 1;
+      text-align: center;
+      padding: 0.55rem;
+      font-family: var(--font-body);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: var(--transition-smooth);
+      color: var(--text-secondary);
+      user-select: none;
+    }
+
+    .toggle-btn:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    #type-brownfield:checked ~ .simulator-grid label[for="type-brownfield"],
+    #type-greenfield:checked ~ .simulator-grid label[for="type-greenfield"] {
+      background: var(--gradient-primary);
+      color: var(--text-primary);
+      box-shadow: 0 4px 12px rgba(96, 165, 250, 0.25);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      outline: none;
+      -webkit-appearance: none;
+      accent-color: var(--accent-sky);
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--text-primary);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--accent-sky);
+      transition: var(--transition-smooth);
+    }
+
+    .sim-results {
+      background: rgba(10, 15, 30, 0.5);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 2rem;
+    }
+
+    .metrics-title {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+
+    .comparison-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .comparison-bar-row {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+    }
+
+    .bar-label .bar-val {
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    .bar-container {
+      width: 100%;
+      height: 14px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 7px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 7px;
+      width: 0%;
+      transition: width 0.4s ease-out;
+    }
+
+    .fill-traditional {
+      background: linear-gradient(90deg, #f43f5e, #ec4899);
+      box-shadow: 0 0 10px rgba(244, 63, 94, 0.4);
+    }
+
+    .fill-okf {
+      background: linear-gradient(90deg, #10b981, #34d399);
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+    }
+
+    .efficiency-callout {
+      margin-top: 2rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border-color);
+      text-align: center;
+    }
+
+    .efficiency-pct {
+      font-family: var(--font-display);
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--accent-emerald);
+      line-height: 1;
+      margin-bottom: 0.25rem;
+    }
+
+    .efficiency-label {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border-color);
+      padding: 3rem 0;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    footer p {
+      margin-bottom: 0.5rem;
+    }
+
+    footer a {
+      color: var(--accent-sky);
+      text-decoration: none;
+      transition: var(--transition-smooth);
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Glow -->
+  <div class="glow-container">
+    <div class="glow-circle glow-1" id="glow-1"></div>
+    <div class="glow-circle glow-2" id="glow-2"></div>
+  </div>
+
+  <div class="container">
+    
+    <!-- Hidden Radio toggles for zero-JS interactivity -->
+    <input type="radio" name="timeline-toggle" id="toggle-step-1" checked style="display:none;">
+    <input type="radio" name="timeline-toggle" id="toggle-step-2" style="display:none;">
+    <input type="radio" name="timeline-toggle" id="toggle-step-3" style="display:none;">
+    <input type="radio" name="timeline-toggle" id="toggle-step-4" style="display:none;">
+    <input type="radio" name="timeline-toggle" id="toggle-step-5" style="display:none;">
+
+    <!-- Hero / Header -->
+    <header>
+      <div class="badge" id="badge-okf">The Closed-Loop Model</div>
+      <h1 id="hero-title">The Self-Documenting Codebase</h1>
+      <p class="lead" id="hero-lead">How integrating OKF specifications with LLM skills constructs an adaptable, zero-rot knowledge ecosystem for brownfield and greenfield repositories.</p>
+    </header>
+
+    <!-- Pipeline Grid -->
+    <section class="pipeline-section" aria-label="OKF Knowledge Pipeline Lifecycle">
+      <h2 class="section-title" id="pipeline-title">The Knowledge Loop Lifecycle</h2>
+      <div class="pipeline-grid" id="pipeline-grid">
+        
+        <!-- Step 1 -->
+        <label for="toggle-step-1" class="pipeline-card" id="step-card-1" tabindex="0" role="button">
+          <div class="card-step">01</div>
+          <div class="card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          </div>
+          <h3 class="card-title">OKF Specification</h3>
+          <p class="card-desc">The format standard. Defines concepts, frontmatter attributes, and progressive disclosure index rules.</p>
+        </label>
+
+        <!-- Step 2 -->
+        <label for="toggle-step-2" class="pipeline-card" id="step-card-2" tabindex="0" role="button">
+          <div class="card-step">02</div>
+          <div class="card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 3.4-2 3.4s2.14-.5 3.4-2L16.5 7.5L14 5L4.5 16.5z"></path><path d="M12 18H21"></path><path d="M18.45 2.1a2.25 2.25 0 0 1 3.18 0l.27.27a2.25 2.25 0 0 1 0 3.18L21 6.5L18.45 4z"></path></svg>
+          </div>
+          <h3 class="card-title">Initial Bundle (/okf)</h3>
+          <p class="card-desc">The bootstrapper. Scans the codebase files to discover key modules and mint initial markdown concepts.</p>
+        </label>
+
+        <!-- Step 3 -->
+        <label for="toggle-step-3" class="pipeline-card" id="step-card-3" tabindex="0" role="button">
+          <div class="card-step">03</div>
+          <div class="card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+          </div>
+          <h3 class="card-title">AGENTS.md Setup</h3>
+          <p class="card-desc">The steering helm. Anchors the agent workflow, enforcing reading maps and triggering upkeep checks.</p>
+        </label>
+
+        <!-- Step 4 -->
+        <label for="toggle-step-4" class="pipeline-card" id="step-card-4" tabindex="0" role="button">
+          <div class="card-step">04</div>
+          <div class="card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+          </div>
+          <h3 class="card-title">Model Keep (/okf-maintain)</h3>
+          <p class="card-desc">The immune system. A model-invoked trigger updating relevant concepts Reactively as code evolves.</p>
+        </label>
+
+        <!-- Step 5 -->
+        <label for="toggle-step-5" class="pipeline-card" id="step-card-5" tabindex="0" role="button">
+          <div class="card-step">05</div>
+          <div class="card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+          </div>
+          <h3 class="card-title">Visualizer (/okf-visualize)</h3>
+          <p class="card-desc">The map generator. Compiles markdown links into interactive Cytoscape.js HTML graphs.</p>
+        </label>
+
+      </div>
+
+      <!-- Details Panel 1 -->
+      <div class="details-panel" id="details-panel-1">
+        <div class="details-grid">
+          <div class="details-info">
+            <h3>The OKF Specification</h3>
+            <p>The open, vendor-neutral baseline definition. Capturing concepts as plain markdown files with parseable YAML frontmatter makes cataloged knowledge highly readable and portable.</p>
+            <ul>
+              <li>Defines Concept IDs based on directory paths.</li><li>Establishes required fields (type) and recommended keys (title, tags, resource).</li><li>Preserves a soft conformance boundary to tolerate broken links and unknown extensions.</li><li>Enables progressive index-tree structures for RAG efficiency.</li>
+            </ul>
+          </div>
+          <div class="details-code-container">
+            <div class="details-code">
+              <div class="code-header">
+                <span>Code snippet / Structure</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              </div>
+              <pre><code><span class="code-comment"># okf/SPEC.md (Syntax Example)</span>
+---
+<span class="code-keyword">type</span>: BigQuery Table
+<span class="code-keyword">title</span>: Core Orders
+<span class="code-keyword">resource</span>: bigquery://project.dataset.orders
+<span class="code-keyword">tags</span>: [sales, core]
+---
+# Schema
+...</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Details Panel 2 -->
+      <div class="details-panel" id="details-panel-2">
+        <div class="details-grid">
+          <div class="details-info">
+            <h3>Initial Bundle Creation</h3>
+            <p>Bootstrapping an OKF bundle (/okf) on a brownfield codebase involves scanning existing code directories to identify core abstractions and schemas, then outputting the folder structure.</p>
+            <ul>
+              <li>Executes directory listings and search queries to map project subsystems.</li><li>Identifies models, database schemas, scripts, and API routes.</li><li>Establishes folders (like tables/, playbooks/) and initial root index files.</li><li>Sets up the foundation for continuous code-knowledge synchronization.</li>
+            </ul>
+          </div>
+          <div class="details-code-container">
+            <div class="details-code">
+              <div class="code-header">
+                <span>Code snippet / Structure</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              </div>
+              <pre><code><span class="code-comment"># ~/.agent/skills/okf/SKILL.md</span>
+---
+name: okf
+description: Author and maintain Open Knowledge Format (OKF) bundles — directories of typed markdown concept files.
+disable-model-invocation: true
+---
+
+Capture knowledge as an **OKF bundle**: a directory of markdown **concept** files, each carrying YAML **frontmatter** plus a free-form body. No SDK, no central authority — readable, diffable, portable. Spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md
+
+## Authoring a concept
+
+1. **Locate the bundle root.** Find the existing bundle directory, or create one for a new bundle. Concepts live in it, nested in subdirectories as the subject warrants.
+   - Done when you have an absolute bundle root and know where this concept's file goes.
+
+2. **Write the concept file.** One `.md` file per concept: a frontmatter block delimited by `---`, then the markdown body. See **Frontmatter** and **Body** below.
+   - Done when the file has parseable YAML frontmatter with a non-empty `type`, and a body that stands on its own to a reader with no tools.
+
+3. **Cross-link.** Link related concepts inline in the body with bundle-relative absolute paths: `[Orders table](/schemas/orders.md)`. Links assert plain, untyped relationships. A link to a concept you haven't written yet is fine — broken links are tolerated.
+   - Done when every related concept you reference is linked.
+
+4. **Update reserved files.** If the bundle has an `index.md`, add the new concept to it. Append a dated line to `log.md` if one exists. See **Reserved files**.
+   - Done when `index.md` lists the concept and `log.md` records the change — for each reserved file the bundle actually uses.
+
+5. **Conformance gate.** Verify the bundle still conforms. See **Conformance**.
+   - Done when every non-reserved `.md` has parseable frontmatter with a non-empty `type`, and each reserved file matches its structure.
+
+## Frontmatter
+
+**Required** — the only hard rule:
+
+- `type` — the kind of concept, non-empty (e.g. `BigQuery Table`, `Playbook`, `Service`). Free-form; pick a consistent vocabulary within a bundle.
+
+**Recommended** — add when they apply:
+
+- `title` — display name
+- `description` — one-sentence summary
+- `resource` — URI of the underlying asset the concept describes
+- `tags` — list for cross-cutting categorization
+- `timestamp` — ISO 8601 last-modified time; use today's date (run `date -u +%Y-%m-%dT%H:%M:%SZ` — don't guess)
+
+```markdown
+---
+type: BigQuery Table
+title: Orders
+description: One row per customer order, partitioned by order date.
+resource: bigquery://project.dataset.orders
+tags: [sales, core]
+timestamp: 2026-07-07T00:00:00Z
+---
+
+Orders is the system of record for placed orders...
+```
+
+## Body
+
+Free-form markdown. Use these conventional headings when they fit, so consumers find the material where they expect it:
+
+- `# Schema` — structured field/column descriptions
+- `# Examples` — usage demonstrations
+- `# Citations` — external sources this concept draws from
+
+## Reserved files
+
+Two reserved filenames, both optional — but if present, keep them current (step 4):
+
+- `index.md` — a listing of the directory's concepts, enabling progressive disclosure of a large bundle.
+- `log.md` — an update history, newest changes recorded chronologically.
+
+## Conformance
+
+Hard rules — a bundle conforms only if all hold:
+
+1. Every non-reserved `.md` file has parseable YAML frontmatter.
+2. Every frontmatter has a non-empty `type`.
+3. Reserved files (`index.md`, `log.md`) follow their structures above.
+
+Everything else is soft guidance. When reading a bundle, degrade gracefully: tolerate unknown `type` values, missing recommended fields, and broken links rather than erroring.
+</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Details Panel 3 -->
+      <div class="details-panel" id="details-panel-3">
+        <div class="details-grid">
+          <div class="details-info">
+            <h3>AGENTS.md Steering Notice</h3>
+            <p>The project-level agent configuration file acts as the developer's guide for LLMs. Putting clear boundaries in AGENTS.md directs the agent to read the maps before writing files.</p>
+            <ul>
+              <li>Informs incoming agents about the existence of the bundle at okf/.</li><li>Instructs agents to do progressive lookups (system.md -> details).</li><li>Requires the use of the okf-maintain skill upon making code edits.</li><li>Sets up explicit constraint rules to prevent doc drifts.</li>
+            </ul>
+          </div>
+          <div class="details-code-container">
+            <div class="details-code">
+              <div class="code-header">
+                <span>Code snippet / Structure</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              </div>
+              <pre><code><span class="code-comment"># AGENTS.md Content</span>
+<span class="code-keyword">## Knowledge bundle</span>
+
+This repo has an OKF knowledge bundle at <span class="code-string">`okf/`</span>. 
+Before writing any code or analyzing subsystems:
+<span class="code-keyword">1.</span> Read <span class="code-string">`okf/index.md`</span> and the concept file(s) relevant to the task (start at <span class="code-string">`okf/system.md`</span> for overall architecture).
+<span class="code-keyword">2.</span> If you edit files documented by a concept, invoke the <span class="code-variable">okf-maintain</span> skill to update the relevant markdown files and the <span class="code-string">`okf/log.md`</span> file before finishing.</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Details Panel 4 -->
+      <div class="details-panel" id="details-panel-4">
+        <div class="details-grid">
+          <div class="details-info">
+            <h3>Model-Invoked Maintenance</h3>
+            <p>Because okf-maintain is configured as model-invoked, documentation upkeep becomes an automated agent reflex. Updates are generated as code changes, avoiding metadata rot.</p>
+            <ul>
+              <li>Triggers automatically on code changes that map to documented concepts.</li><li>Requires an existing okf/ directory (run /okf once on greenfield projects to satisfy the guard).</li><li>Identifies missing concepts when new files/routes are added.</li><li>Appends change entries to log.md and updates frontmatter timestamps.</li><li>Locks in knowledge updates as standard, reviewable Git diffs.</li>
+            </ul>
+          </div>
+          <div class="details-code-container">
+            <div class="details-code">
+              <div class="code-header">
+                <span>Code snippet / Structure</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              </div>
+              <pre><code><span class="code-comment"># ~/.agent/skills/okf-maintain/SKILL.md</span>
+---
+name: okf-maintain
+description: Use after changing or learning something about a codebase that has an okf/ knowledge bundle, so the bundle doesn't go stale. Fires when your edits touch code an existing OKF concept documents, or when you discover a fact a concept should record.
+---
+
+Keep an existing **OKF bundle** current so it doesn't rot. This skill handles both reactive upkeep of existing files and the automatic authoring of new concept files when new significant components, schemas, or modules are introduced to the codebase. (For specific frontmatter/conformance rules, follow the `okf` skill, which is the single source of truth for how a concept is written).
+
+1. **Guard: confirm a bundle exists.** Look for an `okf/` directory at the repo root (or the bundle root this repo uses). If there is none, stop — there is nothing to maintain.
+   - Done when you have the bundle root, or have stopped.
+
+2. **Identify affected and missing concepts.** Map what changed (files edited/created, features added, facts learned) to the concept file(s) that cover it. Check `index.md` if present. If your changes introduced a new significant database schema/collection, API route module, frontend dashboard page, or core system component not yet covered in the bundle, identify it as a new concept that must be created.
+   - Done when you have the list of concepts to update and new concepts to create, or have confirmed none apply (then stop).
+
+3. **Update and/or create concepts.** Edit existing affected concepts to match reality. If you identified missing concepts in Step 2, author new concept files for them. In both cases: set or refresh the `timestamp` (run `date -u +%Y-%m-%dT%H:%M:%SZ`), cross-link related concepts, and follow the `okf` skill guidelines for frontmatter and structure.
+   - Done when every affected concept reflects the change and all new concepts are authored.
+
+4. **Update reserved files.** Append a dated line to `log.md` describing the changes and additions. If you added a new concept, add it to `index.md`.
+   - Done when `log.md` records the change and `index.md` lists any new concept — for each reserved file the bundle uses.
+
+5. **Conformance gate.** Verify the bundle still conforms, per the `okf` skill.
+   - Done when every non-reserved `.md` has parseable frontmatter with a non-empty `type`.
+</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Details Panel 5 -->
+      <div class="details-panel" id="details-panel-5">
+        <div class="details-grid">
+          <div class="details-info">
+            <h3>Interactive Visualization</h3>
+            <p>Compiling concept files via /okf-visualize generates an interactive HTML viewer, making relationships and connections visible in a beautiful, graph-based interface.</p>
+            <ul>
+              <li>Runs 100% locally via Node.js with zero Python or env dependencies.</li><li>Parses concept frontmatter tags and inline relative/absolute links.</li><li>Compiles Cytoscape.js force-directed link graphs.</li><li>Embeds the bundle concepts locally inside a single, zero-dependency HTML file.</li><li>Copies the output file directly to active conversation artifacts.</li>
+            </ul>
+          </div>
+          <div class="details-code-container">
+            <!-- Hidden radio selectors for code tabs -->
+            <input type="radio" name="s5-tab-selector" id="s5-tab-1" checked style="display:none;">
+            <input type="radio" name="s5-tab-selector" id="s5-tab-2" style="display:none;">
+            <input type="radio" name="s5-tab-selector" id="s5-tab-3" style="display:none;">
+            <input type="radio" name="s5-tab-selector" id="s5-tab-4" style="display:none;">
+            <input type="radio" name="s5-tab-selector" id="s5-tab-5" style="display:none;">
+
+            <div class="code-tab-container">
+              <div class="code-tabs">
+                <label for="s5-tab-1" class="tab-btn">SKILL.md</label>
+                <label for="s5-tab-2" class="tab-btn">visualize.js</label>
+                <label for="s5-tab-3" class="tab-btn">viz.html</label>
+                <label for="s5-tab-4" class="tab-btn">viz.js</label>
+                <label for="s5-tab-5" class="tab-btn">viz.css</label>
+              </div>
+
+              <!-- Panel 1: SKILL.md -->
+              <div class="details-code tab-panel" id="s5-panel-1">
+                <div class="code-header">
+                  <span>SKILL.md (Instructions)</span>
+                  <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                </div>
+                <pre><code><span class="code-comment"># ~/.agent/skills/okf-visualize/SKILL.md</span>
+---
+name: okf-visualize
+description: Generate and display an interactive Cytoscape.js HTML graph visualization for an OKF knowledge bundle. Use when the user asks to visualize, graph, view, or render an OKF bundle.
+---
+
+# Visualizing OKF Bundles
+
+Generate a self-contained interactive Cytoscape.js HTML visualization of an Open Knowledge Format (OKF) bundle, and copy it to the active conversation's artifact directory so the user can open the interactive graph.
+
+## Workflow
+
+1. **Locate the OKF bundle.** Find the directory containing the OKF concepts. Look for a directory containing `index.md`, `log.md`, or markdown files with `type:` frontmatter.
+   * **Done when**: You have the absolute path to the bundle directory (e.g., `file:///&lt;artifact-directory-path&gt;/knowledge-catalog/okf/bundles/ga4`).
+
+2. **Run the visualization command.** Generate the `viz.html` file using the custom Node.js visualization script.
+   * Run the command (resolving the path to this skill's folder):
+     ```powershell
+     node &lt;path-to-skill-directory&gt;/scripts/visualize.js --bundle &lt;absolute-path-to-bundle&gt; --out &lt;absolute-path-to-bundle&gt;/viz.html
+     ```
+   * **Done when**: The command finishes successfully and `viz.html` exists inside the bundle directory.
+
+3. **Copy to the active artifact directory.** Copy the generated `viz.html` file to the active conversation's artifact directory so it can be previewed/rendered in the chat UI.
+   * Locate the conversation's artifact directory (usually matching `&lt;appDataDir&gt;\brain\&lt;conversation-id&gt;`).
+   * Copy the file (e.g., using `Copy-Item` in PowerShell):
+     ```powershell
+     Copy-Item -Path "&lt;absolute-path-to-bundle&gt;/viz.html" -Destination "&lt;artifact-directory-path&gt;/viz.html"
+     ```
+   * **Done when**: `viz.html` is successfully copied to the artifact directory.
+
+4. **Share the interactive visualization.** Inform the user that the visualization has been compiled and copy-pasted to the artifacts folder. Provide a clickable absolute file link using the `file://` scheme to let them open it directly in their browser.
+   * **Done when**: You output the clickable markdown link, e.g. `[Interactive Visualization](file:///&lt;artifact-directory-path&gt;/viz.html)`.
+
+## Troubleshooting &amp; Technical Implementation Notes
+
+If you modify or update the visualization script at `scripts/visualize.js`, note these critical rules to prevent regressions:
+
+- **Absolute Link Resolution**: OKF bundles use absolute links (starting with `/` like `[auth](/backend/auth.md)`). The link extractor resolves these relative to the bundle root (e.g. `path.join(bundleRootResolved, target)`) rather than ignoring them or throwing resolution errors.
+- **Regex Replacement Safety**: When injecting CSS, JS, and JSON data into the HTML template, do NOT pass raw strings to `.replace()`. Because Markdown and JSON strings can contain backticks and dollar signs (which JavaScript interprets as special replacement patterns like `$&amp;` or `$``), always use a function returning the replacement string:
+  ```javascript
+  template.replace('__BUNDLE_DATA__', () =&gt; JSON.stringify(graph));
+  ```
+</code></pre>
+              </div>
+
+              <!-- Panel 2: visualize.js -->
+              <div class="details-code tab-panel" id="s5-panel-2">
+                <div class="code-header">
+                  <span>scripts/visualize.js (Node compiler)</span>
+                  <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                </div>
+                <pre><code>const fs = require('fs');
+const path = require('path');
+
+function parseArgs() {
+  const args = {};
+  for (let i = 2; i &lt; process.argv.length; i++) {
+    if (process.argv[i] === '--bundle' &amp;&amp; process.argv[i + 1]) {
+      args.bundle = path.resolve(process.argv[i + 1]);
+      i++;
+    } else if (process.argv[i] === '--out' &amp;&amp; process.argv[i + 1]) {
+      args.out = path.resolve(process.argv[i + 1]);
+      i++;
+    }
+  }
+  return args;
+}
+
+function parseFrontmatter(content) {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!match) {
+    return { frontmatter: {}, body: content };
+  }
+  const fmText = match[1];
+  const body = content.slice(match[0].length).trim();
+  const fm = {};
+  const lines = fmText.split(/\r?\n/);
+  for (const line of lines) {
+    const colonIndex = line.indexOf(':');
+    if (colonIndex === -1) continue;
+    const key = line.slice(0, colonIndex).trim();
+    let val = line.slice(colonIndex + 1).trim();
+
+    if ((val.startsWith('"') &amp;&amp; val.endsWith('"')) || (val.startsWith("'") &amp;&amp; val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+
+    if (key === 'tags') {
+      if (val.startsWith('[') &amp;&amp; val.endsWith(']')) {
+        fm[key] = val.slice(1, -1).split(',').map(t =&gt; t.trim().replace(/^['"]|['"]$/g, ''));
+      } else {
+        fm[key] = [val];
+      }
+    } else {
+      fm[key] = val;
+    }
+  }
+  return { frontmatter: fm, body };
+}
+
+function extractLinks(body, docDir, bundleRoot) {
+  const linkRe = /\]\(([^)\s]+\.md)(?:#[A-Za-z0-9_\-]*)?\)/g;
+  const out = [];
+  const seen = new Set();
+  const bundleRootResolved = path.resolve(bundleRoot);
+
+  let match;
+  while ((match = linkRe.exec(body)) !== null) {
+    const target = match[1];
+    if (target.includes('://')) {
+      continue;
+    }
+    try {
+      let resolvedPath;
+      if (target.startsWith('/')) {
+        resolvedPath = path.join(bundleRootResolved, target);
+      } else {
+        resolvedPath = path.resolve(docDir, target);
+      }
+      const relative = path.relative(bundleRootResolved, resolvedPath);
+      let rel = relative.split(path.sep).join('/');
+      if (rel.endsWith('.md')) {
+        rel = rel.slice(0, -3);
+      }
+      if (rel &amp;&amp; !seen.has(rel)) {
+        seen.add(rel);
+        out.push(rel);
+      }
+    } catch (e) {
+      // Ignore resolving errors
+    }
+  }
+  return out;
+}
+
+function walkConcepts(dir, bundleRoot, list = []) {
+  const files = fs.readdirSync(dir);
+  for (const file of files) {
+    const fullPath = path.join(dir, file);
+    const stat = fs.statSync(fullPath);
+    if (stat.isDirectory()) {
+      walkConcepts(fullPath, bundleRoot, list);
+    } else if (stat.isFile() &amp;&amp; file.endsWith('.md')) {
+      const lowerFile = file.toLowerCase();
+      if (lowerFile === 'index.md' || lowerFile === 'log.md') {
+        continue;
+      }
+      list.push(fullPath);
+    }
+  }
+  return list;
+}
+
+function buildGraph(concepts) {
+  const ids = new Set(concepts.map(c =&gt; c.id));
+  const TYPE_PALETTE = {
+    "BigQuery Dataset": "#8b5cf6",
+    "BigQuery Table": "#3b82f6",
+    "Reference": "#10b981"
+  };
+  const DEFAULT_NODE_COLOR = "#94a3b8";
+
+  const nodes = concepts.map(c =&gt; {
+    const color = TYPE_PALETTE[c.type] || DEFAULT_NODE_COLOR;
+    const size = 30 + Math.min(60, Math.floor(c.body.length / 200));
+    return {
+      data: {
+        id: c.id,
+        label: c.title || c.id,
+        type: c.type,
+        description: c.description,
+        resource: c.resource,
+        tags: c.tags,
+        color: color,
+        size: size
+      }
+    };
+  });
+
+  const edges = [];
+  const seenEdges = new Set();
+
+  for (const c of concepts) {
+    for (const target of c.links_to) {
+      if (target === c.id || !ids.has(target)) {
+        continue;
+      }
+      const key = `${c.id}__${target}`;
+      if (seenEdges.has(key)) {
+        continue;
+      }
+      seenEdges.add(key);
+      edges.push({
+        data: {
+          id: `${c.id}__${target}`,
+          source: c.id,
+          target: target
+        }
+      });
+    }
+  }
+
+  const bodies = {};
+  for (const c of concepts) {
+    bodies[c.id] = c.body;
+  }
+
+  const types = Array.from(new Set(concepts.map(c =&gt; c.type))).sort();
+
+  return {
+    nodes,
+    edges,
+    bodies,
+    types,
+    palette: TYPE_PALETTE
+  };
+}
+
+function main() {
+  const args = parseArgs();
+  if (!args.bundle) {
+    console.error('Error: Missing required argument --bundle');
+    process.exit(1);
+  }
+  
+  const bundleRoot = args.bundle;
+  const outPath = args.out || path.join(bundleRoot, 'viz.html');
+
+  if (!fs.existsSync(bundleRoot) || !fs.statSync(bundleRoot).isDirectory()) {
+    console.error(`Error: Bundle directory not found: ${bundleRoot}`);
+    process.exit(1);
+  }
+
+  const mdFiles = walkConcepts(bundleRoot, bundleRoot);
+  const concepts = [];
+
+  for (const mdPath of mdFiles) {
+    const content = fs.readFileSync(mdPath, 'utf8');
+    const relativePath = path.relative(bundleRoot, mdPath);
+    let conceptId = relativePath.split(path.sep).join('/');
+    if (conceptId.endsWith('.md')) {
+      conceptId = conceptId.slice(0, -3);
+    }
+
+    const { frontmatter, body } = parseFrontmatter(content);
+    if (!frontmatter.type) {
+      // Conformance check: OKF documents must contain a type field
+      continue;
+    }
+
+    let tags = frontmatter.tags || [];
+    if (!Array.isArray(tags)) {
+      tags = [String(tags)];
+    }
+
+    concepts.push({
+      id: conceptId,
+      type: String(frontmatter.type || 'Unknown'),
+      title: String(frontmatter.title || conceptId),
+      description: String(frontmatter.description || ''),
+      resource: String(frontmatter.resource || ''),
+      tags: tags.map(String),
+      body: body || '',
+      links_to: extractLinks(body || '', path.dirname(mdPath), bundleRoot)
+    });
+  }
+
+  const graph = buildGraph(concepts);
+  const templateDir = path.dirname(__dirname);
+  const templatePath = path.join(templateDir, 'templates', 'viz.html');
+  const cssPath = path.join(templateDir, 'static', 'viz.css');
+  const jsPath = path.join(templateDir, 'static', 'viz.js');
+
+  const template = fs.readFileSync(templatePath, 'utf8');
+  const css = fs.readFileSync(cssPath, 'utf8');
+  const js = fs.readFileSync(jsPath, 'utf8');
+  const name = path.basename(bundleRoot);
+
+  const html = template
+    .replace('/*__VIZ_CSS__*/', () =&gt; css)
+    .replace('/*__VIZ_JS__*/', () =&gt; js)
+    .replace('__BUNDLE_NAME__', () =&gt; JSON.stringify(name))
+    .replace('__BUNDLE_DATA__', () =&gt; JSON.stringify(graph));
+
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(outPath, html, 'utf8');
+
+  console.log(JSON.stringify({
+    success: true,
+    concepts: concepts.length,
+    edges: graph.edges.length,
+    bytes: Buffer.byteLength(html, 'utf8'),
+    output: outPath
+  }));
+}
+
+main();
+</code></pre>
+              </div>
+
+              <!-- Panel 3: viz.html -->
+              <div class="details-code tab-panel" id="s5-panel-3">
+                <div class="code-header">
+                  <span>templates/viz.html (HTML Wrapper)</span>
+                  <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                </div>
+                <pre><code>&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+&lt;meta charset="utf-8"&gt;
+&lt;title&gt;OKF Bundle Viewer&lt;/title&gt;
+&lt;script src="https://cdn.jsdelivr.net/npm/cytoscape@3.28.1/dist/cytoscape.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"&gt;&lt;/script&gt;
+&lt;style&gt;
+/*__VIZ_CSS__*/
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;header&gt;
+  &lt;div class="title"&gt;
+    &lt;strong id="bundle-name"&gt;&lt;/strong&gt;
+    &lt;span class="muted"&gt;OKF bundle&lt;/span&gt;
+  &lt;/div&gt;
+  &lt;div class="controls"&gt;
+    &lt;input id="search" type="search" placeholder="Search title / id / tag"&gt;
+    &lt;select id="filter-type"&gt;
+      &lt;option value=""&gt;All types&lt;/option&gt;
+    &lt;/select&gt;
+    &lt;select id="layout"&gt;
+      &lt;option value="cose"&gt;cose (force)&lt;/option&gt;
+      &lt;option value="concentric"&gt;concentric&lt;/option&gt;
+      &lt;option value="breadthfirst"&gt;breadth-first&lt;/option&gt;
+      &lt;option value="circle"&gt;circle&lt;/option&gt;
+      &lt;option value="grid"&gt;grid&lt;/option&gt;
+    &lt;/select&gt;
+    &lt;button id="reset"&gt;Reset view&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/header&gt;
+
+&lt;main&gt;
+  &lt;section id="graph"&gt;&lt;/section&gt;
+  &lt;section id="detail"&gt;
+    &lt;div id="detail-empty" class="muted"&gt;Click a node to see its details.&lt;/div&gt;
+    &lt;article id="detail-content" hidden&gt;
+      &lt;header class="detail-header"&gt;
+        &lt;span class="type-chip" id="detail-type"&gt;&lt;/span&gt;
+        &lt;h1 id="detail-title"&gt;&lt;/h1&gt;
+        &lt;div class="muted" id="detail-id"&gt;&lt;/div&gt;
+      &lt;/header&gt;
+      &lt;dl class="frontmatter"&gt;
+        &lt;dt&gt;Description&lt;/dt&gt;&lt;dd id="detail-description"&gt;&lt;/dd&gt;
+        &lt;dt&gt;Resource&lt;/dt&gt;&lt;dd id="detail-resource"&gt;&lt;/dd&gt;
+        &lt;dt&gt;Tags&lt;/dt&gt;&lt;dd id="detail-tags"&gt;&lt;/dd&gt;
+      &lt;/dl&gt;
+      &lt;hr&gt;
+      &lt;div id="detail-body"&gt;&lt;/div&gt;
+      &lt;section id="detail-backlinks" hidden&gt;
+        &lt;h2&gt;Cited by&lt;/h2&gt;
+        &lt;ul id="backlinks-list"&gt;&lt;/ul&gt;
+      &lt;/section&gt;
+    &lt;/article&gt;
+  &lt;/section&gt;
+&lt;/main&gt;
+
+&lt;script&gt;
+window.BUNDLE_NAME = __BUNDLE_NAME__;
+window.BUNDLE = __BUNDLE_DATA__;
+&lt;/script&gt;
+&lt;script&gt;
+/*__VIZ_JS__*/
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+              </div>
+
+              <!-- Panel 4: viz.js -->
+              <div class="details-code tab-panel" id="s5-panel-4">
+                <div class="code-header">
+                  <span>static/viz.js (Render logic)</span>
+                  <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                </div>
+                <pre><code>(function () {
+  const bundle = window.BUNDLE;
+  const bundleName = window.BUNDLE_NAME;
+  document.title = `${bundleName} — OKF Viewer`;
+  document.getElementById("bundle-name").textContent = bundleName;
+
+  // Populate type filter
+  const typeSelect = document.getElementById("filter-type");
+  for (const t of bundle.types) {
+    const opt = document.createElement("option");
+    opt.value = t;
+    opt.textContent = t;
+    typeSelect.appendChild(opt);
+  }
+
+  // Build reverse-link index for backlinks
+  const backlinks = {};
+  for (const edge of bundle.edges) {
+    const { source, target } = edge.data;
+    (backlinks[target] ||= []).push(source);
+  }
+
+  // Look up node label/type by id
+  const nodeIndex = {};
+  for (const n of bundle.nodes) nodeIndex[n.data.id] = n.data;
+
+  const cy = cytoscape({
+    container: document.getElementById("graph"),
+    elements: [...bundle.nodes, ...bundle.edges],
+    style: [
+      {
+        selector: "node",
+        style: {
+          "background-color": "data(color)",
+          "label": "data(label)",
+          "color": "#0f172a",
+          "font-size": 11,
+          "text-valign": "bottom",
+          "text-margin-y": 4,
+          "text-wrap": "wrap",
+          "text-max-width": 120,
+          "width": "data(size)",
+          "height": "data(size)",
+          "border-width": 1,
+          "border-color": "#0f172a",
+        },
+      },
+      {
+        selector: "node:selected",
+        style: {
+          "border-width": 3,
+          "border-color": "#f59e0b",
+        },
+      },
+      {
+        selector: "edge",
+        style: {
+          "width": 1.5,
+          "line-color": "#cbd5e1",
+          "target-arrow-color": "#cbd5e1",
+          "target-arrow-shape": "triangle",
+          "curve-style": "bezier",
+          "arrow-scale": 0.9,
+        },
+      },
+      {
+        selector: "edge:selected",
+        style: {
+          "line-color": "#f59e0b",
+          "target-arrow-color": "#f59e0b",
+          "width": 2.5,
+        },
+      },
+      {
+        selector: ".dim",
+        style: { "opacity": 0.15 },
+      },
+    ],
+    layout: { name: "cose", animate: false, padding: 30 },
+    wheelSensitivity: 0.2,
+  });
+
+  cy.on("tap", "node", (evt) =&gt; showDetail(evt.target.id()));
+  cy.on("tap", (evt) =&gt; {
+    if (evt.target === cy) clearSelection();
+  });
+
+  document.getElementById("layout").addEventListener("change", (e) =&gt; {
+    cy.layout({ name: e.target.value, animate: false, padding: 30 }).run();
+  });
+
+  document.getElementById("reset").addEventListener("click", () =&gt; {
+    cy.fit(null, 30);
+    clearSelection();
+  });
+
+  document.getElementById("search").addEventListener("input", (e) =&gt; {
+    const q = e.target.value.trim().toLowerCase();
+    if (!q) {
+      cy.elements().removeClass("dim");
+      return;
+    }
+    cy.nodes().forEach((n) =&gt; {
+      const d = n.data();
+      const hay =
+        (d.label || "").toLowerCase() + " " +
+        d.id.toLowerCase() + " " +
+        (d.tags || []).join(" ").toLowerCase();
+      n.toggleClass("dim", !hay.includes(q));
+    });
+    cy.edges().forEach((edge) =&gt; {
+      const src = edge.source();
+      const tgt = edge.target();
+      edge.toggleClass("dim", src.hasClass("dim") || tgt.hasClass("dim"));
+    });
+  });
+
+  document.getElementById("filter-type").addEventListener("change", (e) =&gt; {
+    const t = e.target.value;
+    if (!t) {
+      cy.elements().removeClass("dim");
+      return;
+    }
+    cy.nodes().forEach((n) =&gt; {
+      n.toggleClass("dim", n.data("type") !== t);
+    });
+    cy.edges().forEach((edge) =&gt; {
+      edge.toggleClass("dim", edge.source().hasClass("dim") || edge.target().hasClass("dim"));
+    });
+  });
+
+  function clearSelection() {
+    cy.elements().unselect();
+    document.getElementById("detail-empty").hidden = false;
+    document.getElementById("detail-content").hidden = true;
+  }
+
+  function showDetail(conceptId) {
+    const data = nodeIndex[conceptId];
+    if (!data) return;
+    cy.elements().unselect();
+    const node = cy.getElementById(conceptId);
+    if (node) node.select();
+
+    document.getElementById("detail-empty").hidden = true;
+    const content = document.getElementById("detail-content");
+    content.hidden = false;
+
+    const chip = document.getElementById("detail-type");
+    chip.textContent = data.type;
+    chip.style.background = data.color;
+
+    document.getElementById("detail-title").textContent = data.label;
+    document.getElementById("detail-id").textContent = conceptId;
+    document.getElementById("detail-description").textContent = data.description || "—";
+
+    const resourceEl = document.getElementById("detail-resource");
+    resourceEl.innerHTML = "";
+    if (data.resource) {
+      const a = document.createElement("a");
+      a.href = data.resource;
+      a.textContent = data.resource;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.className = "external";
+      resourceEl.appendChild(a);
+    } else {
+      resourceEl.textContent = "—";
+    }
+
+    const tagsEl = document.getElementById("detail-tags");
+    tagsEl.innerHTML = "";
+    if (data.tags &amp;&amp; data.tags.length) {
+      for (const t of data.tags) {
+        const span = document.createElement("span");
+        span.className = "tag";
+        span.textContent = t;
+        tagsEl.appendChild(span);
+      }
+    } else {
+      tagsEl.textContent = "—";
+    }
+
+    const body = bundle.bodies[conceptId] || "";
+    const html = marked.parse(body, { breaks: false, gfm: true });
+    const bodyEl = document.getElementById("detail-body");
+    bodyEl.innerHTML = html;
+    rewriteInternalLinks(bodyEl);
+
+    const bl = backlinks[conceptId] || [];
+    const blSection = document.getElementById("detail-backlinks");
+    const blList = document.getElementById("backlinks-list");
+    blList.innerHTML = "";
+    if (bl.length) {
+      blSection.hidden = false;
+      for (const src of bl) {
+        const li = document.createElement("li");
+        const a = document.createElement("a");
+        a.textContent = nodeIndex[src]?.label || src;
+        a.dataset.target = src;
+        a.addEventListener("click", () =&gt; showDetail(src));
+        li.appendChild(a);
+        const muted = document.createElement("span");
+        muted.className = "muted";
+        muted.textContent = ` (${src})`;
+        li.appendChild(muted);
+        blList.appendChild(li);
+      }
+    } else {
+      blSection.hidden = true;
+    }
+
+    cy.animate({ center: { eles: node }, zoom: Math.max(cy.zoom(), 1.0) }, { duration: 200 });
+  }
+
+  function rewriteInternalLinks(root) {
+    root.querySelectorAll("a[href]").forEach((a) =&gt; {
+      const href = a.getAttribute("href");
+      if (!href) return;
+      if (href.startsWith("/") &amp;&amp; href.endsWith(".md")) {
+        const target = href.slice(1, -3);
+        if (nodeIndex[target]) {
+          a.className = "internal";
+          a.setAttribute("href", "javascript:void(0)");
+          a.addEventListener("click", (e) =&gt; {
+            e.preventDefault();
+            showDetail(target);
+          });
+          return;
+        }
+      }
+      a.className = "external";
+      a.setAttribute("target", "_blank");
+      a.setAttribute("rel", "noopener");
+    });
+  }
+
+  // Auto-show the first node (a dataset if available, else first concept)
+  const initial =
+    bundle.nodes.find((n) =&gt; n.data.type === "BigQuery Dataset") ||
+    bundle.nodes[0];
+  if (initial) showDetail(initial.data.id);
+})();
+</code></pre>
+              </div>
+
+              <!-- Panel 5: viz.css -->
+              <div class="details-code tab-panel" id="s5-panel-5">
+                <div class="code-header">
+                  <span>static/viz.css (Styling rules)</span>
+                  <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                </div>
+                <pre><code>* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  color: #0f172a;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+.title strong { font-size: 16px; margin-right: 8px; }
+.muted { color: #64748b; font-size: 12px; }
+.controls { display: flex; gap: 8px; }
+.controls input, .controls select, .controls button {
+  font-size: 13px;
+  padding: 5px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #fff;
+}
+.controls input { width: 220px; }
+.controls button { cursor: pointer; background: #f1f5f9; }
+.controls button:hover { background: #e2e8f0; }
+
+main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+#graph {
+  flex: 1 1 60%;
+  background: #fff;
+  border-right: 1px solid #e2e8f0;
+  min-width: 0;
+  position: relative;
+}
+#detail {
+  flex: 0 0 40%;
+  overflow-y: auto;
+  padding: 18px 22px;
+  background: #fff;
+}
+#detail-empty {
+  text-align: center;
+  margin-top: 40px;
+}
+
+.detail-header { margin-bottom: 12px; }
+.detail-header h1 {
+  font-size: 18px;
+  margin: 4px 0 2px;
+  font-weight: 600;
+}
+.type-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+dl.frontmatter {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  row-gap: 4px;
+  column-gap: 12px;
+  margin: 8px 0 12px;
+  font-size: 13px;
+}
+dl.frontmatter dt {
+  color: #64748b;
+  font-weight: 500;
+}
+dl.frontmatter dd { margin: 0; }
+dl.frontmatter a { color: #2563eb; word-break: break-all; }
+
+.tag {
+  display: inline-block;
+  padding: 1px 6px;
+  margin: 0 4px 2px 0;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+}
+
+hr { border: none; border-top: 1px solid #e2e8f0; margin: 14px 0; }
+
+#detail-body { font-size: 13px; line-height: 1.55; }
+#detail-body h1 {
+  font-size: 16px; margin: 18px 0 6px;
+  padding-bottom: 4px; border-bottom: 1px solid #e2e8f0;
+}
+#detail-body h2 { font-size: 14px; margin: 14px 0 4px; }
+#detail-body h3 { font-size: 13px; margin: 12px 0 4px; }
+#detail-body p { margin: 6px 0; }
+#detail-body code {
+  background: #f1f5f9;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+}
+#detail-body pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 12px;
+}
+#detail-body pre code { background: transparent; color: inherit; padding: 0; }
+#detail-body ul, #detail-body ol { padding-left: 22px; margin: 6px 0; }
+#detail-body li { margin: 2px 0; }
+#detail-body table { border-collapse: collapse; margin: 8px 0; }
+#detail-body th, #detail-body td {
+  border: 1px solid #e2e8f0; padding: 4px 8px; font-size: 12px;
+}
+#detail-body a.internal { color: #2563eb; cursor: pointer; }
+#detail-body a.external { color: #2563eb; }
+
+#detail-backlinks { margin-top: 18px; }
+#detail-backlinks h2 { font-size: 13px; color: #64748b; margin-bottom: 6px; }
+#detail-backlinks ul { padding-left: 18px; }
+#detail-backlinks a { color: #2563eb; cursor: pointer; }
+</code></pre>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Why This is Powerful -->
+    <section class="philosophy-section" aria-label="OKF Pipeline Core Philosophy">
+      <h2 class="section-title" id="philosophy-title">Why This Approach is Effective</h2>
+      <div class="features-grid">
+        
+        <!-- Pillar 1 -->
+        <div class="feature-card" id="pillar-card-1">
+          <div class="feature-icon-circle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          </div>
+          <h3 class="feature-title">Eliminating the "Cold Start"</h3>
+          <p class="feature-desc">When an agent loads into a codebase with no memory, it is context-blind. Standard wikis sit outside git, going stale. Raw code is too dense. An OKF bundle represents a codebase map, directly versioned beside source code, feeding agents high-level semantic insights immediately.</p>
+        </div>
+
+        <!-- Pillar 2 -->
+        <div class="feature-card" id="pillar-card-2">
+          <div class="feature-icon-circle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          </div>
+          <h3 class="feature-title">Adaptive Context Scaling</h3>
+          <p class="feature-desc">Rather than feeding large chunks of files into LLM contexts, the index hierarchy allows progressive disclosure. The agent walks index files recursively, only ingesting detailed concept documents relevant to the scope of work, saving significant token overhead and latency.</p>
+        </div>
+
+        <!-- Pillar 3 -->
+        <div class="feature-card" id="pillar-card-3">
+          <div class="feature-icon-circle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path><path d="M22 12H2"></path></svg>
+          </div>
+          <h3 class="feature-title">Zero Documentation Rot</h3>
+          <p class="feature-desc">Because the upkeep check (/okf-maintain) is configured as model-invoked, updating the documentation isn't a human task that gets forgotten. It's a natural side-effect of code execution. Every code modification reactive-triggers the agent to verify and update the metadata concepts.</p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Greenfield vs. Brownfield Playbook -->
+    <section class="playbook-section" aria-label="OKF Playbook Guide" style="margin-bottom: 6rem;">
+      <h2 class="section-title">Workflow Playbook</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon-circle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          </div>
+          <h3 class="feature-title">Brownfield Project Flow</h3>
+          <p class="feature-desc">Use the <strong>/okf</strong> bootstrapping skill first to scan the legacy codebase, file systems, and imports. Once the initial structure is built, commit the <code>okf/</code> directory and place the notice in <code>AGENTS.md</code> to guide future modifications.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon-circle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+          </div>
+          <h3 class="feature-title">Greenfield Project Flow</h3>
+          <p class="feature-desc">You must run <strong>/okf</strong> once (or manually create an empty <code>okf/</code> folder) to satisfy the maintainer's guard check. After initialization, <code>okf-maintain</code> automatically creates and updates concept files as the codebase grows.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Token Savings Simulator -->
+    <section class="simulator-section" aria-label="Token Efficiency Simulator">
+      
+      <!-- Project Type hidden inputs -->
+      <input type="radio" name="project-type" id="type-brownfield" checked style="display:none;">
+      <input type="radio" name="project-type" id="type-greenfield" style="display:none;">
+
+      <div class="simulator-grid">
+        <div class="sim-controls">
+          <h3 id="sim-heading">Token & Search Loop Simulator</h3>
+          <p>Estimate the difference in agent consumption and cost between traditional code-search discovery and OKF-guided exploration on a brownfield or greenfield codebase.</p>
+          
+          <div class="control-group">
+            <label class="control-label">Project Context</label>
+            <div class="project-type-toggle">
+              <label for="type-brownfield" class="toggle-btn" id="lbl-brownfield">Brownfield (Legacy)</label>
+              <label for="type-greenfield" class="toggle-btn" id="lbl-greenfield">Greenfield (New)</label>
+            </div>
+          </div>
+
+          <div class="control-group" style="margin-top: 1rem; margin-bottom: 1.5rem;">
+            <label class="control-label" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none; font-size: 0.9rem;">
+              <input type="checkbox" id="input-include-bootstrap" checked style="width: 16px; height: 16px; accent-color: var(--accent-sky); cursor: pointer;">
+              Include Bootstrap Setup Cost
+            </label>
+          </div>
+
+          <div class="control-group">
+            <label class="control-label" for="input-codebase-size">
+              Codebase Size
+              <span id="val-codebase-size">150 files</span>
+            </label>
+            <input type="range" id="input-codebase-size" min="10" max="1000" step="10" value="150">
+          </div>
+
+          <div class="control-group">
+            <label class="control-label" for="input-refactor-depth">
+              Subsystem Complexity
+              <span id="val-refactor-depth">Medium</span>
+            </label>
+            <input type="range" id="input-refactor-depth" min="1" max="3" step="1" value="2">
+          </div>
+
+          <div class="control-group">
+            <label class="control-label" for="input-tasks-count">
+              Number of Tasks / Tickets
+              <span id="val-tasks-count">5 tasks</span>
+            </label>
+            <input type="range" id="input-tasks-count" min="1" max="20" step="1" value="5">
+          </div>
+        </div>
+
+        <div class="sim-results">
+          <div class="metrics-title">Agent Overhead Estimate</div>
+          <div class="comparison-bars">
+            
+            <div class="comparison-bar-row">
+              <div class="bar-label">
+                <span>Traditional Code Exploration (Accumulated)</span>
+                <span class="bar-val" id="val-traditional">~ 192,500 tokens</span>
+              </div>
+              <div class="bar-container">
+                <div class="bar-fill fill-traditional" id="bar-traditional" style="width: 100%"></div>
+              </div>
+            </div>
+
+            <div class="comparison-bar-row">
+              <div class="bar-label">
+                <span>OKF-Guided (Bootstrap + Tasks)</span>
+                <span class="bar-val" id="val-okf">~ 46,000 tokens</span>
+              </div>
+              <div class="bar-container">
+                <div class="bar-fill fill-okf" id="bar-okf" style="width: 23.9%"></div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="efficiency-callout">
+            <div class="efficiency-pct" id="efficiency-saving" style="color: var(--accent-emerald);">76%</div>
+            <div class="efficiency-label" id="efficiency-label">Net Reduction (including one-time setup)</div>
+            <div id="sim-breakdown" style="margin-top: 1.5rem; text-align: center; font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
+              Traditional Exploration: ~38,500 tokens/task<br>
+              OKF Setup: ~23,000 tokens (one-time bootstrap) + ~4,600 tokens/task
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <p>Built as a proof-of-concept visual brief for OKF Knowledge Pipelines.</p>
+      <p>Standard specification: <a href="https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md" target="_blank" rel="noopener noreferrer">SPEC.md</a></p>
+    </footer>
+
+  </div>
+
+  <script>
+    // Copy Code to Clipboard Function
+    function copyCode(btn) {
+      const codeContainer = btn.closest('.details-code');
+      if (!codeContainer) return;
+      const codeText = codeContainer.querySelector('pre code').innerText;
+      
+      navigator.clipboard.writeText(codeText).then(() => {
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'Copy';
+          btn.classList.remove('copied');
+        }, 2000);
+      }).catch(err => {
+        console.error('Failed to copy text: ', err);
+      });
+    }
+
+    // Accessibility / Keyboard controls if JavaScript is loaded
+    const cards = document.querySelectorAll('.pipeline-card');
+    cards.forEach(card => {
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          const targetId = card.getAttribute('for');
+          if (targetId) {
+            const radio = document.getElementById(targetId);
+            if (radio) {
+              radio.checked = true;
+              radio.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          }
+        }
+      });
+    });
+
+    // Token Calculator Script (Will only run if JS is enabled)
+    const codebaseSlider = document.getElementById('input-codebase-size');
+    const refactorSlider = document.getElementById('input-refactor-depth');
+    const tasksSlider = document.getElementById('input-tasks-count');
+    const typeBrownfield = document.getElementById('type-brownfield');
+    const typeGreenfield = document.getElementById('type-greenfield');
+    const includeBootstrapCheckbox = document.getElementById('input-include-bootstrap');
+
+    function recalculateTokens() {
+      if (!codebaseSlider || !refactorSlider || !tasksSlider || !typeBrownfield || !typeGreenfield || !includeBootstrapCheckbox) return;
+      
+      const size = parseInt(codebaseSlider.value);
+      const complexity = parseInt(refactorSlider.value);
+      const tasks = parseInt(tasksSlider.value);
+      const isBrownfield = typeBrownfield.checked;
+      const includeBootstrap = includeBootstrapCheckbox.checked;
+      
+      document.getElementById('val-codebase-size').textContent = `${size} files`;
+      document.getElementById('val-tasks-count').textContent = `${tasks} tasks`;
+      
+      const compLabels = ["Low", "Medium", "High"];
+      document.getElementById('val-refactor-depth').textContent = compLabels[complexity - 1];
+
+      // Dynamic Math calculations for Brownfield vs Greenfield:
+      let traditionalTaskCost, okfBootstrapCost, okfTaskCost;
+
+      if (isBrownfield) {
+        // Legacy codebase: large search space, high setup mapping cost
+        traditionalTaskCost = Math.round(size * complexity * 95) + (size * 100);
+        okfBootstrapCost = includeBootstrap ? (Math.round(size * 120) + 5000) : 0;
+        okfTaskCost = Math.round(1500 + (complexity * 800) + (size * 2));
+      } else {
+        // Greenfield codebase: clean start, smaller average files, setup is near-instant
+        traditionalTaskCost = Math.round((size * 0.4) * complexity * 80) + 1000;
+        okfBootstrapCost = includeBootstrap ? 2000 : 0;
+        okfTaskCost = Math.round(800 + (complexity * 300) + (size * 0.4) * 1.5);
+      }
+
+      const traditionalTotal = traditionalTaskCost * tasks;
+      const okfTotal = okfBootstrapCost + (okfTaskCost * tasks);
+
+      document.getElementById('val-traditional').textContent = `~ ${traditionalTotal.toLocaleString()} tokens`;
+      document.getElementById('val-okf').textContent = `~ ${okfTotal.toLocaleString()} tokens`;
+
+      const maxTokens = Math.max(traditionalTotal, okfTotal);
+      const tradPct = (traditionalTotal / maxTokens) * 100;
+      const okfPct = (okfTotal / maxTokens) * 100;
+
+      document.getElementById('bar-traditional').style.width = `${tradPct}%`;
+      document.getElementById('bar-okf').style.width = `${okfPct}%`;
+
+      const savingPct = Math.round(((traditionalTotal - okfTotal) / traditionalTotal) * 100);
+      
+      if (savingPct < 0) {
+        document.getElementById('efficiency-saving').textContent = `Setup Phase`;
+        document.getElementById('efficiency-saving').style.color = 'var(--text-secondary)';
+        document.getElementById('efficiency-label').textContent = `Initial bootstrap cost amortizing...`;
+      } else {
+        document.getElementById('efficiency-saving').textContent = `${savingPct}%`;
+        document.getElementById('efficiency-saving').style.color = 'var(--accent-emerald)';
+        document.getElementById('efficiency-label').textContent = includeBootstrap ? `Net Reduction (including one-time setup)` : `Net Reduction (ongoing task comparison)`;
+      }
+
+      if (includeBootstrap) {
+        document.getElementById('sim-breakdown').innerHTML = `
+          Traditional Exploration: ~${traditionalTaskCost.toLocaleString()} tokens/task<br>
+          OKF Setup: ~${okfBootstrapCost.toLocaleString()} tokens (one-time bootstrap) + ~${okfTaskCost.toLocaleString()} tokens/task
+`;
+      } else {
+        document.getElementById('sim-breakdown').innerHTML = `
+          Traditional Exploration: ~${traditionalTaskCost.toLocaleString()} tokens/task<br>
+          OKF Setup: Excluded (Already Bootstrapped) | Ongoing: ~${okfTaskCost.toLocaleString()} tokens/task
+`;
+      }
+    }
+
+    if (codebaseSlider && refactorSlider && tasksSlider && typeBrownfield && typeGreenfield && includeBootstrapCheckbox) {
+      codebaseSlider.addEventListener('input', recalculateTokens);
+      refactorSlider.addEventListener('input', recalculateTokens);
+      tasksSlider.addEventListener('input', recalculateTokens);
+      typeBrownfield.addEventListener('change', recalculateTokens);
+      typeGreenfield.addEventListener('change', recalculateTokens);
+      includeBootstrapCheckbox.addEventListener('change', recalculateTokens);
+    }
+  </script>
+</body>
+</html>
