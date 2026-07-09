@@ -105,40 +105,7 @@ If you want to install the skills **locally inside a specific project workspace*
 > [!IMPORTANT]
 > **CLI Global Limitation:** The `skills` CLI does not support installing Markdown/PromptScript skills globally; running it with `-g` or `--global` will fail with a `PromptScript does not support global skill installation` error.
 > 
-> To use these skills globally across all folders, use **Method 1 (Local Script)** or **Method 3 (Manual)** instead.
-
----
-
-### Method 3: Manual Installation (Git & Copy)
-If you prefer manual control:
-
-1. **Define your agent's skills directory** (see paths in the Note below).
-   * *Windows*: `$AgentSkillsDir = "$HOME\.gemini\config\skills"`
-   * *macOS/Linux*: `AGENT_SKILLS_DIR="$HOME/.gemini/config/skills"`
-2. **Clone & Copy (Install / Update)**:
-   * *Windows (PowerShell)*:
-     ```powershell
-     git clone https://github.com/eloybar/okf-skills.git
-     New-Item -ItemType Directory -Force -Path $AgentSkillsDir
-     Copy-Item -Path "okf-skills\okf", "okf-skills\okf-maintain", "okf-skills\okf-visualize" -Destination "$AgentSkillsDir\" -Recurse -Force
-     Remove-Item -Path "okf-skills" -Recurse -Force
-     ```
-   * *macOS / Linux (Bash)*:
-     ```bash
-     git clone https://github.com/eloybar/okf-skills.git
-     mkdir -p "$AGENT_SKILLS_DIR"
-     cp -r okf-skills/okf okf-skills/okf-maintain okf-skills/okf-visualize "$AGENT_SKILLS_DIR/"
-     rm -rf okf-skills
-     ```
-3. **Removal**:
-   * *Windows (PowerShell)*:
-     ```powershell
-     Remove-Item -Path "$AgentSkillsDir\okf", "$AgentSkillsDir\okf-maintain", "$AgentSkillsDir\okf-visualize" -Recurse -Force
-     ```
-   * *macOS / Linux (Bash)*:
-     ```bash
-     rm -rf "$AGENT_SKILLS_DIR/okf" "$AGENT_SKILLS_DIR/okf-maintain" "$AGENT_SKILLS_DIR/okf-visualize"
-     ```
+> To use these skills globally across all folders, use **Method 1 (Local Script)**.
 
 > [!NOTE]
 > **Common Agent Skills Directories:**
@@ -147,8 +114,7 @@ If you prefer manual control:
 > * **Hermes**: `~/.hermes/skills`
 > * **Codex**: `~/.codex/skills`
 
-
----
+----
 
 ## 🛠️ Repository Contents
 
