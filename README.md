@@ -90,19 +90,7 @@ This repository implements the above pipeline via the following custom agent ski
 * **[okf-visualize/](file:///D:/projects/okf-skills/okf-visualize/)**: Generates the interactive Cytoscape graphs.
 * **[okf_thought_process.html](file:///D:/projects/okf-skills/okf_thought_process.html)**: The original visual brief and token simulator.
 
----
 
-## 🌐 How to Activate the Hosted Page (GitHub Pages)
-
-To make the beautiful visual brief, interactive playbook, and token simulator available live:
-
-1. Push this repository to GitHub (already completed).
-2. Go to your repository settings page: **Settings -> Pages**.
-3. Under **Build and deployment**, set:
-   * **Source**: *Deploy from a branch*
-   * **Branch**: `main`
-   * **Folder**: `/ (root)`
-4. Click **Save**. Within a minute, your page will be live at: `https://eloybar.github.io/okf-skills/`
 
 ---
 
