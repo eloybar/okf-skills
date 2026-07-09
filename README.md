@@ -142,14 +142,11 @@ If you have an existing codebase and are making changes (like refactoring a modu
 
 1. **Work on your task** as usual using the agent:
    > "add a new checkouts database table and API endpoint"
-2. **Synchronize the documentation**: Before ending your task session, ask the agent to run the maintenance check:
-   > "run OKF upkeep" (which triggers the `okf-maintain` skill)
-3. **What happens**:
-   * The agent scans your codebase modifications.
-   * It detects that the checkout database structure and API endpoint were added.
-   * It automatically generates or updates the concept files (e.g. `okf/tables/checkouts.md`).
-   * It updates the global `okf/index.md` index and appends an entry to `okf/log.md`.
-   * Your codebase and its agent-navigable documentation remain in perfect, automated sync!
+2. **Automated Upkeep (No manual action required)**:
+   * Because the root-level `AGENTS.md` directs all future agent sessions to read and maintain the OKF bundle, the agent will **automatically run the upkeep pipeline** (`okf-maintain` skill) as part of finishing its task.
+   * The agent scans your codebase modifications, detects that the checkout database structure and API endpoint were added, and automatically generates or updates the concept files (e.g. `okf/tables/checkouts.md`).
+   * It automatically updates the global `okf/index.md` index and appends an entry to `okf/log.md`.
+   * Your codebase and its agent-navigable documentation remain in perfect, automated sync without you ever having to ask!
 
 ----
 
