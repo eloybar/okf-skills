@@ -106,6 +106,26 @@ rm -rf okf-skills
 > * **Hermes**: `~/.hermes/skills`
 > * **Codex**: `~/.codex/skills`
 
+---
+
+## 🔄 Updating Installed Skills
+
+To keep your skills up to date with the latest improvements:
+
+### If installed using the `skills` CLI (Method 1)
+You can check for updates and pull them automatically:
+```bash
+# Check for updates to all installed skills
+npx skills check
+
+# Update all of your installed skills
+npx skills update
+```
+
+### If installed manually (Method 2 & 3)
+Simply run the installation script again. The copy commands will overwrite your local files with the latest versions from the repository.
+
+
 
 
 ---
