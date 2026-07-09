@@ -133,8 +133,30 @@ npx skills update
 ### If installed manually (Method 2 & 3)
 Simply run the installation script again. The copy commands will overwrite your local files with the latest versions from the repository.
 
+---
 
+## 🗑️ Removing Installed Skills
 
+To remove these skills from your agent environment:
+
+### If installed using the `skills` CLI (Method 1)
+You can remove the skills together using the CLI:
+```bash
+# Remove the OKF skills
+npx skills remove okf okf-maintain okf-visualize
+```
+
+### If installed manually (Method 2 & 3)
+Ensure your target skills directory variable is set, then run the deletion command for your platform:
+
+* **Windows (PowerShell)**:
+  ```powershell
+  Remove-Item -Path "$AgentSkillsDir\okf", "$AgentSkillsDir\okf-maintain", "$AgentSkillsDir\okf-visualize" -Recurse -Force
+  ```
+* **macOS / Linux (Bash)**:
+  ```bash
+  rm -rf "$AGENT_SKILLS_DIR/okf" "$AGENT_SKILLS_DIR/okf-maintain" "$AGENT_SKILLS_DIR/okf-visualize"
+  ```
 
 ---
 
