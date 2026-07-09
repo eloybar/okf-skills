@@ -49,6 +49,38 @@ Generates dynamic Cytoscape.js HTML graph visualizations of concepts, dependenci
 
 ---
 
+## 📥 Installation
+
+You can install these skills to your local coding agent using any of the following methods:
+
+### Method 1: Using the `skills` CLI (Recommended)
+If your agent supports the `npx skills` installation tool, run:
+```bash
+npx skills@latest add eloybar/okf-skills/okf
+npx skills@latest add eloybar/okf-skills/okf-maintain
+npx skills@latest add eloybar/okf-skills/okf-visualize
+```
+
+### Method 2: Windows (PowerShell)
+To download the skills directly into your local agent skills folder:
+```powershell
+New-Item -ItemType Directory -Force -Path "$HOME\.claude\skills"
+Invoke-RestMethod -Uri "https://raw.githubusercontent.com/eloybar/okf-skills/main/okf/SKILL.md" -OutFile "$HOME\.claude\skills\okf.md"
+Invoke-RestMethod -Uri "https://raw.githubusercontent.com/eloybar/okf-skills/main/okf-maintain/SKILL.md" -OutFile "$HOME\.claude\skills\okf-maintain.md"
+Invoke-RestMethod -Uri "https://raw.githubusercontent.com/eloybar/okf-skills/main/okf-visualize/SKILL.md" -OutFile "$HOME\.claude\skills\okf-visualize.md"
+```
+
+### Method 3: macOS / Linux (Bash)
+To download the skills directly using curl:
+```bash
+mkdir -p ~/.claude/skills
+curl -fsSL https://raw.githubusercontent.com/eloybar/okf-skills/main/okf/SKILL.md -o ~/.claude/skills/okf.md
+curl -fsSL https://raw.githubusercontent.com/eloybar/okf-skills/main/okf-maintain/SKILL.md -o ~/.claude/skills/okf-maintain.md
+curl -fsSL https://raw.githubusercontent.com/eloybar/okf-skills/main/okf-visualize/SKILL.md -o ~/.claude/skills/okf-visualize.md
+```
+
+---
+
 ## 🛠️ Repository Contents
 
 This repository implements the above pipeline via the following custom agent skills:
