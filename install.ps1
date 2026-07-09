@@ -46,9 +46,9 @@ if ($Action -eq "Remove") {
         $skillPath = Join-Path $TargetDir $skill
         if (Test-Path $skillPath) {
             Remove-Item -Path $skillPath -Recurse -Force
-            Write-Host "✔ Removed $skill" -ForegroundColor Green
+            Write-Host "[+] Removed $skill" -ForegroundColor Green
         } else {
-            Write-Host "ℹ $skill was not installed" -ForegroundColor Gray
+            Write-Host "[i] $skill was not installed" -ForegroundColor Gray
         }
     }
     Write-Host "Removal complete!" -ForegroundColor Green
@@ -66,17 +66,17 @@ if ($Action -eq "Remove") {
     $isLocal = $scriptPath -and (Test-Path (Join-Path (Split-Path $scriptPath) "okf"))
 
     if ($isLocal) {
-        Write-Host "ℹ Installing from local repository..." -ForegroundColor Gray
+        Write-Host "[i] Installing from local repository..." -ForegroundColor Gray
         $srcDir = Split-Path $scriptPath
         $skills = @("okf", "okf-maintain", "okf-visualize")
         foreach ($skill in $skills) {
             $srcPath = Join-Path $srcDir $skill
             $destPath = Join-Path $TargetDir $skill
             Copy-Item -Path $srcPath -Destination $TargetDir -Recurse -Force
-            Write-Host "✔ Copied $skill" -ForegroundColor Green
+            Write-Host "[+] Copied $skill" -ForegroundColor Green
         }
     } else {
-        Write-Host "ℹ Downloading latest version from GitHub..." -ForegroundColor Gray
+        Write-Host "[i] Downloading latest version from GitHub..." -ForegroundColor Gray
         $tempZip = [System.IO.Path]::GetTempFileName() + ".zip"
         $tempFolder = Join-Path $env:TEMP "okf-skills-temp"
 
@@ -93,7 +93,7 @@ if ($Action -eq "Remove") {
         foreach ($skill in $skills) {
             $srcPath = Join-Path $extractedRoot $skill
             Copy-Item -Path $srcPath -Destination $TargetDir -Recurse -Force
-            Write-Host "✔ Installed $skill" -ForegroundColor Green
+            Write-Host "[+] Installed $skill" -ForegroundColor Green
         }
 
         # Cleanup
