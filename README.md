@@ -61,22 +61,23 @@ npx skills add eloybar/okf-skills
 
 
 ### Method 2: Windows (PowerShell)
-To download the skills directly into your local agent skills folder:
+To clone and install all skills along with their assets/subfolders:
 ```powershell
+git clone https://github.com/eloybar/okf-skills.git
 New-Item -ItemType Directory -Force -Path "$HOME\.claude\skills"
-Invoke-RestMethod -Uri "https://raw.githubusercontent.com/eloybar/okf-skills/main/okf/SKILL.md" -OutFile "$HOME\.claude\skills\okf.md"
-Invoke-RestMethod -Uri "https://raw.githubusercontent.com/eloybar/okf-skills/main/okf-maintain/SKILL.md" -OutFile "$HOME\.claude\skills\okf-maintain.md"
-Invoke-RestMethod -Uri "https://raw.githubusercontent.com/eloybar/okf-skills/main/okf-visualize/SKILL.md" -OutFile "$HOME\.claude\skills\okf-visualize.md"
+Copy-Item -Path "okf-skills\okf", "okf-skills\okf-maintain", "okf-skills\okf-visualize" -Destination "$HOME\.claude\skills\" -Recurse -Force
+Remove-Item -Path "okf-skills" -Recurse -Force
 ```
 
 ### Method 3: macOS / Linux (Bash)
-To download the skills directly using curl:
+To clone and install all skills along with their assets/subfolders:
 ```bash
+git clone https://github.com/eloybar/okf-skills.git
 mkdir -p ~/.claude/skills
-curl -fsSL https://raw.githubusercontent.com/eloybar/okf-skills/main/okf/SKILL.md -o ~/.claude/skills/okf.md
-curl -fsSL https://raw.githubusercontent.com/eloybar/okf-skills/main/okf-maintain/SKILL.md -o ~/.claude/skills/okf-maintain.md
-curl -fsSL https://raw.githubusercontent.com/eloybar/okf-skills/main/okf-visualize/SKILL.md -o ~/.claude/skills/okf-visualize.md
+cp -r okf-skills/okf okf-skills/okf-maintain okf-skills/okf-visualize ~/.claude/skills/
+rm -rf okf-skills
 ```
+
 
 ---
 
