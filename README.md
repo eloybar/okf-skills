@@ -102,7 +102,7 @@ rm -rf okf-skills
 > [!NOTE]
 > **Common Agent Skills Directories:**
 > * **Claude Code**: `~/.claude/skills`
-> * **Antigravity / Gemini CLI**: `~/.gemini/config/plugins/agy-skills/skills`
+> * **Antigravity / Gemini CLI**: `~/.gemini/config/skills`
 > * **Hermes**: `~/.hermes/skills`
 > * **Codex**: `~/.codex/skills`
 
