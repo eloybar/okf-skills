@@ -71,3 +71,10 @@ To make the beautiful visual brief, interactive playbook, and token simulator av
    * **Branch**: `main`
    * **Folder**: `/ (root)`
 4. Click **Save**. Within a minute, your page will be live at: `https://eloybar.github.io/okf-skills/`
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](file:///D:/projects/okf-skills/LICENSE) file for details.
+
