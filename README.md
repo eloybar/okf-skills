@@ -54,38 +54,40 @@ Generates dynamic Cytoscape.js HTML graph visualizations of concepts, dependenci
 
 You can install, update, or remove these skills using any of the following methods:
 
-### Method 1: Using the `skills` CLI (Recommended)
+### Method 1: Using the `skills` CLI
 If your agent environment supports the `npx skills` tool:
 
-* **To Install / Update**:
+* **Workspace-Specific Installation (Local)**:
+  To install the skills only for the current project directory (under `.agents/skills/`):
   ```bash
   npx skills add eloybar/okf-skills
   ```
-* **To Check for Updates**:
+* **Global Installation (All Workspaces)**:
+  Running `npx skills add eloybar/okf-skills --global` will normally fail with a `PromptScript does not support global skill installation` error because the CLI attempts to install PromptScript globally. 
+  
+  To bypass this and install the skills globally for a specific agent:
+  * **For Antigravity / Gemini CLI**:
+    ```bash
+    npx skills add eloybar/okf-skills --global --agent antigravity
+    ```
+  * **For Claude Code**:
+    ```bash
+    npx skills add eloybar/okf-skills --global --agent claude
+    ```
+* **To Check for Updates / Update / Remove**:
   ```bash
   npx skills check
-  ```
-* **To Update Specific Skills**:
-  ```bash
   npx skills update okf okf-maintain okf-visualize
-  ```
-* **To Remove**:
-  ```bash
   npx skills remove okf okf-maintain okf-visualize
   ```
 
 > [!TIP]
-> **Node.js Requirement:** The `npx skills` tool requires Node.js v16+ (v18+ or v20+ recommended). If you get an `Unexpected token import` or `ERR_REQUIRE_ESM` error, either upgrade Node.js or use **Method 2** below.
-
-> [!IMPORTANT]
-> **CLI Global Limitation:** The `skills` CLI does not support installing Markdown/PromptScript skills globally; running it with `-g` or `--global` will fail with a `PromptScript does not support global skill installation` error.
-> 
-> To use these skills **globally** across all folders (working in any directory), use **Method 2 (Local Script)** instead.
+> **Node.js Requirement:** The `npx skills` tool requires Node.js v16+ (v18+ or v20+ recommended). If you get an `Unexpected token import` or `ERR_REQUIRE_ESM` error, or if the skills are not getting correctly registered/copied to your agent's config folder, use **Method 2 (Local Script)** instead.
 
 ---
 
-### Method 2: Local Script Installer
-This method copies the skills directly to your global agent path, allowing you to use them in any directory on your system. It works locally, has no external dependencies, and is immune to network or copy-paste line-wrapping errors.
+### Method 2: Local Script Installer (Recommended for All Agents)
+This method copies the skills directly to your global agent paths, making them active globally in any directory on your system. The scripts have been updated to support and default to installing for **all supported agents** (Antigravity, Claude Code, and general agents like Cursor or Cline) simultaneously.
 
 1. **Clone the repository and run the installer**:
    * **Windows (PowerShell)**:
@@ -112,7 +114,7 @@ This method copies the skills directly to your global agent path, allowing you t
 > **Common Agent Skills Directories:**
 > * **Google Antigravity / Gemini CLI**: `~/.gemini/config/skills`
 > * **Claude Code**: `~/.claude/skills`
-> * **Hermes**: `~/.hermes/skills`
+> * **Cursor / General Agents**: `~/.agents/skills`
 > * **Codex**: `~/.codex/skills`
 
 ----
