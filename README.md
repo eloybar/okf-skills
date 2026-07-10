@@ -15,8 +15,9 @@ graph TD
     A[01. OKF Specification] --> B[02. Initial Bundle]
     B --> C[03. AGENTS.md Setup]
     C --> D[04. Model-Invoked Maintenance]
+    D -->|Autonomous Upkeep| B
     D --> E[05. Interactive Visualization]
-    E -->|Refinement Loop| B
+    E -->|HITL Refinement| B
 ```
 
 ### 1. OKF Specification
