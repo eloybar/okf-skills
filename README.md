@@ -54,34 +54,8 @@ Generates dynamic Cytoscape.js HTML graph visualizations of concepts, dependenci
 
 You can install, update, or remove these skills using any of the following methods:
 
-### Method 1: Local Script Installer (Recommended)
-This is the simplest and most robust method. It works locally, has no external dependencies, and is immune to network or copy-paste line-wrapping errors.
-
-1. **Clone the repository and run the installer**:
-   * **Windows (PowerShell)**:
-     ```powershell
-     git clone https://github.com/eloybar/okf-skills.git; cd okf-skills; .\install.ps1
-     ```
-   * **macOS / Linux (Bash)**:
-     ```bash
-     git clone https://github.com/eloybar/okf-skills.git && cd okf-skills && ./install.sh
-     ```
-
-2. **Clean up the clone** (Optional — the installer copies the skills to your global agent path, so you can delete the repository folder afterward):
-   * *Windows*: `cd ..; Remove-Item -Path okf-skills -Recurse -Force`
-   * *macOS/Linux*: `cd .. && rm -rf okf-skills`
-
-* **To Update**: Navigate to your cloned `okf-skills` folder, pull changes, and run the script again:
-  * *Windows*: `git pull; .\install.ps1`
-  * *macOS/Linux*: `git pull && ./install.sh`
-* **To Remove**: Run the installer with the remove action:
-  * *Windows*: `.\install.ps1 -Action Remove`
-  * *macOS/Linux*: `./install.sh --action Remove`
-
----
-
-### Method 2: Using the `skills` CLI
-If you want to install the skills **locally inside a specific project workspace** (rather than globally), and your agent environment supports the `npx skills` tool:
+### Method 1: Using the `skills` CLI (Recommended)
+If your agent environment supports the `npx skills` tool:
 
 * **To Install / Update**:
   ```bash
@@ -101,12 +75,38 @@ If you want to install the skills **locally inside a specific project workspace*
   ```
 
 > [!TIP]
-> **Node.js Requirement:** The `npx skills` tool requires Node.js v16+ (v18+ or v20+ recommended). If you get an `Unexpected token import` or `ERR_REQUIRE_ESM` error, either upgrade Node.js or use **Method 1** above.
+> **Node.js Requirement:** The `npx skills` tool requires Node.js v16+ (v18+ or v20+ recommended). If you get an `Unexpected token import` or `ERR_REQUIRE_ESM` error, either upgrade Node.js or use **Method 2** below.
 
 > [!IMPORTANT]
 > **CLI Global Limitation:** The `skills` CLI does not support installing Markdown/PromptScript skills globally; running it with `-g` or `--global` will fail with a `PromptScript does not support global skill installation` error.
 > 
-> To use these skills globally across all folders, use **Method 1 (Local Script)**.
+> To use these skills **globally** across all folders (working in any directory), use **Method 2 (Local Script)** instead.
+
+---
+
+### Method 2: Local Script Installer
+This method copies the skills directly to your global agent path, allowing you to use them in any directory on your system. It works locally, has no external dependencies, and is immune to network or copy-paste line-wrapping errors.
+
+1. **Clone the repository and run the installer**:
+   * **Windows (PowerShell)**:
+     ```powershell
+     git clone https://github.com/eloybar/okf-skills.git; cd okf-skills; .\install.ps1
+     ```
+   * **macOS / Linux (Bash)**:
+     ```bash
+     git clone https://github.com/eloybar/okf-skills.git && cd okf-skills && ./install.sh
+     ```
+
+2. **Clean up the clone** (Optional — you can safely delete the repository folder afterward):
+   * *Windows*: `cd ..; Remove-Item -Path okf-skills -Recurse -Force`
+   * *macOS/Linux*: `cd .. && rm -rf okf-skills`
+
+* **To Update**: Navigate to your cloned `okf-skills` folder, pull changes, and run the script again:
+  * *Windows*: `git pull; .\install.ps1`
+  * *macOS/Linux*: `git pull && ./install.sh`
+* **To Remove**: Run the installer with the remove action:
+  * *Windows*: `.\install.ps1 -Action Remove`
+  * *macOS/Linux*: `./install.sh --action Remove`
 
 > [!NOTE]
 > **Common Agent Skills Directories:**
