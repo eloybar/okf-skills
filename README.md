@@ -33,11 +33,11 @@ Informs incoming LLM agents (like Antigravity or Claude Code) that the repositor
 * **Component**: `AGENTS.md` (root directory configuration)
 
 ### 4. Model-Invoked Maintenance
-Automatically runs post-edit checks to verify that modifications to files don't render documentation out of date. 
+Automatically runs post-edit checks to verify that modifications to files don't render documentation out of date. **Feeds directly back into Step 2 to complete the Autonomous Upkeep loop.**
 * **Component**: [okf-maintain/SKILL.md](file:///D:/projects/okf-skills/okf-maintain/SKILL.md)
 
 ### 5. Interactive Visualization
-Generates dynamic Cytoscape.js HTML graph visualizations of concepts, dependencies, and connections.
+Generates dynamic Cytoscape.js HTML graph visualizations of concepts, dependencies, and connections. **Serves as the entry point for the Human-in-the-Loop (HITL) Refinement loop, allowing developers to visually audit codebase topology and manually calibrate concept alignments.**
 * **Component**: [okf-visualize/SKILL.md](file:///D:/projects/okf-skills/okf-visualize/SKILL.md)
 
 ---
