@@ -74,6 +74,14 @@ If your agent environment supports the `npx skills@latest` tool:
     ```bash
     npx skills@latest add eloybar/okf-skills --global --agent claude
     ```
+  * **For Codex**:
+    ```bash
+    npx skills@latest add eloybar/okf-skills --global --agent codex
+    ```
+  * **For Hermes**:
+    ```bash
+    npx skills@latest add eloybar/okf-skills --global --agent hermes
+    ```
 * **To Check for Updates / Update / Remove**:
   ```bash
   npx skills@latest check
