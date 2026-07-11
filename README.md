@@ -22,11 +22,11 @@ graph TD
 
 ### 1. OKF Specification
 Establishes typed Markdown concepts to store codebase architecture, core domain models, and solutions.
-* **Component**: [okf/SKILL.md](file:///D:/projects/okf-skills/okf/SKILL.md)
+* **Component**: [okf/SKILL.md](okf/SKILL.md)
 
 ### 2. Initial Bundle Creation
 Builds the first set of concepts under `./okf` or `./docs/solutions` to document the codebase's architecture and lessons learned.
-* **Component**: [okf/SKILL.md](file:///D:/projects/okf-skills/okf/SKILL.md)
+* **Component**: [okf/SKILL.md](okf/SKILL.md)
 
 ### 3. AGENTS.md Steering Notice
 Informs incoming LLM agents (like Antigravity or Claude Code) that the repository has a structured knowledge base, providing instructions on how to use it.
@@ -34,11 +34,11 @@ Informs incoming LLM agents (like Antigravity or Claude Code) that the repositor
 
 ### 4. Model-Invoked Maintenance
 Automatically runs post-edit checks to verify that modifications to files don't render documentation out of date. **Feeds directly back into Step 2 to complete the Autonomous Upkeep loop.**
-* **Component**: [okf-maintain/SKILL.md](file:///D:/projects/okf-skills/okf-maintain/SKILL.md)
+* **Component**: [okf-maintain/SKILL.md](okf-maintain/SKILL.md)
 
 ### 5. Interactive Visualization
 Generates dynamic Cytoscape.js HTML graph visualizations of concepts, dependencies, and connections. **Serves as the entry point for the Human-in-the-Loop (HITL) Refinement loop, allowing developers to visually audit codebase topology and manually calibrate concept alignments.**
-* **Component**: [okf-visualize/SKILL.md](file:///D:/projects/okf-skills/okf-visualize/SKILL.md)
+* **Component**: [okf-visualize/SKILL.md](okf-visualize/SKILL.md)
 
 ---
 
@@ -162,10 +162,10 @@ If you have an existing codebase and are making changes (like refactoring a modu
 
 This repository implements the above pipeline via the following custom agent skills:
 
-* **[okf/](file:///D:/projects/okf-skills/okf/)**: Handles creation and structure of Open Knowledge Format (OKF) bundles.
-* **[okf-maintain/](file:///D:/projects/okf-skills/okf-maintain/)**: Runs validation after changes to keep concepts updated.
-* **[okf-visualize/](file:///D:/projects/okf-skills/okf-visualize/)**: Generates the interactive Cytoscape graphs.
-* **[okf_thought_process.html](file:///D:/projects/okf-skills/okf_thought_process.html)**: The original visual brief and token simulator.
+* **[okf/](okf/)**: Handles creation and structure of Open Knowledge Format (OKF) bundles.
+* **[okf-maintain/](okf-maintain/)**: Runs validation after changes to keep concepts updated.
+* **[okf-visualize/](okf-visualize/)**: Generates the interactive Cytoscape graphs.
+* **[okf_thought_process.html](okf_thought_process.html)**: The original visual brief and token simulator.
 
 
 
@@ -173,5 +173,5 @@ This repository implements the above pipeline via the following custom agent ski
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](file:///D:/projects/okf-skills/LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
