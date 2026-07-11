@@ -55,34 +55,34 @@ Generates dynamic Cytoscape.js HTML graph visualizations of concepts, dependenci
 You can install, update, or remove these skills using any of the following methods:
 
 ### Method 1: Using the `skills` CLI
-If your agent environment supports the `npx skills` tool:
+If your agent environment supports the `npx skills@latest` tool:
 
 * **Workspace-Specific Installation (Local)**:
   To install the skills only for the current project directory (under `.agents/skills/`):
   ```bash
-  npx skills add eloybar/okf-skills
+  npx skills@latest add eloybar/okf-skills
   ```
 * **Global Installation (All Workspaces)**:
-  Running `npx skills add eloybar/okf-skills --global` will normally fail with a `PromptScript does not support global skill installation` error because the CLI attempts to install PromptScript globally. 
+  Running `npx skills@latest add eloybar/okf-skills --global` will normally fail with a `PromptScript does not support global skill installation` error because the CLI attempts to install PromptScript globally. 
   
   To bypass this and install the skills globally for a specific agent:
   * **For Antigravity / Gemini CLI**:
     ```bash
-    npx skills add eloybar/okf-skills --global --agent antigravity
+    npx skills@latest add eloybar/okf-skills --global --agent antigravity
     ```
   * **For Claude Code**:
     ```bash
-    npx skills add eloybar/okf-skills --global --agent claude
+    npx skills@latest add eloybar/okf-skills --global --agent claude
     ```
 * **To Check for Updates / Update / Remove**:
   ```bash
-  npx skills check
-  npx skills update okf okf-maintain okf-visualize
-  npx skills remove okf okf-maintain okf-visualize
+  npx skills@latest check
+  npx skills@latest update okf okf-maintain okf-visualize
+  npx skills@latest remove okf okf-maintain okf-visualize
   ```
 
 > [!TIP]
-> **Node.js Requirement:** The `npx skills` tool requires Node.js v16+ (v18+ or v20+ recommended). If you get an `Unexpected token import` or `ERR_REQUIRE_ESM` error, or if the skills are not getting correctly registered/copied to your agent's config folder, use **Method 2 (Local Script)** instead.
+> **Node.js Requirement:** The `npx skills@latest` tool requires Node.js v16+ (v18+ or v20+ recommended). If you get an `Unexpected token import` or `ERR_REQUIRE_ESM` error, or if the skills are not getting correctly registered/copied to your agent's config folder, use **Method 2 (Local Script)** instead.
 
 ---
 
