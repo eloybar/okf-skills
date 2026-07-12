@@ -20,8 +20,17 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
 4. **Update reserved files.** If the bundle has an `index.md`, add the new concept to it. Append a dated line to `log.md` if one exists. See **Reserved files**.
    - Done when `index.md` lists the concept and `log.md` records the change — for each reserved file the bundle actually uses.
 
-5. **Steering Notice (AGENTS.md).** If bootstrapping a new bundle or if the repository root-level `AGENTS.md` (or `CLAUDE.md`) does not mention the OKF bundle, create or update it. In the instructions, direct future agents to read and maintain the OKF directory. To support monorepos or nested layouts, instruct agents to locate and use the **closest parent `okf/` directory** relative to the file they are editing, falling back to the root `okf/` if no local folder exists.
-   - Done when a root-level instruction file exists and directs agents to locate, read, and maintain the nearest local OKF bundle.
+5. **Steering Notice (AGENTS.md / CLAUDE.md).** If bootstrapping a new bundle or if the repository root-level steering notice does not mention the OKF bundle, create or update the appropriate agent configuration file depending on the active CLI/agent environment:
+   - **Detection**:
+     * If the executing agent environment is **Claude Code** (e.g., command is `claude`, or environment variables/tools like `AskUserQuestion` indicate Claude Code), target **`CLAUDE.md`**.
+     * If the executing agent environment is **Google Antigravity / Gemini CLI** (e.g., command is `agy`, or tools like `ask_permission`/`ask_question` indicate Antigravity), target **`AGENTS.md`**.
+     * Otherwise (e.g. Cursor, Cline, general agents), default to creating **`AGENTS.md`** or **`.cursorrules`** as appropriate.
+   - **Content**: 
+     * Create or update the selected steering file with a dedicated **Knowledge Bundle / OKF** section.
+     * Direct future agent sessions to locate and use the **closest parent `okf/` directory** relative to the file they are editing (falling back to the root `okf/` if no local directory exists).
+     * Instruct them to read `index.md` and relevant concept files before making modifications, and to run the `okf-maintain` skill (or local equivalent) after changes to keep documentation fresh.
+   - Done when the correct root-level agent steering file (`AGENTS.md` or `CLAUDE.md`) exists and contains the tailored OKF steering directives.
+
 
 
 6. **Conformance gate.** Verify the bundle still conforms. See **Conformance**.
