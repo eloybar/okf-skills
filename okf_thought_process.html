@@ -817,7 +817,7 @@
           <div class="card-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
           </div>
-          <h3 class="card-title">AGENTS.md Setup</h3>
+          <h3 class="card-title">AGENTS.md / CLAUDE.md Setup</h3>
           <p class="card-desc">The steering helm. Anchors the agent workflow, enforcing reading maps and triggering upkeep checks.</p>
         </label>
 
@@ -911,7 +911,18 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
 4. **Update reserved files.** If the bundle has an `index.md`, add the new concept to it. Append a dated line to `log.md` if one exists. See **Reserved files**.
    - Done when `index.md` lists the concept and `log.md` records the change — for each reserved file the bundle actually uses.
 
-5. **Conformance gate.** Verify the bundle still conforms. See **Conformance**.
+5. **Steering Notice (AGENTS.md / CLAUDE.md).** If bootstrapping a new bundle or if the repository root-level steering notice does not mention the OKF bundle, create or update the appropriate agent configuration file depending on the active CLI/agent environment:
+   - **Detection**:
+     * If the executing agent environment is **Claude Code** (e.g., command is `claude`, or environment variables/tools like `AskUserQuestion` indicate Claude Code), target **`CLAUDE.md`**.
+     * If the executing agent environment is **Google Antigravity / Gemini CLI** (e.g., command is `agy`, or tools like `ask_permission`/`ask_question` indicate Antigravity), target **`AGENTS.md`**.
+     * Otherwise (e.g. Cursor, Cline, general agents), default to creating **`AGENTS.md`** or **`.cursorrules`** as appropriate.
+   - **Content**: 
+     * Create or update the selected steering file with a dedicated **Knowledge Bundle / OKF** section.
+     * Direct future agent sessions to locate and use the **closest parent `okf/` directory** relative to the file they are editing (falling back to the root `okf/` if no local directory exists).
+     * Instruct them to read `index.md` and relevant concept files before making modifications, and to run the `okf-maintain` skill (or local equivalent) after changes to keep documentation fresh.
+   - Done when the correct root-level agent steering file (`AGENTS.md` or `CLAUDE.md`) exists and contains the tailored OKF steering directives.
+
+6. **Conformance gate.** Verify the bundle still conforms. See **Conformance**.
    - Done when every non-reserved `.md` has parseable frontmatter with a non-empty `type`, and each reserved file matches its structure.
 
 ## Frontmatter
@@ -975,8 +986,8 @@ Everything else is soft guidance. When reading a bundle, degrade gracefully: tol
       <div class="details-panel" id="details-panel-3">
         <div class="details-grid">
           <div class="details-info">
-            <h3>AGENTS.md Steering Notice</h3>
-            <p>The project-level agent configuration file acts as the developer's guide for LLMs. The <code>/okf</code> bootstrapping skill automatically handles creating or updating this file to ensure future agent sessions read the maps before writing files.</p>
+            <h3>AGENTS.md / CLAUDE.md Steering Notice</h3>
+            <p>The project-level agent configuration file acts as the developer's guide for LLMs. The <code>/okf</code> bootstrapping skill automatically handles creating or updating the appropriate configuration file (like <code>AGENTS.md</code> or <code>CLAUDE.md</code>) depending on the executing CLI to ensure future agent sessions read the maps before writing files.</p>
             <ul>
               <li>Informs incoming agents about the existence of the bundle at okf/.</li><li>Instructs agents to do progressive lookups (system.md -> details).</li><li>Requires the use of the okf-maintain skill upon making code edits.</li><li>Sets up explicit constraint rules to prevent doc drifts.</li>
             </ul>
@@ -987,13 +998,14 @@ Everything else is soft guidance. When reading a bundle, degrade gracefully: tol
                 <span>Code snippet / Structure</span>
                 <button class="copy-btn" onclick="copyCode(this)">Copy</button>
               </div>
-              <pre><code><span class="code-comment"># AGENTS.md Content</span>
-<span class="code-keyword">## Knowledge bundle</span>
-
-This repo has an OKF knowledge bundle at <span class="code-string">`okf/`</span>. 
+              <pre><code><span class="code-comment"># AGENTS.md / CLAUDE.md Content</span>
+<span class="code-keyword">## Knowledge Bundle / OKF</span>
+ 
+This repository uses Open Knowledge Format (OKF) concept mapping.
 Before writing any code or analyzing subsystems:
-<span class="code-keyword">1.</span> Read <span class="code-string">`okf/index.md`</span> and the concept file(s) relevant to the task (start at <span class="code-string">`okf/system.md`</span> for overall architecture).
-<span class="code-keyword">2.</span> If you edit files documented by a concept, invoke the <span class="code-variable">okf-maintain</span> skill to update the relevant markdown files and the <span class="code-string">`okf/log.md`</span> file before finishing.</code></pre>
+<span class="code-keyword">1.</span> Locate and use the closest parent <span class="code-string">`okf/`</span> directory relative to the file you are editing (falling back to the root <span class="code-string">`okf/`</span> if no local folder exists).
+<span class="code-keyword">2.</span> Read <span class="code-string">`index.md`</span> and the concept file(s) relevant to the task in that directory (start at <span class="code-string">`system.md`</span> for overall architecture).
+<span class="code-keyword">3.</span> If you edit files documented by a concept, run the <span class="code-variable">okf-maintain</span> skill to update the relevant markdown files and <span class="code-string">`log.md`</span> before finishing.</code></pre>
             </div>
           </div>
         </div>
@@ -1902,7 +1914,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 14px 0; }
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
           </div>
           <h3 class="feature-title">Brownfield Project Flow</h3>
-          <p class="feature-desc">Use the <strong>/okf</strong> bootstrapping skill first to scan the legacy codebase, file systems, and imports. Once the initial structure is built, commit the <code>okf/</code> directory and place the notice in <code>AGENTS.md</code> to guide future modifications.</p>
+          <p class="feature-desc">Use the <strong>/okf</strong> bootstrapping skill first to scan the legacy codebase, file systems, and imports. Once the initial structure is built, commit the <code>okf/</code> directory and place the notice in <code>AGENTS.md</code> or <code>CLAUDE.md</code> to guide future modifications.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon-circle">
