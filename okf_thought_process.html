@@ -918,8 +918,9 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
      * Otherwise (e.g. Cursor, Cline, general agents), default to creating **`AGENTS.md`** or **`.cursorrules`** as appropriate.
    - **Content**: 
      * Create or update the selected steering file with a dedicated **Knowledge Bundle / OKF** section.
-     * Direct future agent sessions to locate and use the **closest parent `okf/` directory** relative to the file they are editing (falling back to the root `okf/` if no local directory exists).
-     * Instruct them to read `index.md` and relevant concept files before making modifications, and to run the `okf-maintain` skill (or local equivalent) after changes to keep documentation fresh.
+     * Direct future agent sessions to first verify workspace synchronization on startup (checking `git status` and recent commits for code files modified after the `timestamp` in their corresponding concept files, and running `okf-maintain` to sync any drift).
+     * Instruct them to locate and use the **closest parent `okf/` directory** relative to the file they are editing (falling back to the root `okf/` if no local directory exists).
+     * Instruct them to read `index.md` and relevant concept files in that directory before making modifications, and to run the `okf-maintain` skill (or local equivalent) after changes to keep documentation fresh.
    - Done when the correct root-level agent steering file (`AGENTS.md` or `CLAUDE.md`) exists and contains the tailored OKF steering directives.
 
 6. **Conformance gate.** Verify the bundle still conforms. See **Conformance**.
@@ -1003,9 +1004,10 @@ Everything else is soft guidance. When reading a bundle, degrade gracefully: tol
  
 This repository uses Open Knowledge Format (OKF) concept mapping.
 Before writing any code or analyzing subsystems:
-<span class="code-keyword">1.</span> Locate and use the closest parent <span class="code-string">`okf/`</span> directory relative to the file you are editing (falling back to the root <span class="code-string">`okf/`</span> if no local folder exists).
-<span class="code-keyword">2.</span> Read <span class="code-string">`index.md`</span> and the concept file(s) relevant to the task in that directory (start at <span class="code-string">`system.md`</span> for overall architecture).
-<span class="code-keyword">3.</span> If you edit files documented by a concept, run the <span class="code-variable">okf-maintain</span> skill to update the relevant markdown files and <span class="code-string">`log.md`</span> before finishing.</code></pre>
+<span class="code-keyword">1.</span> Verify workspace synchronization on startup (checking <span class="code-string">`git status`</span> and recent commits for code files modified after the <span class="code-string">`timestamp`</span> in their corresponding concept files, and running the <span class="code-variable">okf-maintain</span> skill to sync any drift).
+<span class="code-keyword">2.</span> Locate and use the closest parent <span class="code-string">`okf/`</span> directory relative to the file you are editing (falling back to the root <span class="code-string">`okf/`</span> if no local folder exists).
+<span class="code-keyword">3.</span> Read <span class="code-string">`index.md`</span> and the concept file(s) relevant to the task in that directory (start at <span class="code-string">`system.md`</span> for overall architecture).
+<span class="code-keyword">4.</span> If you edit files documented by a concept, run the <span class="code-variable">okf-maintain</span> skill to update the relevant markdown files and <span class="code-string">`log.md`</span> before finishing.</code></pre>
             </div>
           </div>
         </div>
