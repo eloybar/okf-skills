@@ -72,7 +72,7 @@ If your agent environment supports the `npx skills@latest` tool:
     ```
   * **For Claude Code**:
     ```bash
-    npx skills@latest add eloybar/okf-skills --global --agent claude
+    npx skills@latest add eloybar/okf-skills --global --agent claude-code
     ```
   * **For Codex**:
     ```bash
