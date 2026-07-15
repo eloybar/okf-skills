@@ -27,8 +27,9 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
      * Otherwise (e.g. Cursor, Cline, general agents), default to creating **`AGENTS.md`** or **`.cursorrules`** as appropriate.
    - **Content**: 
      * Create or update the selected steering file with a dedicated **Knowledge Bundle / OKF** section.
-     * Direct future agent sessions to locate and use the **closest parent `okf/` directory** relative to the file they are editing (falling back to the root `okf/` if no local directory exists).
-     * Instruct them to read `index.md` and relevant concept files before making modifications, and to run the `okf-maintain` skill (or local equivalent) after changes to keep documentation fresh.
+     * Direct future agent sessions to first verify workspace synchronization on startup (checking `git status` and recent commits for code files modified after the `timestamp` in their corresponding concept files, and running `okf-maintain` to sync any drift).
+     * Instruct them to locate and use the **closest parent `okf/` directory** relative to the file they are editing (falling back to the root `okf/` if no local directory exists).
+     * Instruct them to read `index.md` and relevant concept files in that directory before making modifications, and to run the `okf-maintain` skill (or local equivalent) after changes to keep documentation fresh.
    - Done when the correct root-level agent steering file (`AGENTS.md` or `CLAUDE.md`) exists and contains the tailored OKF steering directives.
 
 
