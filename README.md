@@ -90,8 +90,8 @@ If your agent environment supports the `npx skills@latest` tool:
 * **To Check for Updates / Update / Remove**:
   ```bash
   npx skills@latest check
-  npx skills@latest update okf okf-maintain okf-visualize okf-wayfinder
-  npx skills@latest remove okf okf-maintain okf-visualize okf-wayfinder
+  npx skills@latest update okf okf-maintain okf-visualize okf-wayfinder okf-lint okf-query
+  npx skills@latest remove okf okf-maintain okf-visualize okf-wayfinder okf-lint okf-query
   ```
 
 > [!TIP]
@@ -176,9 +176,11 @@ If you have an existing codebase and are making changes (like refactoring a modu
 This repository implements the above pipeline via the following custom agent skills:
 
 * **[okf/](okf/)**: Handles creation and structure of Open Knowledge Format (OKF) bundles.
+* **[okf-wayfinder/](okf-wayfinder/)**: Guides users through bootstrapping and documenting concepts using context-aware questionnaires.
 * **[okf-maintain/](okf-maintain/)**: Runs validation after changes to keep concepts updated.
 * **[okf-visualize/](okf-visualize/)**: Generates the interactive Cytoscape graphs.
-* **[okf-wayfinder/](okf-wayfinder/)**: Guides users through bootstrapping and documenting concepts using context-aware questionnaires.
+* **[okf-lint/](okf-lint/)**: Statically analyzes the bundle to check conformance, link integrity, and concept drift.
+* **[okf-query/](okf-query/)**: Performs keyword search and codebase-resource context retrieval.
 * **[index.html](index.html)**: The visual playbook and token simulator.
 
 

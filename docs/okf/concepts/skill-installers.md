@@ -4,7 +4,7 @@ title: Skill Installer Scripts
 description: Automated scripts to install, update, and remove agent skills across different CLI platforms.
 resource: install.ps1
 tags: [installation, deployment, powershell, bash]
-timestamp: 2026-07-29T21:56:58Z
+timestamp: 2026-07-29T22:25:31Z
 ---
 
 # Overview
