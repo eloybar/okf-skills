@@ -4,7 +4,7 @@ title: The Knowledge Loop Lifecycle
 description: The closed-loop process of bootstrapping, steering, maintaining, and visualizing codebase knowledge.
 resource: file:///D:/projects/okf-skills/README.md
 tags: [architecture, loop, feedback]
-timestamp: 2026-07-29T22:24:00Z
+timestamp: 2026-07-29T22:37:00Z
 ---
 
 # Overview
