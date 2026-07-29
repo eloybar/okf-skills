@@ -2,6 +2,12 @@
 
 Newest changes recorded chronologically.
 
+## 2026-07-29T22:24:00Z
+- Created and packaged the `okf-lint` static analyzer and `okf-query` context retrieval skills.
+- Created `okf-lint-skill.md` and `okf-query-skill.md` concept maps under `/docs/okf/concepts/`.
+- Updated installer scripts (`install.ps1` and `install.sh`) to distribute the new skills.
+- Registered both skills inside `index.md` and `knowledge-loop.md` to complete the 8-step lifecycle model.
+
 ## 2026-07-29T22:17:13Z
 - Added `--all` flag to `npx skills` installation instructions in `README.md` to support automated, non-interactive selection of all skills.
 
