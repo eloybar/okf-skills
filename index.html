@@ -164,17 +164,12 @@
     }
 
     .pipeline-grid {
-      display: grid;
-      grid-template-columns: repeat(8, 1fr);
-      gap: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      max-width: 1000px;
+      margin: 0 auto;
       position: relative;
-    }
-
-    @media (max-width: 968px) {
-      .pipeline-grid {
-        grid-template-columns: 1fr;
-        gap: 2rem;
-      }
     }
 
     .pipeline-card {
@@ -183,17 +178,18 @@
       -webkit-backdrop-filter: blur(12px);
       border: 1px solid var(--border-color);
       border-radius: 16px;
-      padding: 1.75rem;
+      padding: 1.25rem 2rem;
       position: relative;
       cursor: pointer;
       transition: var(--transition-smooth);
-      display: flex;
-      flex-direction: column;
-      height: 100%;
+      display: grid;
+      grid-template-columns: 50px 50px 1fr;
+      align-items: center;
+      gap: 1.5rem;
     }
 
     .pipeline-card:hover {
-      transform: translateY(-5px);
+      transform: translateX(8px);
       background: var(--bg-surface-hover);
       border-color: var(--border-color-hover);
       box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2), 
@@ -207,21 +203,11 @@
 
     .card-step {
       font-family: var(--font-mono);
-      font-size: 0.85rem;
+      font-size: 1.15rem;
       color: var(--accent-sky);
-      font-weight: 500;
-      margin-bottom: 1rem;
+      font-weight: 600;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-    }
-
-    .card-step::after {
-      content: '';
-      flex-grow: 1;
-      height: 1px;
-      background: hsla(217, 91%, 60%, 0.15);
-      margin-left: 1rem;
     }
 
     .card-icon {
@@ -232,22 +218,28 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 1.25rem;
       color: var(--accent-sky);
       transition: var(--transition-smooth);
+    }
+
+    .card-text {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      text-align: left;
     }
 
     .card-title {
       font-family: var(--font-display);
       font-size: 1.15rem;
       font-weight: 600;
-      margin-bottom: 0.75rem;
+      margin-bottom: 0;
     }
 
     .card-desc {
       font-size: 0.9rem;
       color: var(--text-secondary);
-      flex-grow: 1;
+      margin-bottom: 0;
     }
 
     /* Details Panel */
@@ -821,8 +813,10 @@
           <div class="card-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
           </div>
-          <h3 class="card-title">OKF Specification</h3>
-          <p class="card-desc">The format standard. Defines concepts, frontmatter attributes, and progressive disclosure index rules.</p>
+          <div class="card-text">
+            <h3 class="card-title">OKF Specification</h3>
+            <p class="card-desc">The format standard. Defines concepts, frontmatter attributes, and progressive disclosure index rules.</p>
+          </div>
         </label>
 
         <!-- Step 2 -->
@@ -831,8 +825,10 @@
           <div class="card-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 3.4-2 3.4s2.14-.5 3.4-2L16.5 7.5L14 5L4.5 16.5z"></path><path d="M12 18H21"></path><path d="M18.45 2.1a2.25 2.25 0 0 1 3.18 0l.27.27a2.25 2.25 0 0 1 0 3.18L21 6.5L18.45 4z"></path></svg>
           </div>
-          <h3 class="card-title">Initial Bundle (/okf)</h3>
-          <p class="card-desc">The bootstrapper. Scans the codebase files to discover key modules and mint initial markdown concepts.</p>
+          <div class="card-text">
+            <h3 class="card-title">Initial Bundle (/okf)</h3>
+            <p class="card-desc">The bootstrapper. Scans the codebase files to discover key modules and mint initial markdown concepts.</p>
+          </div>
         </label>
 
         <!-- Step 3 -->
@@ -841,8 +837,10 @@
           <div class="card-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
           </div>
-          <h3 class="card-title">Guided Wizard (/okf-wayfinder)</h3>
-          <p class="card-desc">The cartographer. Interviews developers to capture business constraints and prevent taxonomy fragmentation.</p>
+          <div class="card-text">
+            <h3 class="card-title">Guided Wizard (/okf-wayfinder)</h3>
+            <p class="card-desc">The cartographer. Interviews developers to capture business constraints and prevent taxonomy fragmentation.</p>
+          </div>
         </label>
 
         <!-- Step 4 -->
@@ -851,8 +849,10 @@
           <div class="card-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
           </div>
-          <h3 class="card-title">AGENTS.md / CLAUDE.md Setup</h3>
-          <p class="card-desc">The steering helm. Anchors the agent workflow, enforcing reading maps and triggering upkeep checks.</p>
+          <div class="card-text">
+            <h3 class="card-title">AGENTS.md / CLAUDE.md Setup</h3>
+            <p class="card-desc">The steering helm. Anchors the agent workflow, enforcing reading maps and triggering upkeep checks.</p>
+          </div>
         </label>
 
         <!-- Step 5 -->
@@ -861,8 +861,10 @@
           <div class="card-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
           </div>
-          <h3 class="card-title">Context Query (/okf-query)</h3>
-          <p class="card-desc">The context engine. Scans the bundle to retrieve and inject relevant concepts into agent prompts.</p>
+          <div class="card-text">
+            <h3 class="card-title">Context Query (/okf-query)</h3>
+            <p class="card-desc">The context engine. Scans the bundle to retrieve and inject relevant concepts into agent prompts.</p>
+          </div>
         </label>
 
         <!-- Step 6 -->
@@ -871,8 +873,10 @@
           <div class="card-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
           </div>
-          <h3 class="card-title">Model Keep (/okf-maintain)</h3>
-          <p class="card-desc">The immune system. A model-invoked trigger updating relevant concepts Reactively as code evolves.</p>
+          <div class="card-text">
+            <h3 class="card-title">Model Keep (/okf-maintain)</h3>
+            <p class="card-desc">The immune system. A model-invoked trigger updating relevant concepts Reactively as code evolves.</p>
+          </div>
         </label>
 
         <!-- Step 7 -->
@@ -881,8 +885,10 @@
           <div class="card-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
           </div>
-          <h3 class="card-title">Drift Linter (/okf-lint)</h3>
-          <p class="card-desc">The quality gate. Static analyzer verifying bundle links, conformance, and git-based drift in CI/CD.</p>
+          <div class="card-text">
+            <h3 class="card-title">Drift Linter (/okf-lint)</h3>
+            <p class="card-desc">The quality gate. Static analyzer verifying bundle links, conformance, and git-based drift in CI/CD.</p>
+          </div>
         </label>
 
         <!-- Step 8 -->
@@ -891,8 +897,10 @@
           <div class="card-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
           </div>
-          <h3 class="card-title">Visualizer (/okf-visualize)</h3>
-          <p class="card-desc">The map generator. Compiles markdown links into interactive Cytoscape.js HTML graphs.</p>
+          <div class="card-text">
+            <h3 class="card-title">Visualizer (/okf-visualize)</h3>
+            <p class="card-desc">The map generator. Compiles markdown links into interactive Cytoscape.js HTML graphs.</p>
+          </div>
         </label>
 
       </div>
