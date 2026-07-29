@@ -2,6 +2,9 @@
 
 Newest changes recorded chronologically.
 
+## 2026-07-29T22:17:13Z
+- Added `--all` flag to `npx skills` installation instructions in `README.md` to support automated, non-interactive selection of all skills.
+
 ## 2026-07-29T22:12:34Z
 - Swapped Step 2 (Initial Bundle via `/okf`) and Step 3 (Guided Wizard via `/okf-wayfinder`) in `README.md` and `knowledge-loop.md` to fix the logical initialization sequence.
 

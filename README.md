@@ -63,29 +63,29 @@ You can install, update, or remove these skills using any of the following metho
 If your agent environment supports the `npx skills@latest` tool:
 
 * **Workspace-Specific Installation (Local)**:
-  To install the skills only for the current project directory (under `.agents/skills/`):
+  To install all skills automatically for the current project directory (under `.agents/skills/`):
   ```bash
-  npx skills@latest add eloybar/okf-skills
+  npx skills@latest add eloybar/okf-skills --all
   ```
 * **Global Installation (All Workspaces)**:
   Running `npx skills@latest add eloybar/okf-skills --global` will normally fail with a `PromptScript does not support global skill installation` error because the CLI attempts to install PromptScript globally. 
   
-  To bypass this and install the skills globally for a specific agent:
+  To bypass this and install all skills globally for a specific agent:
   * **For Antigravity / Gemini CLI**:
     ```bash
-    npx skills@latest add eloybar/okf-skills --global --agent antigravity
+    npx skills@latest add eloybar/okf-skills --global --agent antigravity --all
     ```
   * **For Claude Code**:
     ```bash
-    npx skills@latest add eloybar/okf-skills --global --agent claude-code
+    npx skills@latest add eloybar/okf-skills --global --agent claude-code --all
     ```
   * **For Codex**:
     ```bash
-    npx skills@latest add eloybar/okf-skills --global --agent codex
+    npx skills@latest add eloybar/okf-skills --global --agent codex --all
     ```
   * **For Hermes**:
     ```bash
-    npx skills@latest add eloybar/okf-skills --global --agent hermes
+    npx skills@latest add eloybar/okf-skills --global --agent hermes --all
     ```
 * **To Check for Updates / Update / Remove**:
   ```bash
