@@ -48,13 +48,18 @@ function parseFrontmatter(content) {
 }
 
 function extractLinks(body, docDir, bundleRoot) {
+  // Strip fenced code blocks and inline backticked code
+  const stripped = body
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`[^`\r\n]+`/g, '');
+
   const linkRe = /\]\(([^)\s]+\.md)(?:#[A-Za-z0-9_\-]*)?\)/g;
   const out = [];
   const seen = new Set();
   const bundleRootResolved = path.resolve(bundleRoot);
 
   let match;
-  while ((match = linkRe.exec(body)) !== null) {
+  while ((match = linkRe.exec(stripped)) !== null) {
     const target = match[1];
     if (target.includes('://')) {
       continue;

@@ -58,7 +58,7 @@ if ($Agent -eq "All") {
 foreach ($TargetDir in $TargetDirs) {
     if ($Action -eq "Remove") {
         Write-Host "Removing OKF skills from $TargetDir..." -ForegroundColor Yellow
-        $skills = @("okf", "okf-maintain", "okf-visualize", "okf-wayfinder")
+        $skills = @("okf", "okf-maintain", "okf-visualize", "okf-wayfinder", "okf-lint", "okf-query")
         foreach ($skill in $skills) {
             $skillPath = Join-Path $TargetDir $skill
             if (Test-Path $skillPath) {
@@ -84,7 +84,7 @@ foreach ($TargetDir in $TargetDirs) {
         if ($isLocal) {
             Write-Host "[i] Installing from local repository..." -ForegroundColor Gray
             $srcDir = Split-Path $scriptPath
-            $skills = @("okf", "okf-maintain", "okf-visualize", "okf-wayfinder")
+            $skills = @("okf", "okf-maintain", "okf-visualize", "okf-wayfinder", "okf-lint", "okf-query")
             foreach ($skill in $skills) {
                 $srcPath = Join-Path $srcDir $skill
                 Copy-Item -Path $srcPath -Destination $TargetDir -Recurse -Force
@@ -104,7 +104,7 @@ foreach ($TargetDir in $TargetDirs) {
 
             # Copy skills
             $extractedRoot = Join-Path $tempFolder "okf-skills-main"
-            $skills = @("okf", "okf-maintain", "okf-visualize", "okf-wayfinder")
+            $skills = @("okf", "okf-maintain", "okf-visualize", "okf-wayfinder", "okf-lint", "okf-query")
             foreach ($skill in $skills) {
                 $srcPath = Join-Path $extractedRoot $skill
                 Copy-Item -Path $srcPath -Destination $TargetDir -Recurse -Force
