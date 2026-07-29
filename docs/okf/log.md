@@ -2,6 +2,9 @@
 
 Newest changes recorded chronologically.
 
+## 2026-07-29T22:55:00Z
+- Updated `README.md` to add troubleshooting warnings explaining pathing/visibility issues with `npx skills --global` on Antigravity and Claude Code.
+
 ## 2026-07-29T22:24:00Z
 - Created and packaged the `okf-lint` static analyzer and `okf-query` context retrieval skills.
 - Created `okf-lint-skill.md` and `okf-query-skill.md` concept maps under `/docs/okf/concepts/`.
