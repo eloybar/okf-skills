@@ -13,12 +13,15 @@ The self-documenting codebase runs on a closed-loop system of continuous concept
 ```mermaid
 graph TD
     A["01. OKF Specification"] --> B["02. Initial Bundle (/okf)"]
-    B --> C["03. Guided Wizard (/okf-wayfinder)"]
+    B --> C["03. Guided Onboarding (/okf-wayfinder)"]
     C --> D["04. AGENTS.md Steering"]
-    D --> E["05. Model-Invoked Maintenance (/okf-maintain)"]
-    E -->|Autonomous Upkeep| C
-    E --> F["06. Interactive Visualization (/okf-visualize)"]
-    F -->|HITL Refinement| C
+    D --> E["05. Context Retrieval (/okf-query)"]
+    E --> F["06. Upkeep Maintenance (/okf-maintain)"]
+    F -->|Auto-Upkeep| C
+    F --> G["07. Drift Linter (/okf-lint)"]
+    G -->|PR Validation| C
+    G --> H["08. Visualizer Graph (/okf-visualize)"]
+    H -->|HITL Review| C
 ```
 
 ### 1. OKF Specification

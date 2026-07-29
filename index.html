@@ -165,7 +165,7 @@
 
     .pipeline-grid {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(8, 1fr);
       gap: 1.25rem;
       position: relative;
     }
@@ -462,7 +462,9 @@
     #toggle-step-3:checked ~ .pipeline-section #details-panel-3,
     #toggle-step-4:checked ~ .pipeline-section #details-panel-4,
     #toggle-step-5:checked ~ .pipeline-section #details-panel-5,
-    #toggle-step-6:checked ~ .pipeline-section #details-panel-6 {
+    #toggle-step-6:checked ~ .pipeline-section #details-panel-6,
+    #toggle-step-7:checked ~ .pipeline-section #details-panel-7,
+    #toggle-step-8:checked ~ .pipeline-section #details-panel-8 {
       margin-top: 2.5rem;
       padding: 2.5rem;
       border-color: var(--border-color);
@@ -477,7 +479,9 @@
     #toggle-step-3:checked ~ .pipeline-section #step-card-3,
     #toggle-step-4:checked ~ .pipeline-section #step-card-4,
     #toggle-step-5:checked ~ .pipeline-section #step-card-5,
-    #toggle-step-6:checked ~ .pipeline-section #step-card-6 {
+    #toggle-step-6:checked ~ .pipeline-section #step-card-6,
+    #toggle-step-7:checked ~ .pipeline-section #step-card-7,
+    #toggle-step-8:checked ~ .pipeline-section #step-card-8 {
       transform: translateY(-5px);
       background: var(--bg-surface-hover);
       border-color: var(--accent-sky);
@@ -490,7 +494,9 @@
     #toggle-step-3:checked ~ .pipeline-section #step-card-3 .card-icon,
     #toggle-step-4:checked ~ .pipeline-section #step-card-4 .card-icon,
     #toggle-step-5:checked ~ .pipeline-section #step-card-5 .card-icon,
-    #toggle-step-6:checked ~ .pipeline-section #step-card-6 .card-icon {
+    #toggle-step-6:checked ~ .pipeline-section #step-card-6 .card-icon,
+    #toggle-step-7:checked ~ .pipeline-section #step-card-7 .card-icon,
+    #toggle-step-8:checked ~ .pipeline-section #step-card-8 .card-icon {
       background: var(--gradient-primary);
       color: var(--text-primary);
     }
@@ -794,6 +800,8 @@
     <input type="radio" name="timeline-toggle" id="toggle-step-4" style="display:none;">
     <input type="radio" name="timeline-toggle" id="toggle-step-5" style="display:none;">
     <input type="radio" name="timeline-toggle" id="toggle-step-6" style="display:none;">
+    <input type="radio" name="timeline-toggle" id="toggle-step-7" style="display:none;">
+    <input type="radio" name="timeline-toggle" id="toggle-step-8" style="display:none;">
 
     <!-- Hero / Header -->
     <header>
@@ -851,15 +859,35 @@
         <label for="toggle-step-5" class="pipeline-card" id="step-card-5" tabindex="0" role="button">
           <div class="card-step">05</div>
           <div class="card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          </div>
+          <h3 class="card-title">Context Query (/okf-query)</h3>
+          <p class="card-desc">The context engine. Scans the bundle to retrieve and inject relevant concepts into agent prompts.</p>
+        </label>
+
+        <!-- Step 6 -->
+        <label for="toggle-step-6" class="pipeline-card" id="step-card-6" tabindex="0" role="button">
+          <div class="card-step">06</div>
+          <div class="card-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
           </div>
           <h3 class="card-title">Model Keep (/okf-maintain)</h3>
           <p class="card-desc">The immune system. A model-invoked trigger updating relevant concepts Reactively as code evolves.</p>
         </label>
 
-        <!-- Step 6 -->
-        <label for="toggle-step-6" class="pipeline-card" id="step-card-6" tabindex="0" role="button">
-          <div class="card-step">06</div>
+        <!-- Step 7 -->
+        <label for="toggle-step-7" class="pipeline-card" id="step-card-7" tabindex="0" role="button">
+          <div class="card-step">07</div>
+          <div class="card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          </div>
+          <h3 class="card-title">Drift Linter (/okf-lint)</h3>
+          <p class="card-desc">The quality gate. Static analyzer verifying bundle links, conformance, and git-based drift in CI/CD.</p>
+        </label>
+
+        <!-- Step 8 -->
+        <label for="toggle-step-8" class="pipeline-card" id="step-card-8" tabindex="0" role="button">
+          <div class="card-step">08</div>
           <div class="card-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
           </div>
@@ -1158,6 +1186,98 @@ Before writing any code or analyzing subsystems:
       <div class="details-panel" id="details-panel-5">
         <div class="details-grid">
           <div class="details-info">
+            <h3>Context-Aware Query Engine</h3>
+            <p>The <code>/okf-query</code> skill retrieves matching OKF concepts matching specific file paths or text queries, enabling agents to instantly load relevant architectural boundaries, dependencies, and business constraints directly into memory.</p>
+            <ul>
+              <li>Resolves codebase file paths relative to workspace roots to find corresponding resource mappings.</li>
+              <li>Performs keyword search queries across concept titles, tags, types, and bodies.</li>
+              <li>Consolidates matches into a single markdown block optimized for prompt injection.</li>
+            </ul>
+          </div>
+          <div class="details-code-container">
+            <!-- Hidden radio selectors for code tabs -->
+            <input type="radio" name="s5q-tab-selector" id="s5q-tab-1" checked style="display:none;">
+            <input type="radio" name="s5q-tab-selector" id="s5q-tab-2" style="display:none;">
+
+            <div class="code-tab-container">
+              <div class="code-tabs">
+                <label for="s5q-tab-1" class="tab-btn">SKILL.md</label>
+                <label for="s5q-tab-2" class="tab-btn">query.js</label>
+              </div>
+
+              <!-- Panel 1: SKILL.md -->
+              <div class="details-code tab-panel" id="s5q-panel-1">
+                <div class="code-header">
+                  <span>SKILL.md (Instructions)</span>
+                  <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                </div>
+                <pre><code><span class="code-comment"># okf-query/SKILL.md</span>
+---
+name: okf-query
+description: Scan the OKF knowledge bundle to retrieve and inject relevant context matching specific files or search queries.
+---
+
+1. **Locate the Bundle**
+   - Locate the OKF bundle root directory at /docs/okf or /okf.
+
+2. **Match by File Path (`--file &lt;path&gt;`)**
+   - Take a file path as input and resolve it relative to the workspace root.
+   - Scan all concepts and check their `resource` values.
+   - Select the concept if its target path matches the input file or a parent directory.
+
+3. **Match by Text Search (`--search &lt;query&gt;`)**
+   - Search concept titles, tags, descriptions, and body text for the keyword.
+
+4. **Consolidated Output**
+   - Output selected concepts formatted as a single markdown context block.</code></pre>
+              </div>
+
+              <!-- Panel 2: query.js -->
+              <div class="details-code tab-panel" id="s5q-panel-2">
+                <div class="code-header">
+                  <span>query.js (Retrieval Script)</span>
+                  <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                </div>
+                <pre><code>// Scan concepts matching file resource path or search keywords
+const allConcepts = scanConcepts(bundleRoot, bundleRoot, workspaceRoot);
+const matched = [];
+
+if (fileIndex !== -1) {
+  const targetFile = path.resolve(workspaceRoot, args[fileIndex + 1]);
+  const normalizedTarget = path.normalize(targetFile);
+
+  for (const c of allConcepts) {
+    if (c.frontmatter.resource) {
+      const resPath = resolveResourceLocalPath(c.frontmatter.resource, workspaceRoot);
+      if (resPath) {
+        const normalizedRes = path.normalize(resPath);
+        if (normalizedTarget === normalizedRes || normalizedTarget.startsWith(normalizedRes + path.sep)) {
+          matched.push(c);
+        }
+      }
+    }
+  }
+} else if (searchIndex !== -1) {
+  const keyword = args[searchIndex + 1].toLowerCase();
+  for (const c of allConcepts) {
+    const title = (c.frontmatter.title || '').toLowerCase();
+    const desc = (c.frontmatter.description || '').toLowerCase();
+    const body = c.body.toLowerCase();
+    if (title.includes(keyword) || desc.includes(keyword) || body.includes(keyword)) {
+      matched.push(c);
+    }
+  }
+}</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Details Panel 6 -->
+      <div class="details-panel" id="details-panel-6">
+        <div class="details-grid">
+          <div class="details-info">
             <h3>Model-Invoked Maintenance</h3>
             <p>Because okf-maintain is configured as model-invoked, documentation upkeep becomes an automated agent reflex. Updates are generated as code changes, avoiding metadata rot.</p>
             <ul>
@@ -1198,8 +1318,92 @@ Keep an existing **OKF bundle** current so it doesn't rot. This skill handles bo
         </div>
       </div>
 
-      <!-- Details Panel 6 -->
-      <div class="details-panel" id="details-panel-6">
+      <!-- Details Panel 7 -->
+      <div class="details-panel" id="details-panel-7">
+        <div class="details-grid">
+          <div class="details-info">
+            <h3>Static Verification & Drift Gate</h3>
+            <p>The <code>/okf-lint</code> skill ensures the OKF bundle remains syntactically valid and cross-linked correctly. In addition, it detects documentation-code drift by querying Git for resource modification dates.</p>
+            <ul>
+              <li>Checks frontmatter conformance, ensuring valid YAML and presence of `type`.</li>
+              <li>Validates internal markdown link targets, preventing broken paths.</li>
+              <li>Strips fenced code blocks and code spans to ignore example snippets.</li>
+              <li>Performs git-based drift analysis (`--drift`), checking if resource files have been committed since their concept timestamps were updated.</li>
+            </ul>
+          </div>
+          <div class="details-code-container">
+            <!-- Hidden radio selectors for code tabs -->
+            <input type="radio" name="s7l-tab-selector" id="s7l-tab-1" checked style="display:none;">
+            <input type="radio" name="s7l-tab-selector" id="s7l-tab-2" style="display:none;">
+
+            <div class="code-tab-container">
+              <div class="code-tabs">
+                <label for="s7l-tab-1" class="tab-btn">SKILL.md</label>
+                <label for="s7l-tab-2" class="tab-btn">lint.js</label>
+              </div>
+
+              <!-- Panel 1: SKILL.md -->
+              <div class="details-code tab-panel" id="s7l-panel-1">
+                <div class="code-header">
+                  <span>SKILL.md (Instructions)</span>
+                  <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                </div>
+                <pre><code><span class="code-comment"># okf-lint/SKILL.md</span>
+---
+name: okf-lint
+description: Statically analyze the OKF knowledge bundle to check conformance, link integrity, and concept drift.
+---
+
+1. **Verify Conformance**
+   - Ensure all .md files have valid YAML frontmatter with a type.
+
+2. **Verify Link Integrity**
+   - Confirm internal markdown links point to existing concepts.
+
+3. **Check Concept Drift (`--drift`)**
+   - Query git last commit date of concept's resource:
+     git log -1 --format="%aI" -- &lt;file-path&gt;
+   - If the code file is newer than the timestamp, raise drift warning.</code></pre>
+              </div>
+
+              <!-- Panel 2: lint.js -->
+              <div class="details-code tab-panel" id="s7l-panel-2">
+                <div class="code-header">
+                  <span>lint.js (Linter Script)</span>
+                  <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                </div>
+                <pre><code>function extractLinks(content) {
+  // Strip code blocks and inline codeticks first
+  const stripped = content
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`[^`\r\n]+`/g, '');
+
+  const links = [];
+  const linkRe = /\]\(([^)\s]+\.md)(?:#[A-Za-z0-9_\-]*)?\)/g;
+  let match;
+  while ((match = linkRe.exec(stripped)) !== null) {
+    links.push(match[1]);
+  }
+  return links;
+}
+
+// Compare timestamps for concept drift
+const gitTimeStr = getGitLastModifiedISO(resolvedPath);
+if (gitTimeStr) {
+  const gitTime = new Date(gitTimeStr);
+  const conceptTime = new Date(fm.timestamp);
+  if (gitTime > conceptTime) {
+    results.warnings.push(`[${relativePath}] Warning: Concept drift detected.`);
+  }
+}</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Details Panel 8 -->
+      <div class="details-panel" id="details-panel-8">
         <div class="details-grid">
           <div class="details-info">
             <h3>Interactive Visualization</h3>
