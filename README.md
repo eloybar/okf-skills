@@ -12,12 +12,11 @@ The self-documenting codebase runs on a closed-loop system of continuous concept
 
 ```mermaid
 graph TD
-    A["01. OKF Specification"] --> B["02. Guided Wizard (/okf-wayfinder)"]
-    B --> C["03. Initial Bundle (/okf)"]
+    A["01. OKF Specification"] --> B["02. Initial Bundle (/okf)"]
+    B --> C["03. Guided Wizard (/okf-wayfinder)"]
     C --> D["04. AGENTS.md Steering"]
     D --> E["05. Model-Invoked Maintenance (/okf-maintain)"]
     E -->|Autonomous Upkeep| C
-    E -->|Interactive refinement| B
     E --> F["06. Interactive Visualization (/okf-visualize)"]
     F -->|HITL Refinement| C
 ```
@@ -26,13 +25,13 @@ graph TD
 Establishes typed Markdown concepts to store codebase architecture, core domain models, and solutions.
 * **Component**: [okf/SKILL.md](okf/SKILL.md)
 
-### 2. Guided Wizard Onboarding
-Interviews developers or agents to capture tribal business context, SLAs, and downstream clients without manual typing overhead.
-* **Component**: [okf-wayfinder/SKILL.md](okf-wayfinder/SKILL.md)
-
-### 3. Initial Bundle Creation
+### 2. Initial Bundle Creation
 Builds the first set of concepts under `./docs/okf/` to document the codebase's architecture and lessons learned.
 * **Component**: [okf/SKILL.md](okf/SKILL.md)
+
+### 3. Guided Wizard Onboarding
+Interviews developers or agents to capture tribal business context, SLAs, and downstream clients without manual typing overhead.
+* **Component**: [okf-wayfinder/SKILL.md](okf-wayfinder/SKILL.md)
 
 ### 4. AGENTS.md Steering Notice
 Informs incoming LLM agents (like Antigravity or Claude Code) that the repository has a structured knowledge base, providing instructions on how to use it.
