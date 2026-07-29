@@ -4,7 +4,7 @@ title: Interactive Simulator & Playbook
 description: A self-contained HTML brief and token efficiency calculator explaining OKF savings.
 resource: file:///D:/projects/okf-skills/index.html
 tags: [simulation, onboarding, visual-brief, playground]
-timestamp: 2026-07-29T22:25:31Z
+timestamp: 2026-07-29T22:37:00Z
 ---
 
 # Overview
