@@ -7,14 +7,16 @@ An OKF knowledge bundle is located in the `/docs/okf` directory. This bundle des
 
 ### 1. Verification and Synchronization on Startup
 On startup, before making any modifications to the codebase:
-- Check `git status` and recent commits for any code files modified *after* the `timestamp` in their corresponding concept files.
-- Run the `okf-maintain` skill to detect and sync any concept drift.
+- Run the `okf-lint --drift` skill to detect and inspect any unsynchronized concept drift.
+- Run the `okf-maintain` skill to fix/sync any flagged concept drift.
 
 ### 2. Locating the OKF Bundle
 - Always locate and use `/docs/okf` relative to the workspace root to check and maintain the bundle.
 
-### 3. Reading and Navigating Concepts
-- Read the [Index File](/docs/okf/index.md) and relevant concept files in that directory before making modifications to understand the architecture, design choices, and vocabulary.
+### 3. Context Retrieval & Reading Concepts
+- Read the [Index File](/docs/okf/index.md) to understand overall system architecture.
+- Before analyzing or modifying any specific file, run the `okf-query --file <file-path>` skill to retrieve and inject relevant design guidelines, SLAs, and dependencies directly into your context.
 
-### 4. Post-Edit Upkeep
-- After making any edits to the codebase, run the `okf-maintain` skill (or local equivalent) on the `/docs/okf` bundle to update corresponding concept files, index entries, and the change history log. This ensures the documentation never rots.
+### 4. Post-Edit Upkeep & Conformance
+- After making edits, run the `okf-maintain` skill to update the relevant concept files, frontmatter timestamps, index entries, and `log.md`.
+- Run the `okf-lint` skill to guarantee that all markdown links are intact and all concept structures conform before completing the task.
