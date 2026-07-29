@@ -12,32 +12,38 @@ The self-documenting codebase runs on a closed-loop system of continuous concept
 
 ```mermaid
 graph TD
-    A[01. OKF Specification] --> B[02. Initial Bundle]
-    B --> C[03. AGENTS.md Setup]
-    C --> D[04. Model-Invoked Maintenance]
-    D -->|Autonomous Upkeep| B
-    D --> E[05. Interactive Visualization]
-    E -->|HITL Refinement| B
+    A["01. OKF Specification"] --> B["02. Guided Wizard (/okf-wayfinder)"]
+    B --> C["03. Initial Bundle (/okf)"]
+    C --> D["04. AGENTS.md Steering"]
+    D --> E["05. Model-Invoked Maintenance (/okf-maintain)"]
+    E -->|Autonomous Upkeep| C
+    E -->|Interactive refinement| B
+    E --> F["06. Interactive Visualization (/okf-visualize)"]
+    F -->|HITL Refinement| C
 ```
 
 ### 1. OKF Specification
 Establishes typed Markdown concepts to store codebase architecture, core domain models, and solutions.
 * **Component**: [okf/SKILL.md](okf/SKILL.md)
 
-### 2. Initial Bundle Creation
-Builds the first set of concepts under `./okf` or `./docs/solutions` to document the codebase's architecture and lessons learned.
+### 2. Guided Wizard Onboarding
+Interviews developers or agents to capture tribal business context, SLAs, and downstream clients without manual typing overhead.
+* **Component**: [okf-wayfinder/SKILL.md](okf-wayfinder/SKILL.md)
+
+### 3. Initial Bundle Creation
+Builds the first set of concepts under `./docs/okf/` to document the codebase's architecture and lessons learned.
 * **Component**: [okf/SKILL.md](okf/SKILL.md)
 
-### 3. AGENTS.md Steering Notice
+### 4. AGENTS.md Steering Notice
 Informs incoming LLM agents (like Antigravity or Claude Code) that the repository has a structured knowledge base, providing instructions on how to use it.
 * **Component**: `AGENTS.md` (root directory configuration)
 
-### 4. Model-Invoked Maintenance
-Automatically runs post-edit checks to verify that modifications to files don't render documentation out of date. **Feeds directly back into Step 2 to complete the Autonomous Upkeep loop.**
+### 5. Model-Invoked Maintenance
+Automatically runs post-edit checks to verify that modifications to files don't render documentation out of date. **Feeds directly back into Step 3 to complete the Autonomous Upkeep loop.**
 * **Component**: [okf-maintain/SKILL.md](okf-maintain/SKILL.md)
 
-### 5. Interactive Visualization
-Generates dynamic Cytoscape.js HTML graph visualizations of concepts, dependencies, and connections. **Serves as the entry point for the Human-in-the-Loop (HITL) Refinement loop, allowing developers to visually audit codebase topology and manually calibrate concept alignments.**
+### 6. Interactive Visualization
+Generates dynamic Cytoscape.js HTML graph visualizations of concepts, dependencies, and connections. **Serves as the entry point for the Human-in-the-Loop (HITL) Refinement loop, allowing developers to visually audit codebase topology.**
 * **Component**: [okf-visualize/SKILL.md](okf-visualize/SKILL.md)
 
 ---
@@ -85,8 +91,8 @@ If your agent environment supports the `npx skills@latest` tool:
 * **To Check for Updates / Update / Remove**:
   ```bash
   npx skills@latest check
-  npx skills@latest update okf okf-maintain okf-visualize
-  npx skills@latest remove okf okf-maintain okf-visualize
+  npx skills@latest update okf okf-maintain okf-visualize okf-wayfinder
+  npx skills@latest remove okf okf-maintain okf-visualize okf-wayfinder
   ```
 
 > [!TIP]
@@ -173,7 +179,8 @@ This repository implements the above pipeline via the following custom agent ski
 * **[okf/](okf/)**: Handles creation and structure of Open Knowledge Format (OKF) bundles.
 * **[okf-maintain/](okf-maintain/)**: Runs validation after changes to keep concepts updated.
 * **[okf-visualize/](okf-visualize/)**: Generates the interactive Cytoscape graphs.
-* **[okf_thought_process.html](okf_thought_process.html)**: The original visual brief and token simulator.
+* **[okf-wayfinder/](okf-wayfinder/)**: Guides users through bootstrapping and documenting concepts using context-aware questionnaires.
+* **[index.html](index.html)**: The visual playbook and token simulator.
 
 
 

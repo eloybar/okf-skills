@@ -165,7 +165,7 @@
 
     .pipeline-grid {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(6, 1fr);
       gap: 1.25rem;
       position: relative;
     }
@@ -422,6 +422,18 @@
 
     .tab-panel {
       display: none;
+    }    /* PURE CSS TAB SELECTION FOR STEP 3 */
+    #s3-tab-1:checked ~ .code-tab-container #s3-panel-1,
+    #s3-tab-2:checked ~ .code-tab-container #s3-panel-2 {
+      display: block;
+    }
+
+    #s3-tab-1:checked ~ .code-tab-container label[for="s3-tab-1"],
+    #s3-tab-2:checked ~ .code-tab-container label[for="s3-tab-2"] {
+      background: hsla(217, 91%, 60%, 0.25);
+      color: var(--accent-sky);
+      border-color: var(--accent-sky);
+      box-shadow: 0 0 10px hsla(199, 89%, 48%, 0.15);
     }
 
     /* PURE CSS TAB SELECTION FOR STEP 5 */
@@ -449,7 +461,8 @@
     #toggle-step-2:checked ~ .pipeline-section #details-panel-2,
     #toggle-step-3:checked ~ .pipeline-section #details-panel-3,
     #toggle-step-4:checked ~ .pipeline-section #details-panel-4,
-    #toggle-step-5:checked ~ .pipeline-section #details-panel-5 {
+    #toggle-step-5:checked ~ .pipeline-section #details-panel-5,
+    #toggle-step-6:checked ~ .pipeline-section #details-panel-6 {
       margin-top: 2.5rem;
       padding: 2.5rem;
       border-color: var(--border-color);
@@ -463,7 +476,8 @@
     #toggle-step-2:checked ~ .pipeline-section #step-card-2,
     #toggle-step-3:checked ~ .pipeline-section #step-card-3,
     #toggle-step-4:checked ~ .pipeline-section #step-card-4,
-    #toggle-step-5:checked ~ .pipeline-section #step-card-5 {
+    #toggle-step-5:checked ~ .pipeline-section #step-card-5,
+    #toggle-step-6:checked ~ .pipeline-section #step-card-6 {
       transform: translateY(-5px);
       background: var(--bg-surface-hover);
       border-color: var(--accent-sky);
@@ -475,7 +489,8 @@
     #toggle-step-2:checked ~ .pipeline-section #step-card-2 .card-icon,
     #toggle-step-3:checked ~ .pipeline-section #step-card-3 .card-icon,
     #toggle-step-4:checked ~ .pipeline-section #step-card-4 .card-icon,
-    #toggle-step-5:checked ~ .pipeline-section #step-card-5 .card-icon {
+    #toggle-step-5:checked ~ .pipeline-section #step-card-5 .card-icon,
+    #toggle-step-6:checked ~ .pipeline-section #step-card-6 .card-icon {
       background: var(--gradient-primary);
       color: var(--text-primary);
     }
@@ -778,6 +793,7 @@
     <input type="radio" name="timeline-toggle" id="toggle-step-3" style="display:none;">
     <input type="radio" name="timeline-toggle" id="toggle-step-4" style="display:none;">
     <input type="radio" name="timeline-toggle" id="toggle-step-5" style="display:none;">
+    <input type="radio" name="timeline-toggle" id="toggle-step-6" style="display:none;">
 
     <!-- Hero / Header -->
     <header>
@@ -815,15 +831,25 @@
         <label for="toggle-step-3" class="pipeline-card" id="step-card-3" tabindex="0" role="button">
           <div class="card-step">03</div>
           <div class="card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          </div>
+          <h3 class="card-title">Guided Wizard (/okf-wayfinder)</h3>
+          <p class="card-desc">The cartographer. Interviews developers to capture business constraints and prevent taxonomy fragmentation.</p>
+        </label>
+
+        <!-- Step 4 -->
+        <label for="toggle-step-4" class="pipeline-card" id="step-card-4" tabindex="0" role="button">
+          <div class="card-step">04</div>
+          <div class="card-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
           </div>
           <h3 class="card-title">AGENTS.md / CLAUDE.md Setup</h3>
           <p class="card-desc">The steering helm. Anchors the agent workflow, enforcing reading maps and triggering upkeep checks.</p>
         </label>
 
-        <!-- Step 4 -->
-        <label for="toggle-step-4" class="pipeline-card" id="step-card-4" tabindex="0" role="button">
-          <div class="card-step">04</div>
+        <!-- Step 5 -->
+        <label for="toggle-step-5" class="pipeline-card" id="step-card-5" tabindex="0" role="button">
+          <div class="card-step">05</div>
           <div class="card-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
           </div>
@@ -831,9 +857,9 @@
           <p class="card-desc">The immune system. A model-invoked trigger updating relevant concepts Reactively as code evolves.</p>
         </label>
 
-        <!-- Step 5 -->
-        <label for="toggle-step-5" class="pipeline-card" id="step-card-5" tabindex="0" role="button">
-          <div class="card-step">05</div>
+        <!-- Step 6 -->
+        <label for="toggle-step-6" class="pipeline-card" id="step-card-6" tabindex="0" role="button">
+          <div class="card-step">06</div>
           <div class="card-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
           </div>
@@ -987,6 +1013,121 @@ Everything else is soft guidance. When reading a bundle, degrade gracefully: tol
       <div class="details-panel" id="details-panel-3">
         <div class="details-grid">
           <div class="details-info">
+            <h3>Guided Wizard Onboarding</h3>
+            <p>The <code>/okf-wayfinder</code> skill guides the developer or agent through bootstrapping a new concept from scratch using interactive, context-aware focus questions combined with codebase analysis to prevent taxonomy drift.</p>
+            <ul>
+              <li>Locates parent OKF bundle roots automatically.</li>
+              <li>Runs the taxonomy scanner to fetch and suggest existing types/tags.</li>
+              <li>Scrapes codebase context (model parameters, endpoint paths) to draft concepts.</li>
+              <li>Limits human input fatigue to 2-3 targeted tribal knowledge questions.</li>
+            </ul>
+          </div>
+          <div class="details-code-container">
+            <!-- Hidden radio selectors for code tabs -->
+            <input type="radio" name="s3-tab-selector" id="s3-tab-1" checked style="display:none;">
+            <input type="radio" name="s3-tab-selector" id="s3-tab-2" style="display:none;">
+
+            <div class="code-tab-container">
+              <div class="code-tabs">
+                <label for="s3-tab-1" class="tab-btn">SKILL.md</label>
+                <label for="s3-tab-2" class="tab-btn">wayfinder_taxonomy.js</label>
+              </div>
+
+              <!-- Panel 1: SKILL.md -->
+              <div class="details-code tab-panel" id="s3-panel-1">
+                <div class="code-header">
+                  <span>SKILL.md (Instructions)</span>
+                  <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                </div>
+                <pre><code><span class="code-comment"># okf-wayfinder/SKILL.md</span>
+---
+name: okf-wayfinder
+description: Guide users in establishing and documenting new concepts in their OKF bundle through interactive, context-aware interviews.
+---
+
+1. **Locate the Bundle & Scan Registry**
+   - Check /docs/okf or /okf for the bundle root. If none exists, ask to initialize.
+   - Scan existing concepts to extract the list of defined types and tags.
+   - You can run the utility script:
+     node &lt;path-to-skill-directory&gt;/scripts/wayfinder_taxonomy.js
+
+2. **Categorize the Concept**
+   - Ask the user what they want to document (e.g. table, service, playbook).
+   - Display existing types and ask for choice or custom input.
+
+3. **Autogenerate a Telemetry Draft**
+   - Parse model, route, or configuration code to pre-populate schema properties.
+
+4. **Conduct the Focus Interview**
+   - Ask 2-3 targeted questions to capture tribal domain context.
+
+5. **Draft and Verify Conformance**
+   - Compile inputs, add timestamp, update index.md and log.md.</code></pre>
+              </div>
+
+              <!-- Panel 2: wayfinder_taxonomy.js -->
+              <div class="details-code tab-panel" id="s3-panel-2">
+                <div class="code-header">
+                  <span>wayfinder_taxonomy.js (Taxonomy Scanner)</span>
+                  <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                </div>
+                <pre><code>const fs = require('fs');
+const path = require('path');
+
+function parseFrontmatter(content) {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!match) return null;
+  const fmText = match[1];
+  const fm = {};
+  const lines = fmText.split(/\r?\n/);
+  for (const line of lines) {
+    const colonIndex = line.indexOf(':');
+    if (colonIndex === -1) continue;
+    const key = line.slice(0, colonIndex).trim();
+    let val = line.slice(colonIndex + 1).trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    if (key === 'tags') {
+      fm[key] = val.startsWith('[') ? val.slice(1, -1).split(',').map(t => t.trim()) : [val];
+    } else {
+      fm[key] = val;
+    }
+  }
+  return fm;
+}
+
+function scanBundleTaxonomy(dir, bundleRoot, taxonomy = { types: new Set(), tags: new Set() }) {
+  if (!fs.existsSync(dir)) return taxonomy;
+  const files = fs.readdirSync(dir);
+  for (const file of files) {
+    const fullPath = path.join(dir, file);
+    const stat = fs.statSync(fullPath);
+    if (stat.isDirectory()) {
+      scanBundleTaxonomy(fullPath, bundleRoot, taxonomy);
+    } else if (stat.isFile() && file.endsWith('.md')) {
+      if (file === 'index.md' || file === 'log.md') continue;
+      try {
+        const fm = parseFrontmatter(fs.readFileSync(fullPath, 'utf8'));
+        if (fm && fm.type) {
+          taxonomy.types.add(fm.type);
+          if (fm.tags) fm.tags.forEach(t => taxonomy.tags.add(t));
+        }
+      } catch (e) {}
+    }
+  }
+  return taxonomy;
+}</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Details Panel 4 -->
+      <div class="details-panel" id="details-panel-4">
+        <div class="details-grid">
+          <div class="details-info">
             <h3>AGENTS.md / CLAUDE.md Steering Notice</h3>
             <p>The project-level agent configuration file acts as the developer's guide for LLMs. The <code>/okf</code> bootstrapping skill automatically handles creating or updating the appropriate configuration file (like <code>AGENTS.md</code> or <code>CLAUDE.md</code>) depending on the executing CLI to ensure future agent sessions read the maps before writing files.</p>
             <ul>
@@ -1013,8 +1154,8 @@ Before writing any code or analyzing subsystems:
         </div>
       </div>
 
-      <!-- Details Panel 4 -->
-      <div class="details-panel" id="details-panel-4">
+      <!-- Details Panel 5 -->
+      <div class="details-panel" id="details-panel-5">
         <div class="details-grid">
           <div class="details-info">
             <h3>Model-Invoked Maintenance</h3>
@@ -1057,8 +1198,8 @@ Keep an existing **OKF bundle** current so it doesn't rot. This skill handles bo
         </div>
       </div>
 
-      <!-- Details Panel 5 -->
-      <div class="details-panel" id="details-panel-5">
+      <!-- Details Panel 6 -->
+      <div class="details-panel" id="details-panel-6">
         <div class="details-grid">
           <div class="details-info">
             <h3>Interactive Visualization</h3>
