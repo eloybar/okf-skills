@@ -2,6 +2,9 @@
 
 Newest changes recorded chronologically.
 
+## 2026-07-29T22:12:34Z
+- Swapped Step 2 (Initial Bundle via `/okf`) and Step 3 (Guided Wizard via `/okf-wayfinder`) in `README.md` and `knowledge-loop.md` to fix the logical initialization sequence.
+
 ## 2026-07-29T21:56:58Z
 - Executed OKF maintenance pipeline (`okf-maintain`).
 - Refreshed concept timestamps for `knowledge-loop.md`, `interactive-simulator.md`, and `skill-installers.md` to match the latest synchronization cycle.
