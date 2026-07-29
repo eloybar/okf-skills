@@ -100,6 +100,9 @@ If your agent environment supports the `npx skills@latest` tool:
 > [!TIP]
 > **Node.js Requirement:** The `npx skills@latest` tool requires Node.js v16+ (v18+ or v20+ recommended). If you get an `Unexpected token import` or `ERR_REQUIRE_ESM` error, or if the skills are not getting correctly registered/copied to your agent's config folder, use **Method 2 (Local Script)** instead.
 
+> [!WARNING]
+> **Antigravity / Claude Code Visibility Issues:** The `npx skills@latest --global` tool installs skills to a universal directory (`~\.agents\skills`) but sometimes fails to propagate or link them to the specific paths that Google Antigravity (`~/.gemini/config/skills`) or Claude Code (`~/.claude/skills`) search. If you run the global `npx skills` command and still do not see all the skills inside your active agent sessions, please use **Method 2 (Local Script Installer)** to copy the files directly and reliably to all agent paths.
+
 ---
 
 ### Method 2: Local Script Installer (Recommended for All Agents)
