@@ -11,7 +11,7 @@ Keep an existing **OKF bundle** current so it doesn't rot. This skill handles bo
 2. **Identify affected and missing concepts.** Map what changed (files edited/created, features added, facts learned) to the concept file(s) that cover it. Check `index.md` if present. If your changes introduced a new significant database schema/collection, API route module, frontend dashboard page, or core system component not yet covered in the bundle, identify it as a new concept that must be created.
    - Done when you have the list of concepts to update and new concepts to create, or have confirmed none apply (then stop).
 
-3. **Update and/or create concepts.** Edit existing affected concepts to match reality. If you identified missing concepts in Step 2, author new concept files for them. In both cases: set or refresh the `timestamp` (run `date -u +%Y-%m-%dT%H:%M:%SZ`), cross-link related concepts, and follow the `okf` skill guidelines for frontmatter and structure.
+3. **Update and/or create concepts.** Edit existing affected concepts to match reality. If you identified missing concepts in Step 2, you can invoke the `okf-wayfinder` skill to guide the authoring of new concept files by interviewing the developer. In both cases: set or refresh the `timestamp` (run `date -u +%Y-%m-%dT%H:%M:%SZ`), cross-link related concepts, and follow the `okf` skill guidelines for frontmatter and structure.
    - Done when every affected concept reflects the change and all new concepts are authored.
 
 4. **Update reserved files.** Append a dated line to `log.md` describing the changes and additions. If you added a new concept, add it to `index.md`.
