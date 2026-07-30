@@ -4,7 +4,7 @@ title: OKF Wayfinder Skill
 description: Guided wizard to bootstrap and document concepts using codebase context and focus questions.
 resource: file:///D:/projects/okf-skills/okf-wayfinder/SKILL.md
 tags: [wizard, onboarding, creation, documentation]
-timestamp: 2026-07-30T12:00:00Z
+timestamp: 2026-07-30T12:06:07Z
 ---
 
 # Overview
