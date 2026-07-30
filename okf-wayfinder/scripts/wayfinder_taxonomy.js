@@ -34,10 +34,19 @@ function parseFrontmatter(content) {
   return fm;
 }
 
+function resolveResourceLocalPath(resourceUri, workspaceRoot) {
+  if (!resourceUri) return null;
+  let localPath = resourceUri.replace(/^file:\/\/\/?/, '');
+  if (path.isAbsolute(localPath)) {
+    return path.normalize(localPath);
+  }
+  return path.normalize(path.join(workspaceRoot, localPath));
+}
+
 /**
  * Recursively scans files in directory to collect OKF metadata.
  */
-function scanBundleTaxonomy(dir, bundleRoot, taxonomy = { types: new Set(), tags: new Set() }) {
+function scanBundleTaxonomy(dir, bundleRoot, workspaceRoot, taxonomy = { types: new Set(), tags: new Set(), resources: new Set() }) {
   if (!fs.existsSync(dir)) return taxonomy;
   
   const files = fs.readdirSync(dir);
@@ -46,7 +55,7 @@ function scanBundleTaxonomy(dir, bundleRoot, taxonomy = { types: new Set(), tags
     const stat = fs.statSync(fullPath);
     
     if (stat.isDirectory()) {
-      scanBundleTaxonomy(fullPath, bundleRoot, taxonomy);
+      scanBundleTaxonomy(fullPath, bundleRoot, workspaceRoot, taxonomy);
     } else if (stat.isFile() && file.endsWith('.md')) {
       const lower = file.toLowerCase();
       if (lower === 'index.md' || lower === 'log.md') continue;
@@ -54,10 +63,18 @@ function scanBundleTaxonomy(dir, bundleRoot, taxonomy = { types: new Set(), tags
       try {
         const content = fs.readFileSync(fullPath, 'utf8');
         const fm = parseFrontmatter(content);
-        if (fm && fm.type) {
-          taxonomy.types.add(fm.type);
+        if (fm) {
+          if (fm.type) {
+            taxonomy.types.add(fm.type);
+          }
           if (Array.isArray(fm.tags)) {
             fm.tags.forEach(t => taxonomy.tags.add(t));
+          }
+          if (fm.resource) {
+            const resolved = resolveResourceLocalPath(fm.resource, workspaceRoot);
+            if (resolved) {
+              taxonomy.resources.add(resolved);
+            }
           }
         }
       } catch (err) {
@@ -68,25 +85,70 @@ function scanBundleTaxonomy(dir, bundleRoot, taxonomy = { types: new Set(), tags
   return taxonomy;
 }
 
+/**
+ * Recursively scans the workspace to find files that do not have associated concepts.
+ */
+function scanWorkspace(dir, workspaceRoot, documentedResources, results = []) {
+  if (!fs.existsSync(dir)) return results;
+  
+  const files = fs.readdirSync(dir);
+  const ignores = ['.git', 'node_modules', '.agents', '.claude', 'agent', 'docs', 'tmp'];
+  
+  for (const file of files) {
+    if (ignores.includes(file)) continue;
+    
+    const fullPath = path.join(dir, file);
+    let stat;
+    try {
+      stat = fs.statSync(fullPath);
+    } catch (e) {
+      continue;
+    }
+    
+    if (stat.isDirectory()) {
+      scanWorkspace(fullPath, workspaceRoot, documentedResources, results);
+    } else if (stat.isFile()) {
+      const normalized = path.normalize(fullPath);
+      if (!documentedResources.has(normalized)) {
+        const relPath = path.relative(workspaceRoot, normalized).replace(/\\/g, '/');
+        
+        // Skip common auxiliary files that do not warrant dedicated concept maps
+        if (file !== 'skills-lock.json' && file !== '.gitignore' && file !== 'LICENSE') {
+          results.push({
+            path: relPath,
+            absolutePath: normalized
+          });
+        }
+      }
+    }
+  }
+  return results;
+}
+
 function main() {
-  // Check common bundle roots: ./docs/okf or ./okf
-  let bundlePath = path.resolve(process.cwd(), 'docs/okf');
+  const workspaceRoot = process.cwd();
+  let bundlePath = path.resolve(workspaceRoot, 'docs/okf');
   if (!fs.existsSync(bundlePath)) {
-    bundlePath = path.resolve(process.cwd(), 'okf');
+    bundlePath = path.resolve(workspaceRoot, 'okf');
   }
 
   if (!fs.existsSync(bundlePath)) {
-    console.error(JSON.stringify({ error: `OKF bundle root not found in ${process.cwd()}` }));
+    console.error(JSON.stringify({ error: `OKF bundle root not found in ${workspaceRoot}` }));
     process.exit(1);
   }
   
-  const taxonomy = scanBundleTaxonomy(bundlePath, bundlePath);
+  const taxonomy = { types: new Set(), tags: new Set(), resources: new Set() };
+  scanBundleTaxonomy(bundlePath, bundlePath, workspaceRoot, taxonomy);
+  
+  // Scan for undocumented files (the frontier)
+  const frontier = scanWorkspace(workspaceRoot, workspaceRoot, taxonomy.resources);
   
   console.log(JSON.stringify({
     success: true,
     bundlePath,
     types: Array.from(taxonomy.types),
-    tags: Array.from(taxonomy.tags)
+    tags: Array.from(taxonomy.tags),
+    frontier: frontier
   }, null, 2));
 }
 
@@ -94,4 +156,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { scanBundleTaxonomy };
+module.exports = { scanBundleTaxonomy, scanWorkspace };
