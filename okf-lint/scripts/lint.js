@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const https = require('https');
+const os = require('os');
 
 function parseFrontmatter(content) {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
@@ -135,7 +137,86 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, results = { err
   return results;
 }
 
-function main() {
+const INSTALLED_VERSION = '1.2.0';
+
+function compareVersions(v1, v2) {
+  const parts1 = v1.split('.').map(Number);
+  const parts2 = v2.split('.').map(Number);
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const p1 = parts1[i] || 0;
+    const p2 = parts2[i] || 0;
+    if (p1 > p2) return 1;
+    if (p1 < p2) return -1;
+  }
+  return 0;
+}
+
+function printVersionWarning(latestVersion) {
+  console.warn(`\n[okf-lint] ⚠️ Warning: Your installed OKF skills (v${INSTALLED_VERSION}) are out of date.`);
+  console.warn(`Latest version on GitHub is v${latestVersion}.`);
+  console.warn(`To update, please run the installer script:`);
+  console.warn(`  Windows (PowerShell): powershell -ExecutionPolicy Bypass -File .\\install.ps1 -Agent All`);
+  console.warn(`  macOS/Linux (Bash):   ./install.sh`);
+  console.warn(`----------------------------------------\n`);
+}
+
+function checkSkillsVersion() {
+  return new Promise((resolve) => {
+    const cachePath = path.join(os.homedir(), '.okf-skills-version-cache.json');
+    let cache = { lastChecked: 0, latestVersion: INSTALLED_VERSION };
+    
+    try {
+      if (fs.existsSync(cachePath)) {
+        cache = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+      }
+    } catch (e) {}
+
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    if (Date.now() - cache.lastChecked < oneDayMs) {
+      if (compareVersions(cache.latestVersion, INSTALLED_VERSION) > 0) {
+        printVersionWarning(cache.latestVersion);
+      }
+      return resolve();
+    }
+
+    // Fetch latest version from GitHub
+    const url = 'https://raw.githubusercontent.com/eloybar/okf-skills/main/okf-lint/SKILL.md';
+    const req = https.get(url, { timeout: 1500 }, (res) => {
+      if (res.statusCode !== 200) {
+        return resolve();
+      }
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        const match = data.match(/version:\s*([0-9.]+)/);
+        cache.lastChecked = Date.now();
+        if (match) {
+          const latestVersion = match[1].trim();
+          cache.latestVersion = latestVersion;
+          if (compareVersions(latestVersion, INSTALLED_VERSION) > 0) {
+            printVersionWarning(latestVersion);
+          }
+        }
+        try {
+          fs.writeFileSync(cachePath, JSON.stringify(cache), 'utf8');
+        } catch (e) {}
+        resolve();
+      });
+    });
+
+    req.on('error', () => {
+      resolve();
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      resolve();
+    });
+  });
+}
+
+async function main() {
+  await checkSkillsVersion();
   const args = process.argv.slice(2);
   const checkDrift = args.includes('--drift');
   
