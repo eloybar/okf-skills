@@ -12,3 +12,11 @@ Welcome to the self-documenting knowledge bundle for the OKF Skills repository.
 - [The Knowledge Loop Lifecycle](/concepts/knowledge-loop.md) — The lifecycle binding specification, steering, maintenance, and visualization.
 - [Interactive Simulator & Playbook](/concepts/interactive-simulator.md) — Visual playbook and token saving calculator.
 - [Skill Installer Scripts](/concepts/skill-installers.md) — Automated install, update, and remove scripts.
+
+## Not yet specified
+- `AGENTS.md` — Root agent steering guidelines.
+- `install.sh` — Bash shell script installer.
+- `okf-lint/scripts/lint.js` — Core linter verification and drift tracking script.
+- `okf-query/scripts/query.js` — Core context-aware querying and prompt injection script.
+- `okf-visualize/scripts/visualize.js` — Cytoscape graph visualizer script.
+- `okf-wayfinder/scripts/wayfinder_taxonomy.js` — Taxonomy registry and frontier tracker script.
