@@ -32,10 +32,13 @@ function extractLinks(content) {
     .replace(/`[^`\r\n]+`/g, '');
 
   const links = [];
-  const linkRe = /\]\(([^)\s]+\.md)(?:#[A-Za-z0-9_\-]*)?\)/g;
+  const linkRe = /\[([^\]]*)\]\(([^)\s]+\.md)(?:#[A-Za-z0-9_\-]*)?\)/g;
   let match;
   while ((match = linkRe.exec(stripped)) !== null) {
-    links.push(match[1]);
+    links.push({
+      label: match[1].trim(),
+      target: match[2]
+    });
   }
   return links;
 }
@@ -89,13 +92,27 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, results = { err
       const links = extractLinks(content);
       for (const link of links) {
         let targetPath;
-        if (link.startsWith('/')) {
-          targetPath = path.join(bundleRoot, link.slice(1));
+        if (link.target.startsWith('/')) {
+          targetPath = path.join(bundleRoot, link.target.slice(1));
         } else {
-          targetPath = path.join(path.dirname(fullPath), link);
+          targetPath = path.join(path.dirname(fullPath), link.target);
         }
         if (!fs.existsSync(targetPath)) {
-          results.errors.push(`[${relativePath}] Error: Broken concept link to '${link}'. Target does not exist.`);
+          results.errors.push(`[${relativePath}] Error: Broken concept link to '${link.target}'. Target does not exist.`);
+        }
+
+        // 2b. Refer by Name check: flag bare paths/URLs as warnings
+        const labelLower = link.label.toLowerCase();
+        const targetName = path.basename(link.target).toLowerCase();
+        const isBare = !link.label ||
+                       labelLower === targetName ||
+                       labelLower === link.target.toLowerCase() ||
+                       labelLower.endsWith('.md') ||
+                       labelLower.startsWith('/') ||
+                       /^https?:\/\//i.test(link.label);
+        
+        if (isBare) {
+          results.warnings.push(`[${relativePath}] Warning: Bare or non-descriptive link label '${link.label}' used for target '${link.target}'. Prefer using a descriptive name label (e.g. [Database Ingestion](/concepts/db-ingestion.md)).`);
         }
       }
 

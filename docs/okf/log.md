@@ -2,6 +2,12 @@
 
 Newest changes recorded chronologically.
 
+## 2026-07-30T12:00:00Z
+- Enriched `okf-wayfinder` with automated frontier tracking (fog of war) to scan for undocumented codebase files.
+- Extended the `okf-wayfinder` guided onboarding flow to support the `Decision` concept type.
+- Updated `okf-lint` with a "Refer by Name" link text validator to prevent bare path/URL link labels.
+- Updated `okf-maintain` to manage the `index.md` frontier mapping.
+
 ## 2026-07-29T22:55:00Z
 - Updated `README.md` to add troubleshooting warnings explaining pathing/visibility issues with `npx skills --global` on Antigravity and Claude Code.
 

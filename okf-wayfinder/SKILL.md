@@ -11,20 +11,23 @@ Guide the developer through creating a brand new, fully conforming OKF concept f
 
 1. **Locate the Bundle & Scan Registry**
    - Check `/docs/okf` or `/okf` for the bundle root. If none exists, ask if you should initialize a new one.
-   - Scan existing concepts to extract the list of defined `types` and `tags`. This prevents vocabulary fragmentation.
-   - You can run the utility script:
+   - Scan existing concepts to extract the list of defined `types`, `tags`, and any untracked workspace files (`frontier`). This prevents vocabulary fragmentation and identifies undocumented files.
+   - Run the utility script:
      ```powershell
      node <path-to-skill-directory>/scripts/wayfinder_taxonomy.js
      ```
 
-2. **Categorize the Concept**
-   - Ask the user what they want to document (e.g., a database table, service, deployment script, or standard procedure).
-   - Display existing types and ask:
+2. **Categorize the Concept & Propose Frontier Files**
+   - Read the `frontier` (untracked files) list returned by the taxonomy script.
+   - Propose these undocumented files directly to the user (e.g., *"I see these workspace files are undocumented. Would you like to create a concept for one of them?"*).
+   - Display existing types (including standard types: `Concept`, `Skill`, `Utility`, `Decision`) and ask:
      > "Select the concept type:
-     > 1) Service [existing]
-     > 2) Database [existing]
-     > 3) Playbook [existing]
-     > 4) [Custom type...]"
+     > 1) Concept [existing]
+     > 2) Skill [existing]
+     > 3) Utility [existing]
+     > 4) Decision (Architectural Decision Record/Rationale)
+     > 5) [Custom type...]"
+   - Ensure that any links between concepts use descriptive name labels (e.g., `[Label](/concepts/target.md)`) rather than bare filenames or URLs.
 
 3. **Autogenerate a Telemetry Draft (If Applicable)**
    - If the concept relates to an existing file in the workspace (e.g., a controller, SQL migration file, or deploy script), read the file first.
