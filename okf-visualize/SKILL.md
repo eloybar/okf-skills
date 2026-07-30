@@ -1,6 +1,7 @@
 ---
 name: okf-visualize
 description: Generate and display an interactive Cytoscape.js HTML graph visualization for an OKF knowledge bundle. Use when the user asks to visualize, graph, view, or render an OKF bundle.
+version: 1.2.0
 ---
 
 # Visualizing OKF Bundles

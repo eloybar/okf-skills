@@ -2,6 +2,7 @@
 name: okf
 description: Author and maintain Open Knowledge Format (OKF) bundles — directories of typed markdown concept files.
 disable-model-invocation: true
+version: 1.2.0
 ---
 
 Capture knowledge as an **OKF bundle**: a directory of markdown **concept** files, each carrying YAML **frontmatter** plus a free-form body. No SDK, no central authority — readable, diffable, portable. Spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md
