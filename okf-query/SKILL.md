@@ -1,6 +1,7 @@
 ---
 name: okf-query
 description: Scan the OKF knowledge bundle to retrieve and inject relevant architectural and business context matching specific files or search queries.
+version: 1.2.0
 ---
 
 # `okf-query` Workflow

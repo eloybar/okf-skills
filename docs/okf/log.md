@@ -2,6 +2,11 @@
 
 Newest changes recorded chronologically.
 
+## 2026-07-30T21:30:00Z
+- Added automated skills version checker on startup within `okf-lint`.
+- Cached version checking queries for 24 hours under `~/.okf-skills-version-cache.json` for performance and offline capability.
+- Versioned all 6 skills to `1.2.0` in their frontmatter files.
+
 ## 2026-07-30T12:00:00Z
 - Enriched `okf-wayfinder` with automated frontier tracking (fog of war) to scan for undocumented codebase files.
 - Extended the `okf-wayfinder` guided onboarding flow to support the `Decision` concept type.
