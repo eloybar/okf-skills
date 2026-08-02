@@ -2,6 +2,9 @@
 
 Newest changes recorded chronologically.
 
+## 2026-08-02T14:02:00Z
+- Ran the `okf-maintain` pipeline to resolve concept drift for `interactive-simulator` and `okf-skill` concepts.
+
 ## 2026-08-02T13:42:00Z
 - Updated `AGENTS.md` and the bootstrapping `okf/SKILL.md` to instruct incoming agents to ground their initial questions on startup in the OKF bundle first.
 - Synchronized instruction copies in `index.html`.
