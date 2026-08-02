@@ -4,7 +4,7 @@ title: OKF Core Skill
 description: Core skill that defines the structure and authoring guidelines of Open Knowledge Format (OKF) concept files.
 resource: file:///D:/projects/okf-skills/okf/SKILL.md
 tags: [core, okf, documentation]
-timestamp: 2026-08-02T13:42:00Z
+timestamp: 2026-08-02T14:02:00Z
 ---
 
 # Overview
