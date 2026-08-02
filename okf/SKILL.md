@@ -30,6 +30,7 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
      * Create or update the selected steering file with a dedicated **Knowledge Bundle / OKF** section.
      * Direct future agent sessions to first verify workspace synchronization on startup (running `okf-lint --drift` to detect drift, and `okf-maintain` to fix/sync any drift).
      * Instruct them to locate and use the **closest parent `okf/` directory** relative to the file they are editing (falling back to the root `okf/` if no local directory exists).
+     * Instruct them to ground any initial user questions about the codebase by searching the OKF bundle first (e.g., running `okf-query --search <keywords>` or checking `index.md`) before answering or planning.
      * Instruct them to run `okf-query --file <file-path>` before analyzing/editing files to pull context, and run `okf-maintain` followed by `okf-lint` post-edit to check conformance.
    - Done when the correct root-level agent steering file (`AGENTS.md` or `CLAUDE.md`) exists and contains the tailored OKF steering directives.
 

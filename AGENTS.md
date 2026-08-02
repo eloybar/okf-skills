@@ -13,9 +13,9 @@ On startup, before making any modifications to the codebase:
 ### 2. Locating the OKF Bundle
 - Always locate and use `/docs/okf` relative to the workspace root to check and maintain the bundle.
 
-### 3. Context Retrieval & Reading Concepts
-- Read the [Index File](/docs/okf/index.md) to understand overall system architecture.
-- Before analyzing or modifying any specific file, run the `okf-query --file <file-path>` skill to retrieve and inject relevant design guidelines, SLAs, and dependencies directly into your context.
+### 3. Context Grounding & Retrieval
+- **Grounding Initial Questions**: Before answering any initial user questions about the codebase, system behavior, or design on session startup, first attempt to ground your answer in the OKF bundle. Run the `okf-query --search <keywords>` skill with relevant query terms or check the [Index File](/docs/okf/index.md) to find documentation and concepts explaining the subject.
+- **Retrieval before Edits**: Before analyzing or modifying any specific file, run the `okf-query --file <file-path>` skill to retrieve and inject relevant design guidelines, SLAs, and dependencies directly into your context.
 
 ### 4. Post-Edit Upkeep & Conformance
 - After making edits, run the `okf-maintain` skill to update the relevant concept files, frontmatter timestamps, index entries, and `log.md`.
