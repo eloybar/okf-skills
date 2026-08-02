@@ -982,6 +982,7 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
      * Create or update the selected steering file with a dedicated **Knowledge Bundle / OKF** section.
      * Direct future agent sessions to first verify workspace synchronization on startup (running `okf-lint --drift` to detect drift, and `okf-maintain` to fix/sync any drift).
      * Instruct them to locate and use the **closest parent `okf/` directory** relative to the file they are editing (falling back to the root `okf/` if no local directory exists).
+     * Instruct them to ground any initial user questions about the codebase by searching the OKF bundle first (e.g., running `okf-query --search <keywords>` or checking `index.md`) before answering or planning.
      * Instruct them to run `okf-query --file <file-path>` before analyzing/editing files to pull context, and run `okf-maintain` followed by `okf-lint` post-edit to check conformance.
    - Done when the correct root-level agent steering file (`AGENTS.md` or `CLAUDE.md`) exists and contains the tailored OKF steering directives.
 
@@ -1183,8 +1184,9 @@ This repository uses Open Knowledge Format (OKF) concept mapping.
 Before writing any code or analyzing subsystems:
 <span class="code-keyword">1.</span> Verify workspace synchronization on startup (checking <span class="code-string">`git status`</span> and recent commits for code files modified after the <span class="code-string">`timestamp`</span> in their corresponding concept files, and running the <span class="code-variable">okf-maintain</span> skill to sync any drift).
 <span class="code-keyword">2.</span> Locate and use the closest parent <span class="code-string">`okf/`</span> directory relative to the file you are editing (falling back to the root <span class="code-string">`okf/`</span> if no local folder exists).
-<span class="code-keyword">3.</span> Read <span class="code-string">`index.md`</span> and the concept file(s) relevant to the task in that directory (start at <span class="code-string">`system.md`</span> for overall architecture).
-<span class="code-keyword">4.</span> If you edit files documented by a concept, run the <span class="code-variable">okf-maintain</span> skill to update the relevant markdown files and <span class="code-string">`log.md`</span> before finishing.</code></pre>
+<span class="code-keyword">3.</span> Before answering any initial user questions about the codebase, system behavior, or design on session startup, ground your answer by running the <span class="code-variable">okf-query --search &lt;keywords&gt;</span> skill or checking <span class="code-string">`index.md`</span>.
+<span class="code-keyword">4.</span> Run the <span class="code-variable">okf-query --file &lt;file-path&gt;</span> skill to retrieve design guidelines, SLAs, and dependencies before analyzing/modifying a file.
+<span class="code-keyword">5.</span> If you edit files documented by a concept, run the <span class="code-variable">okf-maintain</span> skill to update the relevant markdown files and <span class="code-string">`log.md`</span> before finishing.</code></pre>
             </div>
           </div>
         </div>

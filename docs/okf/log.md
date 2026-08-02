@@ -2,6 +2,11 @@
 
 Newest changes recorded chronologically.
 
+## 2026-08-02T13:42:00Z
+- Updated `AGENTS.md` and the bootstrapping `okf/SKILL.md` to instruct incoming agents to ground their initial questions on startup in the OKF bundle first.
+- Synchronized instruction copies in `index.html`.
+- Updated all skill concept timestamps (`okf-skill`, `okf-lint-skill`, `okf-maintain-skill`, `okf-query-skill`, `okf-visualize-skill`, and `okf-wayfinder-skill`) to synchronize drift checks.
+
 ## 2026-07-30T21:30:00Z
 - Added automated skills version checker on startup within `okf-lint`.
 - Cached version checking queries for 24 hours under `~/.okf-skills-version-cache.json` for performance and offline capability.
