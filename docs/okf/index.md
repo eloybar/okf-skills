@@ -26,3 +26,4 @@ Welcome to the self-documenting knowledge bundle for the OKF Skills repository.
 - `okf-upgrade/scripts/upgrade.js` — Core automated migration script.
 - `okf-visualize/scripts/visualize.js` — Cytoscape graph visualizer script.
 - `okf-wayfinder/scripts/wayfinder_taxonomy.js` — Taxonomy registry and frontier tracker script.
+- `scripts/test-lifecycle.js` — Integration test suite for the OKF bundle lifecycle.

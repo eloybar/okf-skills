@@ -6,7 +6,7 @@ resource: install.ps1
 tags: [installation, deployment, powershell, bash]
 generated:
   by: human:eloybar
-  at: 2026-08-03T14:00:00Z
+  at: 2026-08-03T23:18:00Z
 ---
 
 # Overview
