@@ -2,7 +2,7 @@
 name: okf
 description: Author and maintain Open Knowledge Format (OKF) bundles — directories of typed markdown concept files.
 disable-model-invocation: true
-version: 1.2.0
+version: 1.3.0
 ---
 
 Capture knowledge as an **OKF bundle**: a directory of markdown **concept** files, each carrying YAML **frontmatter** plus a free-form body. No SDK, no central authority — readable, diffable, portable. Spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md
@@ -74,6 +74,16 @@ Free-form markdown. Use these conventional headings when they fit, so consumers 
 - `# Schema` — structured field/column descriptions
 - `# Examples` — usage demonstrations
 - `# Citations` — external sources this concept draws from
+
+## Directory Organization & Scaling
+
+To prevent catalog clutter as the number of concepts increases, adhere to the following organization guidelines:
+- **Flat Layout (< 10 concepts):** Keep all concepts at the root (`/okf/*.md`) for simpler cross-linking.
+- **Nested Layout (>= 10 concepts):** Organize concepts into standard logical subdirectories:
+  - `/subsystems/` — Core software modules, services, and API route logic.
+  - `/data/` — Database schemas, entity models, and cache configurations.
+  - `/operations/` — Deployment scripts, CI/CD, and quality assurance/testing setups.
+  - `/playbooks/` — Common procedures, runbooks, and recovery checklists.
 
 ## Reserved files
 

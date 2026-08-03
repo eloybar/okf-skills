@@ -4,7 +4,7 @@ title: OKF Wayfinder Skill
 description: Guided wizard to bootstrap and document concepts using codebase context and focus questions.
 resource: file:///D:/projects/okf-skills/okf-wayfinder/SKILL.md
 tags: [wizard, onboarding, creation, documentation]
-timestamp: 2026-08-02T13:42:00Z
+timestamp: 2026-08-03T14:00:00Z
 ---
 
 # Overview
@@ -13,4 +13,4 @@ The `okf-wayfinder` skill serves as an interactive knowledge cartographer for th
 # Key Features
 - **Codebase Telemetry**: Scrapes schemas, route files, or config files to pre-fill a draft concept.
 - **Guided Interview**: Limits user fatigue by asking a maximum of three target questions (criticality, dependencies, failover owners).
-- **Taxonomy Verification**: Runs the [wayfinder_taxonomy.js](/okf-wayfinder/scripts/wayfinder_taxonomy.js) scanner to suggest existing types and tags, preventing vocabulary fragmentation.
+- **Taxonomy & Directory Selection**: Suggests existing types/tags using [wayfinder_taxonomy.js](/okf-wayfinder/scripts/wayfinder_taxonomy.js) and guides folder placement following scaling taxonomy guidelines.

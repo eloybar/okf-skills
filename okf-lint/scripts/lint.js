@@ -137,7 +137,7 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, results = { err
   return results;
 }
 
-const INSTALLED_VERSION = '1.2.0';
+const INSTALLED_VERSION = '1.3.0';
 
 function compareVersions(v1, v2) {
   const parts1 = v1.split('.').map(Number);

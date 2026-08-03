@@ -1,7 +1,7 @@
 ---
 name: okf-wayfinder
 description: Guide users in establishing and documenting new concepts in their OKF bundle through interactive, context-aware interviews.
-version: 1.2.0
+version: 1.3.0
 ---
 
 # `okf-wayfinder` Workflow
@@ -43,3 +43,13 @@ Guide the developer through creating a brand new, fully conforming OKF concept f
    - Compile the inputs into a clean `.md` concept file with a valid YAML frontmatter block.
    - Ensure the `timestamp` is set to the current UTC date and time.
    - Add the concept to `index.md` and log the change in `log.md`.
+
+## Directory Organization & Scaling
+
+To prevent catalog clutter as the number of concepts increases, adhere to the following organization guidelines:
+- **Flat Layout (< 10 concepts):** Keep all concepts at the root (`/okf/*.md`) for simpler cross-linking.
+- **Nested Layout (>= 10 concepts):** Organize concepts into standard logical subdirectories:
+  - `/subsystems/` — Core software modules, services, and API route logic.
+  - `/data/` — Database schemas, entity models, and cache configurations.
+  - `/operations/` — Deployment scripts, CI/CD, and quality assurance/testing setups.
+  - `/playbooks/` — Common procedures, runbooks, and recovery checklists.
