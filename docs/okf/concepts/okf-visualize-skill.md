@@ -4,7 +4,9 @@ title: OKF Visualize Skill
 description: Generates an interactive Cytoscape.js HTML graph visualization showing concepts and their relationships.
 resource: okf-visualize/SKILL.md
 tags: [visualization, graph, network]
-timestamp: 2026-08-03T14:00:00Z
+generated:
+  by: human:eloybar
+  at: 2026-08-03T14:00:00Z
 ---
 
 # Overview

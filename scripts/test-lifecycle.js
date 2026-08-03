@@ -99,6 +99,96 @@ Authentication uses JWT tokens...
   assert.ok(fs.existsSync(path.join(bundleRoot, 'viz.html')), 'viz.html should be created');
   console.log('✓ Visualization HTML generated successfully.');
 
+  // === STEP 9: TEST OKF v0.2 FEATURES ===
+  console.log('Step 9: Testing OKF v0.2 specification ingestion...');
+
+  // 9a. Create v2 mock code file
+  const mockV2CodeFile = path.join(tempDir, 'src', 'v2_code.js');
+  fs.writeFileSync(mockV2CodeFile, 'console.log("v2 code");');
+
+  // 9b. Create v2 concept using generated.at and sources
+  const v2ConceptFile = path.join(bundleRoot, 'concepts', 'v2_concept.md');
+  const v2InitISO = new Date(Date.now() - 50000).toISOString(); // 50 seconds ago
+  fs.writeFileSync(v2ConceptFile, `---
+type: Concept
+title: V2 User Authentication
+description: V2 authentication logic using sources.
+status: stable
+stale_after: 2030-01-01
+resource: file:///${mockV2CodeFile.replace(/\\/g, '/')}
+generated:
+  by: human:bob
+  at: ${v2InitISO}
+sources:
+  - id: v2code
+    resource: file:///${mockV2CodeFile.replace(/\\/g, '/')}
+    title: V2 Code Source
+    author: human:bob
+---
+
+V2 authentication description.
+`);
+
+  // Commit these
+  execSync('git add . && git commit -m "feat: add v2 auth concept and code"', { cwd: tempDir, stdio: 'ignore' });
+
+  // 9c. Verify okf-query resolves via sources resource list
+  const queryV2Result = execSync(`node "${scripts.query}" --file "src/v2_code.js"`, { cwd: tempDir }).toString();
+  assert.ok(queryV2Result.includes('V2 User Authentication'), 'Query script should match concept via source resource path');
+  console.log('✓ Query successfully resolved concept via sources.resource.');
+
+  // 9d. Modify v2 code to trigger drift comparing against generated.at
+  execSync('node -e "setTimeout(() => {}, 1000)"');
+  fs.writeFileSync(mockV2CodeFile, 'console.log("v2 code updated");');
+  execSync('git add . && git commit -m "fix: update v2 code"', { cwd: tempDir, stdio: 'ignore' });
+
+  const lintV2Output = execSync(`node "${scripts.lint}" --drift`, { cwd: tempDir }).toString();
+  assert.ok(lintV2Output.includes('Warning: Concept drift detected'), 'Linter should detect drift using generated.at fallback');
+  console.log('✓ Linter successfully detected drift using generated.at.');
+
+  // 9e. Create Attested Computation concept and verify dependency validation
+  const attestedConceptFile = path.join(bundleRoot, 'concepts', 'attested.md');
+  fs.writeFileSync(attestedConceptFile, `---
+type: Attested Computation
+title: Sanctioned Calculation
+runtime: bigquery
+computation: file:///src/attested_comp.sql
+executor:
+  resource: file:///src/run-executor.js
+  receipt: [job_id]
+attester:
+  resource: file:///src/run-attester.js
+---
+`);
+
+  // Running the linter now should throw errors because the referenced script files do not exist
+  try {
+    execSync(`node "${scripts.lint}"`, { cwd: tempDir, stdio: 'pipe' });
+    assert.fail('Linter should have failed due to missing Attested Computation resource files');
+  } catch (e) {
+    if (e.name === 'AssertionError') throw e;
+    const stdoutStr = e.stdout ? e.stdout.toString() : '';
+    const stderrStr = e.stderr ? e.stderr.toString() : '';
+    const errOutput = stdoutStr + stderrStr;
+    assert.ok(errOutput.includes('Error: Attested Computation'), 'Should report missing Attested Computation dependencies');
+    console.log('✓ Linter successfully caught missing Attested Computation script dependencies.');
+  }
+
+  // Write mock dependency files so the linter succeeds
+  fs.writeFileSync(path.join(tempDir, 'src', 'attested_comp.sql'), 'SELECT 1;');
+  fs.writeFileSync(path.join(tempDir, 'src', 'run-executor.js'), 'console.log("exec");');
+  fs.writeFileSync(path.join(tempDir, 'src', 'run-attester.js'), 'console.log("attest");');
+
+  // Verify linter now succeeds
+  const lintV2SuccessOutput = execSync(`node "${scripts.lint}"`, { cwd: tempDir }).toString();
+  assert.ok(lintV2SuccessOutput.includes('OKF Linting Passed Successfully!'), 'Linter should pass once Attested Computation dependencies exist');
+  console.log('✓ Linter successfully passed with resolved Attested Computation dependencies.');
+
+  // Run visualization generation once more with v0.2 concepts
+  execSync(`node "${scripts.visualize}" --bundle "${bundleRoot}"`, { cwd: tempDir });
+  assert.ok(fs.existsSync(path.join(bundleRoot, 'viz.html')), 'viz.html should be successfully created');
+  console.log('✓ Visualizer successfully executed with v0.2 concepts.');
+
   console.log('\n======================================');
   console.log('🎉 ALL LIFE CYCLE TEST CASES PASSED SUCCESSFULLY!');
   console.log('======================================');

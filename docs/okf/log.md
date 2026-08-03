@@ -2,6 +2,21 @@
 
 Newest changes recorded chronologically.
 
+## 2026-08-03T23:02:00Z
+- Created the `okf-upgrade` skill to automate bundle migration from OKF v0.1 to v0.2.
+- Implemented `okf-upgrade/scripts/upgrade.js` which automates conversion of legacy timestamps, maps `# Citations` sections to frontmatter `sources`, and appends `okf_version` flags.
+- Created concept documentation `docs/okf/concepts/okf-upgrade-skill.md` and indexed it.
+- Updated installer scripts `install.ps1` and `install.sh` to package and distribute the upgrade skill.
+- Successfully upgraded the repository's own knowledge bundle to OKF v0.2.
+
+## 2026-08-03T22:58:00Z
+- Upgraded the `okf-lint`, `okf-query`, `okf-visualize`, and `okf-wayfinder` scripts to support the OKF v0.2 specification.
+- Implemented a list-of-objects-aware custom YAML/frontmatter parser without external dependencies.
+- Added `generated.at` fallback for git-based concept drift analysis in `okf-lint`.
+- Enabled provenance-aware concept lookup in `okf-query` that scans `sources[].resource` paths.
+- Enhanced the interactive HTML visualizer in `okf-visualize` to style `Attested Computation` nodes, extract source edges, and display trust tiers/lifecycle metadata in the sidebar.
+- Added comprehensive integration tests in `scripts/test-lifecycle.js` validating all v0.2 specification ingestion features.
+
 ## 2026-08-03T14:00:00Z
 - Added Directory Organization & Scaling Guidelines to `okf` and `okf-wayfinder` skills.
 - Added Scale Trigger and Link Refactoring Guidelines to `okf-maintain` skill.

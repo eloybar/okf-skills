@@ -22,26 +22,104 @@ function parseFrontmatter(content) {
   }
   const fmText = match[1];
   const body = content.slice(match[0].length).trim();
+  
+  function parseInlineValue(val) {
+    val = val.trim();
+    if (val.startsWith('{') && val.endsWith('}')) {
+      const obj = {};
+      const pairs = val.slice(1, -1).split(',');
+      for (const pair of pairs) {
+        const colonIdx = pair.indexOf(':');
+        if (colonIdx === -1) continue;
+        const k = pair.slice(0, colonIdx).trim();
+        let v = pair.slice(colonIdx + 1).trim();
+        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+          v = v.slice(1, -1);
+        }
+        obj[k] = v;
+      }
+      return obj;
+    }
+    if (val.startsWith('[') && val.endsWith(']')) {
+      return val.slice(1, -1).split(',').map(item => {
+        item = item.trim();
+        if ((item.startsWith('"') && item.endsWith('"')) || (item.startsWith("'") && item.endsWith("'"))) {
+          item = item.slice(1, -1);
+        }
+        return item;
+      });
+    }
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      return val.slice(1, -1);
+    }
+    return val;
+  }
+
   const fm = {};
   const lines = fmText.split(/\r?\n/);
-  for (const line of lines) {
+  let currentKey = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim() || line.trim().startsWith('#')) continue;
+
+    const matchIndent = line.match(/^(\s*)/);
+    const indent = matchIndent ? matchIndent[1].length : 0;
     const colonIndex = line.indexOf(':');
+
+    // Handle multiline lists (e.g., sources list)
+    if (line.trim().startsWith('-')) {
+      if (currentKey) {
+        if (!Array.isArray(fm[currentKey])) {
+          fm[currentKey] = [];
+        }
+        const arrayVal = line.trim().slice(1).trim();
+        if (arrayVal) {
+          fm[currentKey].push(parseInlineValue(arrayVal));
+        } else {
+          // Indented list object parsing
+          const obj = {};
+          let j = i + 1;
+          while (j < lines.length) {
+            const subLine = lines[j];
+            const subIndentMatch = subLine.match(/^(\s*)/);
+            const subIndent = subIndentMatch ? subIndentMatch[1].length : 0;
+            if (subIndent <= indent) break;
+            
+            const subColonIndex = subLine.indexOf(':');
+            if (subColonIndex !== -1) {
+              const k = subLine.slice(0, subColonIndex).trim();
+              let v = subLine.slice(subColonIndex + 1).trim();
+              if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+                v = v.slice(1, -1);
+              }
+              obj[k] = v;
+            }
+            j++;
+          }
+          fm[currentKey].push(obj);
+          i = j - 1;
+        }
+      }
+      continue;
+    }
+
     if (colonIndex === -1) continue;
+
     const key = line.slice(0, colonIndex).trim();
     let val = line.slice(colonIndex + 1).trim();
 
-    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-      val = val.slice(1, -1);
-    }
-
-    if (key === 'tags') {
-      if (val.startsWith('[') && val.endsWith(']')) {
-        fm[key] = val.slice(1, -1).split(',').map(t => t.trim().replace(/^['"]|['"]$/g, ''));
+    if (indent === 0) {
+      currentKey = key;
+      if (val === '') {
+        fm[key] = {};
       } else {
-        fm[key] = [val];
+        fm[key] = parseInlineValue(val);
       }
     } else {
-      fm[key] = val;
+      if (fm[currentKey] && typeof fm[currentKey] === 'object') {
+        fm[currentKey][key] = parseInlineValue(val);
+      }
     }
   }
   return { frontmatter: fm, body };
@@ -110,7 +188,8 @@ function buildGraph(concepts) {
   const TYPE_PALETTE = {
     "BigQuery Dataset": "#8b5cf6",
     "BigQuery Table": "#3b82f6",
-    "Reference": "#10b981"
+    "Reference": "#10b981",
+    "Attested Computation": "#f59e0b"
   };
   const DEFAULT_NODE_COLOR = "#94a3b8";
 
@@ -126,7 +205,12 @@ function buildGraph(concepts) {
         resource: c.resource,
         tags: c.tags,
         color: color,
-        size: size
+        size: size,
+        status: c.status,
+        stale_after: c.stale_after,
+        verified: c.verified,
+        generated: c.generated,
+        sources: c.sources
       }
     };
   });
@@ -207,6 +291,34 @@ function main() {
       tags = [String(tags)];
     }
 
+    let sources = frontmatter.sources || [];
+    if (!Array.isArray(sources)) {
+      sources = [sources];
+    }
+
+    const links = extractLinks(body || '', path.dirname(mdPath), bundleRoot);
+    for (const src of sources) {
+      if (src && src.resource && (src.resource.startsWith('/') || src.resource.startsWith('./') || src.resource.startsWith('../'))) {
+        let cleanTarget = src.resource;
+        if (cleanTarget.startsWith('/')) {
+          cleanTarget = cleanTarget.slice(1);
+        } else {
+          try {
+            const docDir = path.dirname(mdPath);
+            const resolved = path.resolve(docDir, cleanTarget);
+            cleanTarget = path.relative(bundleRoot, resolved);
+          } catch(e) {}
+        }
+        let rel = cleanTarget.split(path.sep).join('/');
+        if (rel.endsWith('.md')) {
+          rel = rel.slice(0, -3);
+        }
+        if (rel && !links.includes(rel)) {
+          links.push(rel);
+        }
+      }
+    }
+
     concepts.push({
       id: conceptId,
       type: String(frontmatter.type || 'Unknown'),
@@ -215,7 +327,12 @@ function main() {
       resource: String(frontmatter.resource || ''),
       tags: tags.map(String),
       body: body || '',
-      links_to: extractLinks(body || '', path.dirname(mdPath), bundleRoot)
+      links_to: links,
+      status: frontmatter.status || 'stable',
+      stale_after: frontmatter.stale_after || '',
+      verified: frontmatter.verified || [],
+      generated: frontmatter.generated || {},
+      sources: sources
     });
   }
 
