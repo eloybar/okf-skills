@@ -4,7 +4,9 @@ title: OKF Lint Skill
 description: Statically analyzes the OKF bundle to verify conformance, link integrity, and concept drift.
 resource: file:///D:/projects/okf-skills/okf-lint/SKILL.md
 tags: [linter, verification, quality-gate, CI-CD]
-timestamp: 2026-08-03T14:00:00Z
+generated:
+  by: human:blub0x
+  at: 2026-08-03T14:00:00Z
 ---
 
 # Overview

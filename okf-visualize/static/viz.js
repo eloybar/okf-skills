@@ -181,6 +181,107 @@
       tagsEl.textContent = "—";
     }
 
+    // Dynamic v0.2 metadata display
+    // Clean up any previously appended dynamic elements
+    const dl = document.querySelector("dl.frontmatter");
+    if (dl) {
+      const existingDynamics = dl.querySelectorAll(".dynamic-fm");
+      existingDynamics.forEach(el => el.remove());
+
+      if (data.status) {
+        const dt = document.createElement("dt");
+        dt.className = "dynamic-fm";
+        dt.textContent = "Status";
+        const dd = document.createElement("dd");
+        dd.className = "dynamic-fm";
+        dd.textContent = data.status;
+        dl.appendChild(dt);
+        dl.appendChild(dd);
+      }
+
+      if (data.stale_after) {
+        const dt = document.createElement("dt");
+        dt.className = "dynamic-fm";
+        dt.textContent = "Stale After";
+        const dd = document.createElement("dd");
+        dd.className = "dynamic-fm";
+        
+        const isStale = new Date(data.stale_after) <= new Date();
+        dd.textContent = data.stale_after;
+        if (isStale) {
+          const warning = document.createElement("span");
+          warning.style.color = "#dc2626";
+          warning.style.fontWeight = "bold";
+          warning.style.marginLeft = "8px";
+          warning.textContent = "(Stale)";
+          dd.appendChild(warning);
+        }
+        dl.appendChild(dt);
+        dl.appendChild(dd);
+      }
+
+      // Trust tier calculation
+      let trustTier = 'unverified';
+      if (data.verified && (Array.isArray(data.verified) ? data.verified.length : Object.keys(data.verified).length)) {
+        const verifications = Array.isArray(data.verified) ? data.verified : [data.verified];
+        const hasHuman = verifications.some(v => v && v.by && String(v.by).startsWith('human:'));
+        trustTier = hasHuman ? 'human-reviewed' : 'machine-confirmed';
+      }
+      const dt = document.createElement("dt");
+      dt.className = "dynamic-fm";
+      dt.textContent = "Trust Tier";
+      const dd = document.createElement("dd");
+      dd.className = "dynamic-fm";
+      dd.textContent = trustTier;
+      
+      if (trustTier === 'human-reviewed') {
+        dd.style.color = '#16a34a';
+        dd.style.fontWeight = 'bold';
+      } else if (trustTier === 'machine-confirmed') {
+        dd.style.color = '#2563eb';
+      } else {
+        dd.style.color = '#64748b';
+      }
+      dl.appendChild(dt);
+      dl.appendChild(dd);
+
+      // Sources list
+      if (data.sources && data.sources.length && data.sources[0]) {
+        const dtSrc = document.createElement("dt");
+        dtSrc.className = "dynamic-fm";
+        dtSrc.textContent = "Sources";
+        const ddSrc = document.createElement("dd");
+        ddSrc.className = "dynamic-fm";
+        
+        data.sources.forEach(src => {
+          if (!src) return;
+          const div = document.createElement("div");
+          div.style.marginBottom = "4px";
+          if (src.resource) {
+            const a = document.createElement("a");
+            a.href = src.resource;
+            a.textContent = src.title || src.id || src.resource;
+            a.target = "_blank";
+            a.rel = "noopener";
+            a.className = "external";
+            div.appendChild(a);
+          } else {
+            div.textContent = src.title || src.id || "Unnamed source";
+          }
+          if (src.author) {
+            const authorSpan = document.createElement("span");
+            authorSpan.className = "muted";
+            authorSpan.style.marginLeft = "6px";
+            authorSpan.textContent = `by ${src.author}`;
+            div.appendChild(authorSpan);
+          }
+          ddSrc.appendChild(div);
+        });
+        dl.appendChild(dtSrc);
+        dl.appendChild(ddSrc);
+      }
+    }
+
     const body = bundle.bodies[conceptId] || "";
     const html = marked.parse(body, { breaks: false, gfm: true });
     const bodyEl = document.getElementById("detail-body");

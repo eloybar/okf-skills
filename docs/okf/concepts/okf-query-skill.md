@@ -4,7 +4,9 @@ title: OKF Query Skill
 description: Performs search and resource-based context retrieval to inject concepts into agent prompts.
 resource: file:///D:/projects/okf-skills/okf-query/SKILL.md
 tags: [retrieval, search, RAG, prompt-injection]
-timestamp: 2026-08-03T14:00:00Z
+generated:
+  by: human:blub0x
+  at: 2026-08-03T14:00:00Z
 ---
 
 # Overview

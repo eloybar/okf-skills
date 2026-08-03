@@ -65,7 +65,7 @@ fi
 for TARGET_DIR in "${TARGET_DIRS[@]}"; do
     if [ "$ACTION" = "Remove" ] || [ "$ACTION" = "remove" ]; then
         echo -e "\033[0;33mRemoving OKF skills from $TARGET_DIR...\033[0m"
-        skills=("okf" "okf-maintain" "okf-visualize" "okf-wayfinder" "okf-lint" "okf-query")
+        skills=("okf" "okf-maintain" "okf-visualize" "okf-wayfinder" "okf-lint" "okf-query" "okf-upgrade")
         for skill in "${skills[@]}"; do
             SKILL_PATH="$TARGET_DIR/$skill"
             if [ -d "$SKILL_PATH" ]; then
@@ -84,8 +84,8 @@ for TARGET_DIR in "${TARGET_DIRS[@]}"; do
         SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd || true)"
         if [ -d "$SCRIPT_DIR/okf" ]; then
             echo -e "\033[0;90mℹ Installing from local repository...\033[0m"
-            cp -r "$SCRIPT_DIR/okf" "$SCRIPT_DIR/okf-maintain" "$SCRIPT_DIR/okf-visualize" "$SCRIPT_DIR/okf-wayfinder" "$SCRIPT_DIR/okf-lint" "$SCRIPT_DIR/okf-query" "$TARGET_DIR/"
-            echo -e "\033[0;32m✔ Installed okf, okf-maintain, okf-visualize, okf-wayfinder, okf-lint, and okf-query in $TARGET_DIR\033[0m"
+            cp -r "$SCRIPT_DIR/okf" "$SCRIPT_DIR/okf-maintain" "$SCRIPT_DIR/okf-visualize" "$SCRIPT_DIR/okf-wayfinder" "$SCRIPT_DIR/okf-lint" "$SCRIPT_DIR/okf-query" "$SCRIPT_DIR/okf-upgrade" "$TARGET_DIR/"
+            echo -e "\033[0;32m✔ Installed okf, okf-maintain, okf-visualize, okf-wayfinder, okf-lint, okf-query, and okf-upgrade in $TARGET_DIR\033[0m"
         else
             echo -e "\033[0;90mℹ Downloading latest version from GitHub...\033[0m"
             TEMP_ZIP="/tmp/okf-skills.zip"
@@ -100,8 +100,8 @@ for TARGET_DIR in "${TARGET_DIRS[@]}"; do
             unzip -q "$TEMP_ZIP" -d "$TEMP_DIR"
             
             # Copy skills
-            cp -r "$TEMP_DIR/okf-skills-main/okf" "$TEMP_DIR/okf-skills-main/okf-maintain" "$TEMP_DIR/okf-skills-main/okf-visualize" "$TEMP_DIR/okf-skills-main/okf-wayfinder" "$TEMP_DIR/okf-skills-main/okf-lint" "$TEMP_DIR/okf-skills-main/okf-query" "$TARGET_DIR/"
-            echo -e "\033[0;32m✔ Installed okf, okf-maintain, okf-visualize, okf-wayfinder, okf-lint, and okf-query in $TARGET_DIR\033[0m"
+            cp -r "$TEMP_DIR/okf-skills-main/okf" "$TEMP_DIR/okf-skills-main/okf-maintain" "$TEMP_DIR/okf-skills-main/okf-visualize" "$TEMP_DIR/okf-skills-main/okf-wayfinder" "$TEMP_DIR/okf-skills-main/okf-lint" "$TEMP_DIR/okf-skills-main/okf-query" "$TEMP_DIR/okf-skills-main/okf-upgrade" "$TARGET_DIR/"
+            echo -e "\033[0;32m✔ Installed okf, okf-maintain, okf-visualize, okf-wayfinder, okf-lint, okf-query, and okf-upgrade in $TARGET_DIR\033[0m"
             
             # Cleanup
             rm -rf "$TEMP_ZIP" "$TEMP_DIR"
