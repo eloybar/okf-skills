@@ -4,7 +4,9 @@ title: OKF Maintain Skill
 description: Automatically validates OKF concept bundles and ensures code changes don't rot the documentation.
 resource: file:///D:/projects/okf-skills/okf-maintain/SKILL.md
 tags: [maintenance, automation, sync]
-timestamp: 2026-08-03T14:00:00Z
+generated:
+  by: human:blub0x
+  at: 2026-08-03T14:00:00Z
 ---
 
 # Overview

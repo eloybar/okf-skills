@@ -5,20 +5,100 @@ function parseFrontmatter(content) {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!match) return null;
   const fmText = match[1];
+  
+  function parseInlineValue(val) {
+    val = val.trim();
+    if (val.startsWith('{') && val.endsWith('}')) {
+      const obj = {};
+      const pairs = val.slice(1, -1).split(',');
+      for (const pair of pairs) {
+        const colonIdx = pair.indexOf(':');
+        if (colonIdx === -1) continue;
+        const k = pair.slice(0, colonIdx).trim();
+        let v = pair.slice(colonIdx + 1).trim();
+        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+          v = v.slice(1, -1);
+        }
+        obj[k] = v;
+      }
+      return obj;
+    }
+    if (val.startsWith('[') && val.endsWith(']')) {
+      return val.slice(1, -1).split(',').map(item => {
+        item = item.trim();
+        if ((item.startsWith('"') && item.endsWith('"')) || (item.startsWith("'") && item.endsWith("'"))) {
+          item = item.slice(1, -1);
+        }
+        return item;
+      });
+    }
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      return val.slice(1, -1);
+    }
+    return val;
+  }
+
   const fm = {};
   const lines = fmText.split(/\r?\n/);
-  for (const line of lines) {
-    const colonIndex = line.indexOf(':');
-    if (colonIndex === -1) continue;
-    const key = line.slice(0, colonIndex).trim();
-    let val = line.slice(colonIndex + 1).trim();
-    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-      val = val.slice(1, -1);
+  let currentKey = null;
+  let inArray = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim() || line.trim().startsWith('#')) continue;
+
+    const matchIndent = line.match(/^(\s*)/);
+    const indent = matchIndent ? matchIndent[1].length : 0;
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('-')) {
+      const rest = trimmed.slice(1).trim();
+      if (!currentKey) continue;
+      if (!Array.isArray(fm[currentKey])) {
+        fm[currentKey] = [];
+      }
+      
+      if (rest.startsWith('{') && rest.endsWith('}')) {
+        fm[currentKey].push(parseInlineValue(rest));
+      } else {
+        const colonIdx = rest.indexOf(':');
+        if (colonIdx !== -1) {
+          const k = rest.slice(0, colonIdx).trim();
+          const v = parseInlineValue(rest.slice(colonIdx + 1).trim());
+          const obj = {};
+          obj[k] = v;
+          fm[currentKey].push(obj);
+        } else {
+          fm[currentKey].push(parseInlineValue(rest));
+        }
+      }
+      inArray = true;
+      continue;
     }
-    if (key === 'tags') {
-      fm[key] = val.startsWith('[') ? val.slice(1, -1).split(',').map(t => t.trim()) : [val];
+
+    const colonIdx = trimmed.indexOf(':');
+    if (colonIdx === -1) continue;
+
+    const key = trimmed.slice(0, colonIdx).trim();
+    const val = parseInlineValue(trimmed.slice(colonIdx + 1).trim());
+
+    if (indent === 0) {
+      currentKey = key;
+      inArray = false;
+      if (val === '') {
+        fm[key] = {};
+      } else {
+        fm[key] = val;
+      }
     } else {
-      fm[key] = val;
+      if (inArray && currentKey && Array.isArray(fm[currentKey])) {
+        const lastItem = fm[currentKey][fm[currentKey].length - 1];
+        if (lastItem && typeof lastItem === 'object') {
+          lastItem[key] = val;
+        }
+      } else if (currentKey && fm[currentKey] && typeof fm[currentKey] === 'object') {
+        fm[currentKey][key] = val;
+      }
     }
   }
   return fm;
@@ -94,13 +174,26 @@ function main() {
     const normalizedTarget = path.normalize(targetFile);
 
     for (const c of allConcepts) {
+      const resourceUris = [];
       if (c.frontmatter.resource) {
-        const resPath = resolveResourceLocalPath(c.frontmatter.resource, workspaceRoot);
+        resourceUris.push(c.frontmatter.resource);
+      }
+      if (Array.isArray(c.frontmatter.sources)) {
+        for (const src of c.frontmatter.sources) {
+          if (src.resource) {
+            resourceUris.push(src.resource);
+          }
+        }
+      }
+
+      for (const uri of resourceUris) {
+        const resPath = resolveResourceLocalPath(uri, workspaceRoot);
         if (resPath) {
           const normalizedRes = path.normalize(resPath);
           // Match if it's the exact same file, or if the resource is a parent folder of the target file
           if (normalizedTarget === normalizedRes || normalizedTarget.startsWith(normalizedRes + path.sep)) {
             matched.push(c);
+            break;
           }
         }
       }
@@ -139,6 +232,17 @@ function main() {
     if (c.frontmatter.description) console.log(`Description: ${c.frontmatter.description}`);
     if (c.frontmatter.resource)    console.log(`Resource:    ${c.frontmatter.resource}`);
     if (c.frontmatter.tags)        console.log(`Tags:        ${c.frontmatter.tags.join(', ')}`);
+    if (c.frontmatter.status)      console.log(`Status:      ${c.frontmatter.status}`);
+    if (c.frontmatter.stale_after) console.log(`Stale After: ${c.frontmatter.stale_after}`);
+    
+    let trustTier = 'unverified';
+    if (c.frontmatter.verified) {
+      const verifications = Array.isArray(c.frontmatter.verified) ? c.frontmatter.verified : [c.frontmatter.verified];
+      const hasHuman = verifications.some(v => v && v.by && String(v.by).startsWith('human:'));
+      trustTier = hasHuman ? 'human-reviewed' : 'machine-confirmed';
+    }
+    console.log(`Trust Tier:  ${trustTier}`);
+    
     console.log(`----------------------------------------`);
     console.log(c.body.trim());
     console.log(`\n========================================\n`);

@@ -8,20 +8,100 @@ function parseFrontmatter(content) {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!match) return null;
   const fmText = match[1];
+  
+  function parseInlineValue(val) {
+    val = val.trim();
+    if (val.startsWith('{') && val.endsWith('}')) {
+      const obj = {};
+      const pairs = val.slice(1, -1).split(',');
+      for (const pair of pairs) {
+        const colonIdx = pair.indexOf(':');
+        if (colonIdx === -1) continue;
+        const k = pair.slice(0, colonIdx).trim();
+        let v = pair.slice(colonIdx + 1).trim();
+        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+          v = v.slice(1, -1);
+        }
+        obj[k] = v;
+      }
+      return obj;
+    }
+    if (val.startsWith('[') && val.endsWith(']')) {
+      return val.slice(1, -1).split(',').map(item => {
+        item = item.trim();
+        if ((item.startsWith('"') && item.endsWith('"')) || (item.startsWith("'") && item.endsWith("'"))) {
+          item = item.slice(1, -1);
+        }
+        return item;
+      });
+    }
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      return val.slice(1, -1);
+    }
+    return val;
+  }
+
   const fm = {};
   const lines = fmText.split(/\r?\n/);
-  for (const line of lines) {
-    const colonIndex = line.indexOf(':');
-    if (colonIndex === -1) continue;
-    const key = line.slice(0, colonIndex).trim();
-    let val = line.slice(colonIndex + 1).trim();
-    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-      val = val.slice(1, -1);
+  let currentKey = null;
+  let inArray = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim() || line.trim().startsWith('#')) continue;
+
+    const matchIndent = line.match(/^(\s*)/);
+    const indent = matchIndent ? matchIndent[1].length : 0;
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('-')) {
+      const rest = trimmed.slice(1).trim();
+      if (!currentKey) continue;
+      if (!Array.isArray(fm[currentKey])) {
+        fm[currentKey] = [];
+      }
+      
+      if (rest.startsWith('{') && rest.endsWith('}')) {
+        fm[currentKey].push(parseInlineValue(rest));
+      } else {
+        const colonIdx = rest.indexOf(':');
+        if (colonIdx !== -1) {
+          const k = rest.slice(0, colonIdx).trim();
+          const v = parseInlineValue(rest.slice(colonIdx + 1).trim());
+          const obj = {};
+          obj[k] = v;
+          fm[currentKey].push(obj);
+        } else {
+          fm[currentKey].push(parseInlineValue(rest));
+        }
+      }
+      inArray = true;
+      continue;
     }
-    if (key === 'tags') {
-      fm[key] = val.startsWith('[') ? val.slice(1, -1).split(',').map(t => t.trim()) : [val];
+
+    const colonIdx = trimmed.indexOf(':');
+    if (colonIdx === -1) continue;
+
+    const key = trimmed.slice(0, colonIdx).trim();
+    const val = parseInlineValue(trimmed.slice(colonIdx + 1).trim());
+
+    if (indent === 0) {
+      currentKey = key;
+      inArray = false;
+      if (val === '') {
+        fm[key] = {};
+      } else {
+        fm[key] = val;
+      }
     } else {
-      fm[key] = val;
+      if (inArray && currentKey && Array.isArray(fm[currentKey])) {
+        const lastItem = fm[currentKey][fm[currentKey].length - 1];
+        if (lastItem && typeof lastItem === 'object') {
+          lastItem[key] = val;
+        }
+      } else if (currentKey && fm[currentKey] && typeof fm[currentKey] === 'object') {
+        fm[currentKey][key] = val;
+      }
     }
   }
   return fm;
@@ -119,16 +199,42 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, results = { err
       }
 
       // 3. Concept Drift check
-      if (checkDrift && fm.resource && fm.timestamp) {
+      const lastModified = fm.timestamp || (fm.generated && fm.generated.at);
+      if (checkDrift && fm.resource && lastModified) {
         const resolvedPath = resolveResourceLocalPath(fm.resource, workspaceRoot);
         if (resolvedPath && fs.existsSync(resolvedPath)) {
           const gitTimeStr = getGitLastModifiedISO(resolvedPath);
           if (gitTimeStr) {
             const gitTime = new Date(gitTimeStr);
-            const conceptTime = new Date(fm.timestamp);
+            const conceptTime = new Date(lastModified);
             if (gitTime > conceptTime) {
-              results.warnings.push(`[${relativePath}] Warning: Concept drift detected. Resource file '${path.basename(resolvedPath)}' was modified on ${gitTime.toISOString()} but the concept's timestamp is ${conceptTime.toISOString()}. Run okf-maintain to sync.`);
+              results.warnings.push(`[${relativePath}] Warning: Concept drift detected. Resource file '${path.basename(resolvedPath)}' was modified on ${gitTime.toISOString()} but the concept's timestamp/generated.at is ${conceptTime.toISOString()}. Run okf-maintain to sync.`);
             }
+          }
+        }
+      }
+
+      // 4. Attested Computation checks
+      if (fm.type === 'Attested Computation') {
+        if (!fm.runtime) {
+          results.errors.push(`[${relativePath}] Error: Attested Computation missing 'runtime' key.`);
+        }
+        if (fm.computation) {
+          const compPath = resolveResourceLocalPath(fm.computation, workspaceRoot);
+          if (compPath && !fs.existsSync(compPath)) {
+            results.errors.push(`[${relativePath}] Error: Attested Computation 'computation' resource file '${fm.computation}' not found.`);
+          }
+        }
+        if (fm.executor && fm.executor.resource) {
+          const execPath = resolveResourceLocalPath(fm.executor.resource, workspaceRoot);
+          if (execPath && !fs.existsSync(execPath)) {
+            results.errors.push(`[${relativePath}] Error: Executor resource file '${fm.executor.resource}' not found.`);
+          }
+        }
+        if (fm.attester && fm.attester.resource) {
+          const attestPath = resolveResourceLocalPath(fm.attester.resource, workspaceRoot);
+          if (attestPath && !fs.existsSync(attestPath)) {
+            results.errors.push(`[${relativePath}] Error: Attester resource file '${fm.attester.resource}' not found.`);
           }
         }
       }
@@ -137,7 +243,7 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, results = { err
   return results;
 }
 
-const INSTALLED_VERSION = '1.3.0';
+const INSTALLED_VERSION = '1.4.0';
 
 function compareVersions(v1, v2) {
   const parts1 = v1.split('.').map(Number);

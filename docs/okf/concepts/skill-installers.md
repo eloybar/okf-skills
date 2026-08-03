@@ -4,7 +4,9 @@ title: Skill Installer Scripts
 description: Automated scripts to install, update, and remove agent skills across different CLI platforms.
 resource: file:///D:/projects/okf-skills/install.ps1
 tags: [installation, deployment, powershell, bash]
-timestamp: 2026-08-03T14:00:00Z
+generated:
+  by: human:blub0x
+  at: 2026-08-03T14:00:00Z
 ---
 
 # Overview
