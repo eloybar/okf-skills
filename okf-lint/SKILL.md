@@ -1,7 +1,7 @@
 ---
 name: okf-lint
 description: Statically analyze the OKF knowledge bundle to check conformance, link integrity, and concept drift.
-version: 1.2.0
+version: 1.3.0
 ---
 
 # `okf-lint` Workflow
