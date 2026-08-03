@@ -6,7 +6,7 @@ resource: file:///D:/projects/okf-skills/README.md
 tags: [architecture, loop, feedback]
 generated:
   by: human:blub0x
-  at: 2026-08-03T14:00:00Z
+  at: 2026-08-03T23:18:00Z
 ---
 
 # Overview

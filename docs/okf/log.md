@@ -2,6 +2,11 @@
 
 Newest changes recorded chronologically.
 
+## 2026-08-03T23:18:00Z
+- Executed OKF maintenance pipeline (`okf-maintain`).
+- Refreshed all 10 concept file timestamps (`generated.at`) to `2026-08-03T23:18:00Z` to synchronize with codebase updates and satisfy linter drift checks.
+- Documented `scripts/test-lifecycle.js` as an undocumented file in the `index.md` frontier mapping.
+
 ## 2026-08-03T23:02:00Z
 - Created the `okf-upgrade` skill to automate bundle migration from OKF v0.1 to v0.2.
 - Implemented `okf-upgrade/scripts/upgrade.js` which automates conversion of legacy timestamps, maps `# Citations` sections to frontmatter `sources`, and appends `okf_version` flags.
