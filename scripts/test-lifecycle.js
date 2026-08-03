@@ -13,7 +13,8 @@ const scripts = {
   taxonomy: path.resolve(__dirname, '../okf-wayfinder/scripts/wayfinder_taxonomy.js'),
   lint: path.resolve(__dirname, '../okf-lint/scripts/lint.js'),
   query: path.resolve(__dirname, '../okf-query/scripts/query.js'),
-  visualize: path.resolve(__dirname, '../okf-visualize/scripts/visualize.js')
+  visualize: path.resolve(__dirname, '../okf-visualize/scripts/visualize.js'),
+  upgrade: path.resolve(__dirname, '../okf-upgrade/scripts/upgrade.js')
 };
 
 // Initialize Git inside the sandbox (needed for drift checks)
@@ -188,6 +189,47 @@ attester:
   execSync(`node "${scripts.visualize}" --bundle "${bundleRoot}"`, { cwd: tempDir });
   assert.ok(fs.existsSync(path.join(bundleRoot, 'viz.html')), 'viz.html should be successfully created');
   console.log('✓ Visualizer successfully executed with v0.2 concepts.');
+
+  // === STEP 10: TEST OKF UPGRADE AUTO-FIX BARE LINKS ===
+  console.log('Step 10: Testing OKF Upgrade auto-fixing of bare link labels...');
+
+  // 10a. Create target concept with a title
+  const targetConceptFile = path.join(bundleRoot, 'concepts', 'target_for_link.md');
+  fs.writeFileSync(targetConceptFile, `---
+type: Concept
+title: Target Concept Display Title
+description: A concept that other concepts link to.
+timestamp: 2026-08-03T23:18:00Z
+---
+
+Body of target.
+`);
+
+  // 10b. Create a source concept with bare links in the body
+  const sourceConceptFile = path.join(bundleRoot, 'concepts', 'source_with_links.md');
+  fs.writeFileSync(sourceConceptFile, `---
+type: Concept
+title: Source Concept
+description: A concept containing bare links.
+timestamp: 2026-08-03T23:18:00Z
+---
+
+Here is a bare link to [target_for_link.md](/concepts/target_for_link.md) and a relative one [target_for_link.md](target_for_link.md).
+And one inside a code block which should NOT be touched:
+\`\`\`markdown
+[target_for_link.md](/concepts/target_for_link.md)
+\`\`\`
+`);
+
+  // 10c. Run okf-upgrade on the temp directory
+  execSync(`node "${scripts.upgrade}"`, { cwd: tempDir, stdio: 'ignore' });
+
+  // 10d. Verify the links were correctly updated
+  const upgradedContent = fs.readFileSync(sourceConceptFile, 'utf8');
+  assert.ok(upgradedContent.includes('[Target Concept Display Title](/concepts/target_for_link.md)'), 'Upgrade should fix bare absolute link');
+  assert.ok(upgradedContent.includes('[Target Concept Display Title](target_for_link.md)'), 'Upgrade should fix bare relative link');
+  assert.ok(upgradedContent.includes('\n[target_for_link.md](/concepts/target_for_link.md)\n'), 'Upgrade should NOT modify links inside code blocks');
+  console.log('✓ Upgrade successfully auto-resolved bare link labels and skipped code blocks.');
 
   console.log('\n======================================');
   console.log('🎉 ALL LIFE CYCLE TEST CASES PASSED SUCCESSFULLY!');

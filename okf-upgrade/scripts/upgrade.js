@@ -170,6 +170,58 @@ function getConceptBody(content) {
   return content.replace(/^---[\s\S]*?---\r?\n/, '');
 }
 
+function autoFixBareLinks(body, bundleRoot, currentFilePath) {
+  // Split body by code blocks (```...```) to avoid modifying code blocks
+  const parts = body.split(/(```[\s\S]*?```)/g);
+  let modified = false;
+
+  for (let i = 0; i < parts.length; i++) {
+    // If the part is a code block, skip it
+    if (parts[i].startsWith('```')) {
+      continue;
+    }
+
+    // Replace links in non-code parts
+    parts[i] = parts[i].replace(/\[([^\]]*)\]\(([^)\s]+\.md)(#[A-Za-z0-9_\-]*)?\)/g, (match, label, target, hash) => {
+      const labelLower = label.trim().toLowerCase();
+      const targetName = path.basename(target).toLowerCase();
+      const isBare = !label.trim() ||
+                     labelLower === targetName ||
+                     labelLower === target.toLowerCase() ||
+                     labelLower.endsWith('.md') ||
+                     labelLower.startsWith('/') ||
+                     /^https?:\/\//i.test(label);
+      
+      if (isBare) {
+        let targetPath;
+        if (target.startsWith('/')) {
+          targetPath = path.join(bundleRoot, target.slice(1));
+        } else {
+          targetPath = path.join(path.dirname(currentFilePath), target);
+        }
+
+        if (fs.existsSync(targetPath)) {
+          try {
+            const targetContent = fs.readFileSync(targetPath, 'utf8');
+            const targetFm = parseFrontmatter(targetContent);
+            if (targetFm && targetFm.title) {
+              modified = true;
+              const cleanHash = hash || '';
+              console.log(`[+] ${path.basename(currentFilePath)}: Auto-fixed bare link [${label}](${target}${cleanHash}) -> [${targetFm.title}](${target}${cleanHash})`);
+              return `[${targetFm.title}](${target}${cleanHash})`;
+            }
+          } catch (e) {
+            // Ignore errors reading target file
+          }
+        }
+      }
+      return match;
+    });
+  }
+
+  return { newBody: parts.join(''), modified };
+}
+
 function main() {
   const args = process.argv.slice(2);
   let user = process.env.USER || process.env.USERNAME || 'unknown';
@@ -286,6 +338,13 @@ function main() {
         modified = true;
         console.log(`[+] ${relativePath}: Migrated citations list to frontmatter sources`);
       }
+    }
+
+    // 3. Auto-fix bare links in body
+    const fixResult = autoFixBareLinks(body, bundleRoot, mdPath);
+    if (fixResult.modified) {
+      body = fixResult.newBody;
+      modified = true;
     }
 
     if (modified) {

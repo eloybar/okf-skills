@@ -2,6 +2,11 @@
 
 Newest changes recorded chronologically.
 
+## 2026-08-03T23:43:25Z
+- Updated `okf-upgrade/scripts/upgrade.js` to automatically resolve bare/non-descriptive link labels by fetching the target concept's frontmatter `title` and rewriting the link label.
+- Updated `docs/okf/concepts/okf-upgrade-skill.md` timestamp.
+- Expanded integration tests in `scripts/test-lifecycle.js` to assert the correct auto-resolution of bare absolute and relative link labels while skipping code blocks.
+
 ## 2026-08-03T23:18:00Z
 - Executed OKF maintenance pipeline (`okf-maintain`).
 - Refreshed all 10 concept file timestamps (`generated.at`) to `2026-08-03T23:18:00Z` to synchronize with codebase updates and satisfy linter drift checks.
