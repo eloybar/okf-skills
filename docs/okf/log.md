@@ -2,6 +2,12 @@
 
 Newest changes recorded chronologically.
 
+## 2026-08-03T14:00:00Z
+- Added Directory Organization & Scaling Guidelines to `okf` and `okf-wayfinder` skills.
+- Added Scale Trigger and Link Refactoring Guidelines to `okf-maintain` skill.
+- Upgraded all 6 skills to version `1.3.0` and updated `okf-lint/scripts/lint.js` version constant.
+- Updated all concept files timestamps to `2026-08-03T14:00:00Z` to synchronize drift check.
+
 ## 2026-08-02T14:02:00Z
 - Ran the `okf-maintain` pipeline to resolve concept drift for `interactive-simulator` and `okf-skill` concepts.
 

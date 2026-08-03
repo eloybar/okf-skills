@@ -1024,6 +1024,16 @@ Free-form markdown. Use these conventional headings when they fit, so consumers 
 - `# Examples` — usage demonstrations
 - `# Citations` — external sources this concept draws from
 
+## Directory Organization & Scaling
+
+To prevent catalog clutter as the number of concepts increases, adhere to the following organization guidelines:
+- **Flat Layout (&lt; 10 concepts):** Keep all concepts at the root (`/okf/*.md`) for simpler cross-linking.
+- **Nested Layout (&gt;= 10 concepts):** Organize concepts into standard logical subdirectories:
+  - `/subsystems/` — Core software modules, services, and API route logic.
+  - `/data/` — Database schemas, entity models, and cache configurations.
+  - `/operations/` — Deployment scripts, CI/CD, and quality assurance/testing setups.
+  - `/playbooks/` — Common procedures, runbooks, and recovery checklists.
+
 ## Reserved files
 
 Two reserved filenames, both optional — but if present, keep them current (step 4):
@@ -1322,6 +1332,11 @@ Keep an existing **OKF bundle** current so it doesn't rot. This skill handles bo
 
 5. **Conformance gate.** Verify the bundle still conforms, per the `okf` skill.
    - Done when every non-reserved `.md` has parseable frontmatter with a non-empty `type`.
+
+## Reorganization & Link Upkeep
+
+- **Scale Trigger:** When a concept addition pushes the root concepts count past 10, check if the bundle should transition to a nested layout. Recommend this restructure to the user before executing.
+- **Link Refactoring:** When moving concept files, update all bundle-relative links in the body of all affected files (e.g., rewrite `[Auth](/auth.md)` to `[Auth](/subsystems/auth.md)`) and refresh the `index.md` listing.
 </code></pre>
             </div>
           </div>
