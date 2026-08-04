@@ -4,6 +4,7 @@ Newest changes recorded chronologically.
 
 ## 2026-08-04T11:53:00Z
 - Conducted OKF maintenance (`okf-maintain`) on `interactive-simulator.md` to reflect the expansion of the playbook timeline to 9 steps.
+- Aligned `README.md` with the full 9-step timeline, correcting missing descriptions for `okf-query`, `okf-lint`, and `okf-upgrade`.
 
 ## 2026-08-04T07:41:00Z
 - Parameterized subprocess command executions in `okf-lint` and `okf-upgrade` using `execFileSync` to mitigate command injection vectors.
