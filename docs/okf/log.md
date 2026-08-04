@@ -2,6 +2,12 @@
 
 Newest changes recorded chronologically.
 
+## 2026-08-04T07:41:00Z
+- Parameterized subprocess command executions in `okf-lint` and `okf-upgrade` using `execFileSync` to mitigate command injection vectors.
+- Extended the linter's concept drift analysis to cover file paths listed under the frontmatter `sources` array in addition to the main `resource` path.
+- Refactored `okf-wayfinder`'s frontier scan to compile and check paths against gitignore patterns rather than a static exclusions array.
+- Conducted OKF maintenance, updating concept timestamps in `okf-lint-skill.md`, `okf-wayfinder-skill.md`, and `okf-upgrade-skill.md`.
+
 ## 2026-08-04T00:04:40Z
 - Updated `AGENTS.md` to instruct agents to fetch the live OKF specification from GitHub on session startup and verify/align the local skill implementations with any specification updates.
 - Added a rule to `AGENTS.md` requiring agents to synchronize corresponding copies inside `index.html` when editing skill files or steering documents to prevent drift in the interactive simulator.
