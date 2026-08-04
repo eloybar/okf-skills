@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 const https = require('https');
 const os = require('os');
 
@@ -128,7 +128,7 @@ function extractLinks(content) {
 function getGitLastModifiedISO(filePath) {
   try {
     const cleanPath = filePath.replace(/\\/g, '/');
-    const stdout = execSync(`git log -1 --format="%aI" -- "${cleanPath}"`, { stdio: ['pipe', 'pipe', 'ignore'] });
+    const stdout = execFileSync('git', ['log', '-1', '--format=%aI', '--', cleanPath], { stdio: ['pipe', 'pipe', 'ignore'] });
     return stdout.toString().trim();
   } catch (e) {
     return null;
@@ -200,15 +200,30 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, results = { err
 
       // 3. Concept Drift check
       const lastModified = fm.timestamp || (fm.generated && fm.generated.at);
-      if (checkDrift && fm.resource && lastModified) {
-        const resolvedPath = resolveResourceLocalPath(fm.resource, workspaceRoot);
-        if (resolvedPath && fs.existsSync(resolvedPath)) {
-          const gitTimeStr = getGitLastModifiedISO(resolvedPath);
-          if (gitTimeStr) {
-            const gitTime = new Date(gitTimeStr);
-            const conceptTime = new Date(lastModified);
-            if (gitTime > conceptTime) {
-              results.warnings.push(`[${relativePath}] Warning: Concept drift detected. Resource file '${path.basename(resolvedPath)}' was modified on ${gitTime.toISOString()} but the concept's timestamp/generated.at is ${conceptTime.toISOString()}. Run okf-maintain to sync.`);
+      if (checkDrift && lastModified) {
+        const resourcesToCheck = [];
+        if (fm.resource) {
+          resourcesToCheck.push({ path: fm.resource, label: `Resource file '${path.basename(resolveResourceLocalPath(fm.resource, workspaceRoot) || fm.resource)}'` });
+        }
+        if (Array.isArray(fm.sources)) {
+          fm.sources.forEach((src, idx) => {
+            if (src && src.resource) {
+              const label = src.title ? `Source '${src.title}'` : `Source resource [${idx}]`;
+              resourcesToCheck.push({ path: src.resource, label });
+            }
+          });
+        }
+
+        for (const res of resourcesToCheck) {
+          const resolvedPath = resolveResourceLocalPath(res.path, workspaceRoot);
+          if (resolvedPath && fs.existsSync(resolvedPath)) {
+            const gitTimeStr = getGitLastModifiedISO(resolvedPath);
+            if (gitTimeStr) {
+              const gitTime = new Date(gitTimeStr);
+              const conceptTime = new Date(lastModified);
+              if (gitTime > conceptTime) {
+                results.warnings.push(`[${relativePath}] Warning: Concept drift detected. ${res.label} was modified on ${gitTime.toISOString()} but the concept's timestamp/generated.at is ${conceptTime.toISOString()}. Run okf-maintain to sync.`);
+              }
             }
           }
         }

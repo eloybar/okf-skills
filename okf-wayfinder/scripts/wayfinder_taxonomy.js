@@ -174,10 +174,57 @@ function scanBundleTaxonomy(dir, bundleRoot, workspaceRoot, taxonomy = { types: 
 }
 
 /**
+ * Reads .gitignore file and compiles patterns to RegExp rules.
+ */
+function loadGitignorePatterns(workspaceRoot) {
+  const patterns = [];
+  const gitignorePath = path.join(workspaceRoot, '.gitignore');
+  if (fs.existsSync(gitignorePath)) {
+    try {
+      const content = fs.readFileSync(gitignorePath, 'utf8');
+      const lines = content.split(/\r?\n/);
+      for (let line of lines) {
+        line = line.trim();
+        if (!line || line.startsWith('#')) continue;
+        
+        // Escape regex special chars except * and ?
+        let escaped = line.replace(/[-\/\\^$*+?.()|[\]{}]/g, (match) => {
+          if (match === '*' || match === '?') return match;
+          return '\\' + match;
+        });
+        
+        escaped = escaped.replace(/\*/g, '.*').replace(/\?/g, '.');
+        
+        if (line.endsWith('/')) {
+          escaped = escaped + '?.*';
+        } else {
+          escaped = escaped + '$';
+        }
+        
+        if (line.startsWith('/')) {
+          escaped = '^' + escaped.slice(1);
+        } else {
+          escaped = '(^|/)' + escaped;
+        }
+        
+        try {
+          patterns.push(new RegExp(escaped));
+        } catch (e) {}
+      }
+    } catch (e) {}
+  }
+  return patterns;
+}
+
+/**
  * Recursively scans the workspace to find files that do not have associated concepts.
  */
-function scanWorkspace(dir, workspaceRoot, documentedResources, results = []) {
+function scanWorkspace(dir, workspaceRoot, documentedResources, results = [], gitignorePatterns = null) {
   if (!fs.existsSync(dir)) return results;
+  
+  if (gitignorePatterns === null) {
+    gitignorePatterns = loadGitignorePatterns(workspaceRoot);
+  }
   
   const files = fs.readdirSync(dir);
   const ignores = ['.git', 'node_modules', '.agents', '.claude', 'agent', 'docs', 'tmp'];
@@ -186,6 +233,17 @@ function scanWorkspace(dir, workspaceRoot, documentedResources, results = []) {
     if (ignores.includes(file)) continue;
     
     const fullPath = path.join(dir, file);
+    const relPath = path.relative(workspaceRoot, fullPath).replace(/\\/g, '/');
+    
+    let ignoredByGitignore = false;
+    for (const regex of gitignorePatterns) {
+      if (regex.test(relPath)) {
+        ignoredByGitignore = true;
+        break;
+      }
+    }
+    if (ignoredByGitignore) continue;
+
     let stat;
     try {
       stat = fs.statSync(fullPath);
@@ -194,12 +252,10 @@ function scanWorkspace(dir, workspaceRoot, documentedResources, results = []) {
     }
     
     if (stat.isDirectory()) {
-      scanWorkspace(fullPath, workspaceRoot, documentedResources, results);
+      scanWorkspace(fullPath, workspaceRoot, documentedResources, results, gitignorePatterns);
     } else if (stat.isFile()) {
       const normalized = path.normalize(fullPath);
       if (!documentedResources.has(normalized)) {
-        const relPath = path.relative(workspaceRoot, normalized).replace(/\\/g, '/');
-        
         // Skip common auxiliary files that do not warrant dedicated concept maps
         if (file !== 'skills-lock.json' && file !== '.gitignore' && file !== 'LICENSE') {
           results.push({
