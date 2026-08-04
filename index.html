@@ -448,6 +448,48 @@
       box-shadow: 0 0 10px hsla(199, 89%, 48%, 0.15);
     }
 
+    /* PURE CSS TAB SELECTION FOR STEP 5q */
+    #s5q-tab-1:checked ~ .code-tab-container #s5q-panel-1,
+    #s5q-tab-2:checked ~ .code-tab-container #s5q-panel-2 {
+      display: block;
+    }
+
+    #s5q-tab-1:checked ~ .code-tab-container label[for="s5q-tab-1"],
+    #s5q-tab-2:checked ~ .code-tab-container label[for="s5q-tab-2"] {
+      background: hsla(217, 91%, 60%, 0.25);
+      color: var(--accent-sky);
+      border-color: var(--accent-sky);
+      box-shadow: 0 0 10px hsla(199, 89%, 48%, 0.15);
+    }
+
+    /* PURE CSS TAB SELECTION FOR STEP 7l */
+    #s7l-tab-1:checked ~ .code-tab-container #s7l-panel-1,
+    #s7l-tab-2:checked ~ .code-tab-container #s7l-panel-2 {
+      display: block;
+    }
+
+    #s7l-tab-1:checked ~ .code-tab-container label[for="s7l-tab-1"],
+    #s7l-tab-2:checked ~ .code-tab-container label[for="s7l-tab-2"] {
+      background: hsla(217, 91%, 60%, 0.25);
+      color: var(--accent-sky);
+      border-color: var(--accent-sky);
+      box-shadow: 0 0 10px hsla(199, 89%, 48%, 0.15);
+    }
+
+    /* PURE CSS TAB SELECTION FOR STEP 9u */
+    #s9u-tab-1:checked ~ .code-tab-container #s9u-panel-1,
+    #s9u-tab-2:checked ~ .code-tab-container #s9u-panel-2 {
+      display: block;
+    }
+
+    #s9u-tab-1:checked ~ .code-tab-container label[for="s9u-tab-1"],
+    #s9u-tab-2:checked ~ .code-tab-container label[for="s9u-tab-2"] {
+      background: hsla(217, 91%, 60%, 0.25);
+      color: var(--accent-sky);
+      border-color: var(--accent-sky);
+      box-shadow: 0 0 10px hsla(199, 89%, 48%, 0.15);
+    }
+
     /* PURE CSS INTERACTIVE SELECTORS */
     #toggle-step-1:checked ~ .pipeline-section #details-panel-1,
     #toggle-step-2:checked ~ .pipeline-section #details-panel-2,
@@ -456,7 +498,8 @@
     #toggle-step-5:checked ~ .pipeline-section #details-panel-5,
     #toggle-step-6:checked ~ .pipeline-section #details-panel-6,
     #toggle-step-7:checked ~ .pipeline-section #details-panel-7,
-    #toggle-step-8:checked ~ .pipeline-section #details-panel-8 {
+    #toggle-step-8:checked ~ .pipeline-section #details-panel-8,
+    #toggle-step-9:checked ~ .pipeline-section #details-panel-9 {
       margin-top: 2.5rem;
       padding: 2.5rem;
       border-color: var(--border-color);
@@ -473,7 +516,8 @@
     #toggle-step-5:checked ~ .pipeline-section #step-card-5,
     #toggle-step-6:checked ~ .pipeline-section #step-card-6,
     #toggle-step-7:checked ~ .pipeline-section #step-card-7,
-    #toggle-step-8:checked ~ .pipeline-section #step-card-8 {
+    #toggle-step-8:checked ~ .pipeline-section #step-card-8,
+    #toggle-step-9:checked ~ .pipeline-section #step-card-9 {
       transform: translateY(-5px);
       background: var(--bg-surface-hover);
       border-color: var(--accent-sky);
@@ -488,7 +532,8 @@
     #toggle-step-5:checked ~ .pipeline-section #step-card-5 .card-icon,
     #toggle-step-6:checked ~ .pipeline-section #step-card-6 .card-icon,
     #toggle-step-7:checked ~ .pipeline-section #step-card-7 .card-icon,
-    #toggle-step-8:checked ~ .pipeline-section #step-card-8 .card-icon {
+    #toggle-step-8:checked ~ .pipeline-section #step-card-8 .card-icon,
+    #toggle-step-9:checked ~ .pipeline-section #step-card-9 .card-icon {
       background: var(--gradient-primary);
       color: var(--text-primary);
     }
@@ -794,6 +839,7 @@
     <input type="radio" name="timeline-toggle" id="toggle-step-6" style="display:none;">
     <input type="radio" name="timeline-toggle" id="toggle-step-7" style="display:none;">
     <input type="radio" name="timeline-toggle" id="toggle-step-8" style="display:none;">
+    <input type="radio" name="timeline-toggle" id="toggle-step-9" style="display:none;">
 
     <!-- Hero / Header -->
     <header>
@@ -900,6 +946,18 @@
           <div class="card-text">
             <h3 class="card-title">Visualizer (/okf-visualize)</h3>
             <p class="card-desc">The map generator. Compiles markdown links into interactive Cytoscape.js HTML graphs.</p>
+          </div>
+        </label>
+
+        <!-- Step 9 -->
+        <label for="toggle-step-9" class="pipeline-card" id="step-card-9" tabindex="0" role="button">
+          <div class="card-step">09</div>
+          <div class="card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          </div>
+          <div class="card-text">
+            <h3 class="card-title">Bundle Upgrader (/okf-upgrade)</h3>
+            <p class="card-desc">The migration bridge. Automatically updates legacy bundles from v0.1 format to the v0.2 spec.</p>
           </div>
         </label>
 
@@ -2234,6 +2292,102 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 14px 0; }
 #detail-backlinks a { color: #2563eb; cursor: pointer; }
 </code></pre>
               </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Details Panel 9 -->
+      <div class="details-panel" id="details-panel-9">
+        <div class="details-grid">
+          <div class="details-info">
+            <h3>Bundle Migration & Upgrade</h3>
+            <p>The <code>/okf-upgrade</code> skill automates the migration of legacy OKF v0.1 bundles to the modern OKF v0.2 format, correcting schema definitions and rewriting link labels in-place.</p>
+            <ul>
+              <li>Converts legacy <code>timestamp</code> keys into structured <code>generated: { by, at }</code> properties.</li>
+              <li>Migrates inline body <code># Citations</code> bullet lists to YAML frontmatter <code>sources</code> lists.</li>
+              <li>Fixes non-descriptive / bare markdown links (e.g. <code>[target.md](target.md)</code>) by looking up target titles.</li>
+              <li>Appends the standard <code>okf_version: "0.2"</code> compatibility flag to the bundle index.</li>
+              <li>Automates post-migration check verification using the drift linter.</li>
+            </ul>
+          </div>
+          <div class="details-code-container">
+            <!-- Hidden radio selectors for code tabs -->
+            <input type="radio" name="s9u-tab-selector" id="s9u-tab-1" checked style="display:none;">
+            <input type="radio" name="s9u-tab-selector" id="s9u-tab-2" style="display:none;">
+
+            <div class="code-tab-container">
+               <div class="code-tabs">
+                 <label for="s9u-tab-1" class="tab-btn">SKILL.md</label>
+                 <label for="s9u-tab-2" class="tab-btn">upgrade.js</label>
+               </div>
+
+               <!-- Panel 1: SKILL.md -->
+               <div class="details-code tab-panel" id="s9u-panel-1">
+                 <div class="code-header">
+                   <span>SKILL.md (Instructions)</span>
+                   <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                 </div>
+                 <pre><code><span class="code-comment"># okf-upgrade/SKILL.md</span>
+---
+name: okf-upgrade
+description: Automatically upgrade an OKF bundle from v0.1 to v0.2.
+version: 1.4.0
+---
+
+Migrate an existing OKF bundle from Version 0.1 to Version 0.2 format. This skill automates the migration of legacy frontmatter, citations, and adds version compatibility flags.
+
+## Usage
+
+```bash
+# Upgrade the local bundle in the workspace
+node okf-upgrade/scripts/upgrade.js
+```</code></pre>
+               </div>
+
+               <!-- Panel 2: upgrade.js -->
+               <div class="details-code tab-panel" id="s9u-panel-2">
+                 <div class="code-header">
+                   <span>scripts/upgrade.js (Upgrader Implementation)</span>
+                   <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                 </div>
+                 <pre><code>function main() {
+  const workspaceRoot = process.cwd();
+  let bundleRoot = path.join(workspaceRoot, 'docs', 'okf');
+  if (!fs.existsSync(bundleRoot)) {
+    bundleRoot = path.join(workspaceRoot, 'okf');
+  }
+
+  const mdFiles = walkConcepts(bundleRoot);
+  for (const mdPath of mdFiles) {
+    const content = fs.readFileSync(mdPath, 'utf8');
+    const fm = parseFrontmatter(content);
+    let body = getConceptBody(content);
+
+    let modified = false;
+
+    // 1. Upgrade timestamp -> generated
+    if (fm.timestamp && !fm.generated) {
+      fm.generated = { by: `human:\${user}`, at: fm.timestamp };
+      delete fm.timestamp;
+      modified = true;
+    }
+
+    // 2. Auto-fix bare links in body
+    const fixResult = autoFixBareLinks(body, bundleRoot, mdPath);
+    if (fixResult.modified) {
+      body = fixResult.newBody;
+      modified = true;
+    }
+
+    if (modified) {
+      const newFmText = serializeFrontmatter(fm);
+      fs.writeFileSync(mdPath, newFmText + '\\n\\n' + body.trim() + '\\n', 'utf8');
+    }
+  }
+}</code></pre>
+               </div>
 
             </div>
           </div>
