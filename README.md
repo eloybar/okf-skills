@@ -12,7 +12,8 @@ The self-documenting codebase runs on a closed-loop system of continuous concept
 
 ```mermaid
 graph TD
-    A["01. OKF Specification"] --> B["02. Initial Bundle (/okf)"]
+    I["09. Bundle Upgrader (/okf-upgrade)"] --> A["01. OKF Specification"]
+    A --> B["02. Initial Bundle (/okf)"]
     B --> C["03. Guided Onboarding (/okf-wayfinder)"]
     C --> D["04. AGENTS.md Steering"]
     D --> E["05. Context Retrieval (/okf-query)"]
@@ -40,13 +41,25 @@ Interviews developers or agents to capture tribal business context, SLAs, and do
 Informs incoming LLM agents (like Antigravity or Claude Code) that the repository has a structured knowledge base, providing instructions on how to use it.
 * **Component**: `AGENTS.md` (root directory configuration)
 
-### 5. Model-Invoked Maintenance
+### 5. Context Retrieval
+Scans the OKF bundle to retrieve and inject matching concepts into agent prompts based on workspace files or search keywords.
+* **Component**: [okf-query/SKILL.md](okf-query/SKILL.md)
+
+### 6. Model-Invoked Maintenance
 Automatically runs post-edit checks to verify that modifications to files don't render documentation out of date. **Feeds directly back into Step 3 to complete the Autonomous Upkeep loop.**
 * **Component**: [okf-maintain/SKILL.md](okf-maintain/SKILL.md)
 
-### 6. Interactive Visualization
-Generates dynamic Cytoscape.js HTML graph visualizations of concepts, dependencies, and connections. **Serves as the entry point for the Human-in-the-Loop (HITL) Refinement loop, allowing developers to visually audit codebase topology.**
+### 7. Drift Linter
+Verifies frontmatter compliance, checks link integrity, and detects documentation-code drift by comparing git logs against concept timestamps.
+* **Component**: [okf-lint/SKILL.md](okf-lint/SKILL.md)
+
+### 8. Interactive Visualization
+Generates dynamic Cytoscape.js HTML graph visualizations of concepts, dependencies, and connections. **Serves as the entry point for the Human-in-the-Loop (HITL) Refinement loop.**
 * **Component**: [okf-visualize/SKILL.md](okf-visualize/SKILL.md)
+
+### 9. Bundle Upgrader
+Migrates legacy OKF v0.1 bundles to the modern OKF v0.2 format, correcting schema definitions and fixing bare links.
+* **Component**: [okf-upgrade/SKILL.md](okf-upgrade/SKILL.md)
 
 ---
 
