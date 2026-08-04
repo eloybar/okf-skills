@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 
 function parseFrontmatter(content) {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
@@ -365,7 +365,7 @@ function main() {
   if (fs.existsSync(linterScript)) {
     console.log(`Running lint verification post-upgrade...`);
     try {
-      execSync(`node "${linterScript}"`, { stdio: 'inherit' });
+      execFileSync('node', [linterScript], { stdio: 'inherit' });
     } catch (e) {
       console.error(`Post-upgrade lint check failed. Please resolve errors manually.`);
     }
