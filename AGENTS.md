@@ -21,4 +21,5 @@ On startup, before making any modifications to the codebase:
 ### 4. Post-Edit Upkeep & Conformance
 - After making edits, run the `okf-maintain` skill to update the relevant concept files, frontmatter timestamps, index entries, and `log.md`.
 - Run the `okf-lint` skill to guarantee that all markdown links are intact and all concept structures conform before completing the task.
+- **Interactive Simulator Sync:** If you modify `AGENTS.md`, the `okf` skill (`okf/SKILL.md`), or any other skill definition or implementation script in the repository, you **MUST** also update and synchronize the corresponding copy or snippet inside [index.html](file:///D:/projects/okf-skills/index.html) to prevent documentation drift in the interactive playbook and simulator.
 
