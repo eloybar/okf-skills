@@ -2,6 +2,9 @@
 
 Newest changes recorded chronologically.
 
+## 2026-08-04T00:04:40Z
+- Updated `AGENTS.md` to instruct agents to fetch the live OKF specification from GitHub on session startup and verify/align the local skill implementations with any specification updates.
+
 ## 2026-08-03T23:43:25Z
 - Updated `okf-upgrade/scripts/upgrade.js` to automatically resolve bare/non-descriptive link labels by fetching the target concept's frontmatter `title` and rewriting the link label.
 - Updated `docs/okf/concepts/okf-upgrade-skill.md` timestamp.

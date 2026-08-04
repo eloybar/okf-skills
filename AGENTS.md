@@ -9,6 +9,7 @@ An OKF knowledge bundle is located in the `/docs/okf` directory. This bundle des
 On startup, before making any modifications to the codebase:
 - Run the `okf-lint --drift` skill to detect and inspect any unsynchronized concept drift.
 - Run the `okf-maintain` skill to fix/sync any flagged concept drift.
+- **Specification Alignment:** Since this repository implements the OKF Skills themselves, you **MUST** check the live OKF Specification at `https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/okf/SPEC.md` to detect if the spec has changed. If there are new version requirements, format rules, or metadata definitions, verify that the local skill scripts (under the respective skill folders, e.g., `okf-lint`, `okf-maintain`, `okf-query`, etc.) and skill documents (like [okf/SKILL.md](file:///D:/projects/okf-skills/okf/SKILL.md)) are fully aligned and updated accordingly.
 
 ### 2. Locating the OKF Bundle
 - Always locate and use `/docs/okf` relative to the workspace root to check and maintain the bundle.
@@ -20,3 +21,4 @@ On startup, before making any modifications to the codebase:
 ### 4. Post-Edit Upkeep & Conformance
 - After making edits, run the `okf-maintain` skill to update the relevant concept files, frontmatter timestamps, index entries, and `log.md`.
 - Run the `okf-lint` skill to guarantee that all markdown links are intact and all concept structures conform before completing the task.
+
