@@ -6,13 +6,13 @@ resource: file:///D:/projects/okf-skills/index.html
 tags: [simulation, onboarding, visual-brief, playground]
 generated:
   by: human:blub0x
-  at: 2026-08-03T23:18:00Z
+  at: 2026-08-04T11:53:00Z
 ---
 
 # Overview
 The `index.html` file acts as an interactive simulator and playbook. It provides a visual, zero-dependency breakdown of the OKF pipeline lifecycle and an ongoing token efficiency calculator.
 
 # Key Features
-- **Pure CSS Interactive Pipeline**: Toggles active detail tabs for all 6 pipeline steps using pure CSS selectors (`:checked ~ label`), working without Javascript.
+- **Pure CSS Interactive Pipeline**: Toggles active detail tabs for all 9 pipeline steps using pure CSS selectors (`:checked ~ label`), working without Javascript.
 - **Token Efficiency Simulator**: Calculates ongoing token consumption rates for traditional search exploration versus OKF-guided progressive disclosures on both legacy and greenfield codebases.
 - **Workflow Playbooks**: Outlines setup steps and strategies for deploying OKF in different project scopes.
