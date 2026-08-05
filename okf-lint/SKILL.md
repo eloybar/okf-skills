@@ -32,5 +32,5 @@ node okf-lint/scripts/lint.js --drift
    - For every concept with a valid `resource` (e.g. `file:///path/to/file` or local paths):
      - Query Git for the last commit date of the resource file:
        `git log -1 --format="%aI" -- <file-path>`
-     - Compare this ISO timestamp with the concept's `timestamp`.
+     - Compare this ISO timestamp with the concept's `generated.at` timestamp (falling back to legacy `timestamp` if `generated.at` is not present).
      - If the resource file was modified after the concept's timestamp, flag a warning to alert the user that the concept is out of sync.
