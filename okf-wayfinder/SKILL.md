@@ -11,7 +11,7 @@ Guide the developer through creating a brand new, fully conforming OKF concept f
 ## Steps
 
 1. **Locate the Bundle & Scan Registry**
-   - Check `/docs/okf` or `/okf` for the bundle root. If none exists, ask if you should initialize a new one.
+   - Check `/docs/okf` or `/okf` for the bundle root. If none exists, ask if you should initialize a new one. If initializing, create the root `index.md` containing `okf_version: 0.2` in its frontmatter, and create `log.md`.
    - Scan existing concepts to extract the list of defined `types`, `tags`, and any untracked workspace files (`frontier`). This prevents vocabulary fragmentation and identifies undocumented files.
    - Run the utility script:
      ```powershell
@@ -41,7 +41,7 @@ Guide the developer through creating a brand new, fully conforming OKF concept f
 
 5. **Draft and Verify Conformance**
    - Compile the inputs into a clean `.md` concept file with a valid YAML frontmatter block.
-   - Ensure the `timestamp` is set to the current UTC date and time.
+   - Ensure the `generated` frontmatter block is populated (with `by` in actor format and `at` as the current UTC ISO timestamp).
    - Add the concept to `index.md` and log the change in `log.md`.
 
 ## Directory Organization & Scaling
