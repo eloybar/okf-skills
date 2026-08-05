@@ -18,7 +18,7 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
 3. **Cross-link.** Link related concepts inline in the body with bundle-relative absolute paths: `[Orders table](/schemas/orders.md)`. Links assert plain, untyped relationships. A link to a concept you haven't written yet is fine — broken links are tolerated.
    - Done when every related concept you reference is linked.
 
-4. **Update reserved files.** If the bundle has an `index.md`, add the new concept to it. Append a dated line to `log.md` if one exists. See **Reserved files**.
+4. **Update reserved files.** If the bundle has an `index.md`, add the new concept to it. Append a dated line to `log.md` if one exists. If bootstrapping a new bundle, ensure the root `index.md` contains the frontmatter `okf_version: 0.2`. See **Reserved files**.
    - Done when `index.md` lists the concept and `log.md` records the change — for each reserved file the bundle actually uses.
 
 5. **Steering Notice (AGENTS.md / CLAUDE.md).** If bootstrapping a new bundle or if the repository root-level steering notice does not mention the OKF bundle, create or update the appropriate agent configuration file depending on the active CLI/agent environment:
@@ -52,7 +52,8 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
 - `description` — one-sentence summary
 - `resource` — URI of the underlying asset the concept describes
 - `tags` — list for cross-cutting categorization
-- `timestamp` — ISO 8601 last-modified time; use today's date (run `date -u +%Y-%m-%dT%H:%M:%SZ` — don't guess)
+- `generated` — structured map recording who produced the concept (`by`, in actor format like `human:<id>` or `agent:<name>/<version>`) and when (`at`, ISO 8601 UTC timestamp; run `date -u +%Y-%m-%dT%H:%M:%SZ` — don't guess)
+- `sources` — structured list of references/provenance files the concept derives from
 
 ```markdown
 ---
@@ -61,7 +62,15 @@ title: Orders
 description: One row per customer order, partitioned by order date.
 resource: bigquery://project.dataset.orders
 tags: [sales, core]
-timestamp: 2026-07-07T00:00:00Z
+generated:
+  by: human:developer
+  at: 2026-08-05T14:08:30Z
+sources:
+  - id: ga4-schema
+    resource: https://developers.google.com/analytics/bigquery/export-schema
+    title: GA4 BigQuery Export schema
+    author: team:ga4-docs
+    last_modified: 2026-08-01
 ---
 
 Orders is the system of record for placed orders...
@@ -73,7 +82,6 @@ Free-form markdown. Use these conventional headings when they fit, so consumers 
 
 - `# Schema` — structured field/column descriptions
 - `# Examples` — usage demonstrations
-- `# Citations` — external sources this concept draws from
 
 ## Directory Organization & Scaling
 
@@ -89,7 +97,7 @@ To prevent catalog clutter as the number of concepts increases, adhere to the fo
 
 Two reserved filenames, both optional — but if present, keep them current (step 4):
 
-- `index.md` — a listing of the directory's concepts, enabling progressive disclosure of a large bundle.
+- `index.md` — a listing of the directory's concepts, enabling progressive disclosure of a large bundle. For OKF v0.2, the root `index.md` must include `okf_version: 0.2` in its frontmatter.
 - `log.md` — an update history, newest changes recorded chronologically.
 
 ## Conformance
@@ -101,3 +109,4 @@ Hard rules — a bundle conforms only if all hold:
 3. Reserved files (`index.md`, `log.md`) follow their structures above.
 
 Everything else is soft guidance. When reading a bundle, degrade gracefully: tolerate unknown `type` values, missing recommended fields, and broken links rather than erroring.
+

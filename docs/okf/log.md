@@ -2,6 +2,13 @@
 
 Newest changes recorded chronologically.
 
+## 2026-08-05T14:14:00Z
+- Updated `okf`, `okf-wayfinder`, `okf-maintain`, and `okf-lint` skills to conform to the OKF v0.2 specification.
+- Documented greenfield bootstrapping requirements, specifying `okf_version: 0.2` in the root `index.md`.
+- Replaced legacy `timestamp` and `# Citations` guidelines with `generated: { by, at }` and `sources` structures.
+- Updated concept documentation files under `/docs/okf/concepts/` and refreshed their generation timestamps.
+- Synchronized all skill instruction copies inside `index.html` and regenerated the cytoscape graph visualization.
+
 ## 2026-08-04T11:53:00Z
 - Conducted OKF maintenance (`okf-maintain`) on `interactive-simulator.md` to reflect the expansion of the playbook timeline to 9 steps.
 - Aligned `README.md` with the full 9-step timeline, correcting missing descriptions for `okf-query`, `okf-lint`, and `okf-upgrade`.
