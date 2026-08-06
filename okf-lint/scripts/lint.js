@@ -360,6 +360,26 @@ async function main() {
 
   const results = scanAndLint(bundleRoot, bundleRoot, workspaceRoot, checkDrift);
 
+  // Check steering notice files for outdated templates
+  const agentsPath = path.join(workspaceRoot, 'AGENTS.md');
+  const claudePath = path.join(workspaceRoot, 'CLAUDE.md');
+  const steeringPath = fs.existsSync(agentsPath) ? agentsPath : (fs.existsSync(claudePath) ? claudePath : null);
+
+  if (steeringPath) {
+    try {
+      const steeringContent = fs.readFileSync(steeringPath, 'utf8');
+      if (steeringContent.includes('Knowledge Bundle') || steeringContent.includes('okf-maintain') || steeringContent.includes('Steering Notice')) {
+        const hasWebView = steeringContent.toLowerCase().includes('webview') || steeringContent.toLowerCase().includes('cors');
+        const hasDevUtils = steeringContent.toLowerCase().includes('developer utility') || steeringContent.toLowerCase().includes('developer utilities');
+        const hasPatterns = steeringContent.toLowerCase().includes('codebase behavior') || steeringContent.toLowerCase().includes('engineering guideline');
+        
+        if (!hasWebView || !hasDevUtils || !hasPatterns) {
+          results.warnings.push(`[${path.basename(steeringPath)}] Warning: Steering notice appears to be outdated (missing platform constraints, developer utilities, or engineering guidelines rules). Update it with the latest template from the okf skill.`);
+        }
+      }
+    } catch (e) {}
+  }
+
   console.log(`Files checked: ${results.filesChecked}`);
   console.log(`Errors found:  ${results.errors.length}`);
   console.log(`Warnings:      ${results.warnings.length}`);
