@@ -369,12 +369,27 @@ async function main() {
     try {
       const steeringContent = fs.readFileSync(steeringPath, 'utf8');
       if (steeringContent.includes('Knowledge Bundle') || steeringContent.includes('okf-maintain') || steeringContent.includes('Steering Notice')) {
-        const hasWebView = steeringContent.toLowerCase().includes('webview') || steeringContent.toLowerCase().includes('cors');
-        const hasDevUtils = steeringContent.toLowerCase().includes('developer utility') || steeringContent.toLowerCase().includes('developer utilities');
-        const hasPatterns = steeringContent.toLowerCase().includes('codebase behavior') || steeringContent.toLowerCase().includes('engineering guideline');
+        const versionMatch = steeringContent.match(/<!-- okf-steering-version:\s*([0-9.]+)\s*-->/);
+        let isOutdated = false;
         
-        if (!hasWebView || !hasDevUtils || !hasPatterns) {
-          results.warnings.push(`[${path.basename(steeringPath)}] Warning: Steering notice appears to be outdated (missing platform constraints, developer utilities, or engineering guidelines rules). Update it with the latest template from the okf skill.`);
+        if (versionMatch) {
+          const steeringVersion = versionMatch[1].trim();
+          if (compareVersions(steeringVersion, '1.4.0') < 0) {
+            isOutdated = true;
+          }
+        } else {
+          // Fallback to keyword matching if version tag is missing
+          const hasWebView = steeringContent.toLowerCase().includes('webview') || steeringContent.toLowerCase().includes('cors');
+          const hasDevUtils = steeringContent.toLowerCase().includes('developer utility') || steeringContent.toLowerCase().includes('developer utilities');
+          const hasPatterns = steeringContent.toLowerCase().includes('codebase behavior') || steeringContent.toLowerCase().includes('engineering guideline');
+          
+          if (!hasWebView || !hasDevUtils || !hasPatterns) {
+            isOutdated = true;
+          }
+        }
+        
+        if (isOutdated) {
+          results.warnings.push(`[${path.basename(steeringPath)}] Warning: Steering notice appears to be outdated or missing the version tag (expected version 1.4.0). Update it with the latest template from the okf skill.`);
         }
       }
     } catch (e) {}
