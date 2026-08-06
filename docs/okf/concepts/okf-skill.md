@@ -5,8 +5,8 @@ description: Core skill that defines the structure and authoring guidelines of O
 resource: file:///D:/projects/okf-skills/okf/SKILL.md
 tags: [core, okf, documentation]
 generated:
-  by: human:blub0x
-  at: 2026-08-05T14:14:00Z
+  by: agent:Antigravity/3.5-Flash
+  at: 2026-08-06T10:27:35Z
 ---
 
 # Overview
