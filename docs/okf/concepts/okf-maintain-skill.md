@@ -5,8 +5,8 @@ description: Automatically validates OKF concept bundles and ensures code change
 resource: okf-maintain/SKILL.md
 tags: [maintenance, automation, sync]
 generated:
-  by: human:eloybar
-  at: 2026-08-05T14:14:00Z
+  by: agent:Antigravity/3.5-Flash
+  at: 2026-08-06T10:27:35Z
 ---
 
 # Overview

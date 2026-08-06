@@ -1041,7 +1041,8 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
      * Direct future agent sessions to first verify workspace synchronization on startup (running `okf-lint --drift` to detect drift, and `okf-maintain` to fix/sync any drift).
      * Instruct them to locate and use the **closest parent `okf/` directory** relative to the file they are editing (falling back to the root `okf/` if no local directory exists).
      * Instruct them to ground any initial user questions about the codebase by searching the OKF bundle first (e.g., running `okf-query --search <keywords>` or checking `index.md`) before answering or planning.
-     * Instruct them to run `okf-query --file <file-path>` before analyzing/editing files to pull context, and run `okf-maintain` followed by `okf-lint` post-edit to check conformance.
+     * Instruct them to run `okf-query --file <file-path>` before analyzing/editing files to pull context.
+     * Instruct them to maintain the bundle post-edit by running `okf-maintain` followed by `okf-lint` to update or create concepts if they modify schemas/components/APIs, discover platform/sandbox-specific constraints (e.g., mobile WebView quirks, CORS limits, CDN blockages), improve developer utility/test pages, or learn new codebase behaviors/patterns that warrant a permanent guideline.
    - Done when the correct root-level agent steering file (`AGENTS.md` or `CLAUDE.md`) exists and contains the tailored OKF steering directives.
 
 6. **Conformance gate.** Verify the bundle still conforms. See **Conformance**.
@@ -1262,7 +1263,7 @@ Before writing any code or analyzing subsystems:
 <span class="code-keyword">2.</span> Locate and use the closest parent <span class="code-string">`okf/`</span> directory relative to the file you are editing (falling back to the root <span class="code-string">`okf/`</span> if no local folder exists).
 <span class="code-keyword">3.</span> Before answering any initial user questions about the codebase, system behavior, or design on session startup, ground your answer by running the <span class="code-variable">okf-query --search &lt;keywords&gt;</span> skill or checking <span class="code-string">`index.md`</span>.
 <span class="code-keyword">4.</span> Run the <span class="code-variable">okf-query --file &lt;file-path&gt;</span> skill to retrieve design guidelines, SLAs, and dependencies before analyzing/modifying a file.
-<span class="code-keyword">5.</span> If you edit files documented by a concept, run the <span class="code-variable">okf-maintain</span> skill to update the relevant markdown files and <span class="code-string">`log.md`</span> before finishing.</code></pre>
+<span class="code-keyword">5.</span> Maintain the bundle: Update or create concepts (via <span class="code-variable">okf-maintain</span>) if you modify schemas/components/APIs, discover platform/sandbox constraints (e.g., mobile WebView quirks, CORS limits, CDN blockages), improve developer utilities (like testing environments), or learn new codebase behaviors/patterns.</code></pre>
             </div>
           </div>
         </div>
@@ -1387,7 +1388,7 @@ Keep an existing **OKF bundle** current so it doesn't rot. This skill handles bo
 1. **Guard: confirm a bundle exists.** Look for an `okf/` directory at the repo root (or the bundle root this repo uses). If there is none, stop — there is nothing to maintain.
    - Done when you have the bundle root, or have stopped.
 
-2. **Identify affected and missing concepts.** Map what changed (files edited/created, features added, facts learned) to the concept file(s) that cover it. Check `index.md` if present. If your changes introduced a new significant database schema/collection, API route module, frontend dashboard page, or core system component not yet covered in the bundle, identify it as a new concept that must be created.
+2. **Identify affected and missing concepts.** Map what changed (files edited/created, features added, facts learned) to the concept file(s) that cover it. Check `index.md` if present. If your changes introduced a new significant database schema/collection, API route module, frontend dashboard page, core system component, platform-specific/sandbox constraint (e.g., mobile WebView/in-app browser quirks, CORS limitations, CDN asset blockages), developer utility page (like testing environments), or a new codebase behavior or pattern that warrants a permanent engineering guideline, identify it as a concept that must be updated or created.
    - Done when you have the list of concepts to update and new concepts to create, or have confirmed none apply (then stop).
 
 3. **Update and/or create concepts.** Edit existing affected concepts to match reality. If you identified missing concepts in Step 2, author new concept files for them. In both cases: set or refresh the `generated` frontmatter block (updating `at` with the current UTC ISO timestamp using `date -u +%Y-%m-%dT%H:%M:%SZ` and setting/preserving `by` with the actor), cross-link related concepts, and follow the `okf` skill guidelines for frontmatter and structure.

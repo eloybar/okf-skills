@@ -2,6 +2,12 @@
 
 Newest changes recorded chronologically.
 
+## 2026-08-06T10:27:35Z
+- Broadened steering guidelines and maintenance triggers in `okf/SKILL.md` and `okf-maintain/SKILL.md` to cover platform/sandbox constraints (e.g., WebView/CORS quirks), developer utilities, and permanent engineering guidelines/patterns.
+- Updated `AGENTS.md` to incorporate these expanded maintenance rules.
+- Synchronized steering guidelines and skill copy snippets inside `index.html`.
+- Updated frontmatter generation metadata and timestamps for modified and drifted concept files.
+
 ## 2026-08-05T14:14:00Z
 - Updated `okf`, `okf-wayfinder`, `okf-maintain`, and `okf-lint` skills to conform to the OKF v0.2 specification.
 - Documented greenfield bootstrapping requirements, specifying `okf_version: 0.2` in the root `index.md`.
