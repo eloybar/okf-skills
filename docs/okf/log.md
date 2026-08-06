@@ -2,10 +2,11 @@
 
 Newest changes recorded chronologically.
 
-## 2026-08-06T10:27:35Z
+## 2026-08-06T10:31:47Z
 - Broadened steering guidelines and maintenance triggers in `okf/SKILL.md` and `okf-maintain/SKILL.md` to cover platform/sandbox constraints (e.g., WebView/CORS quirks), developer utilities, and permanent engineering guidelines/patterns.
 - Updated `AGENTS.md` to incorporate these expanded maintenance rules.
 - Synchronized steering guidelines and skill copy snippets inside `index.html`.
+- Implemented an automated steering notice drift verification check in `okf-lint/scripts/lint.js` to flag outdated steering notices.
 - Updated frontmatter generation metadata and timestamps for modified and drifted concept files.
 
 ## 2026-08-05T14:14:00Z
