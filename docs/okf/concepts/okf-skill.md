@@ -6,7 +6,7 @@ resource: file:///D:/projects/okf-skills/okf/SKILL.md
 tags: [core, okf, documentation]
 generated:
   by: agent:Antigravity/3.5-Flash
-  at: 2026-08-06T10:31:47Z
+  at: 2026-08-06T10:36:54Z
 ---
 
 # Overview
