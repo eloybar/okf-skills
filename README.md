@@ -124,7 +124,7 @@ This method copies the skills directly to your global agent paths, making them a
 1. **Clone the repository and run the installer**:
    * **Windows (PowerShell)**:
      ```powershell
-     git clone https://github.com/eloybar/okf-skills.git; cd okf-skills; .\install.ps1
+     git clone https://github.com/eloybar/okf-skills.git; if ($?) { cd okf-skills; .\install.ps1 }
      ```
    * **macOS / Linux (Bash)**:
      ```bash
