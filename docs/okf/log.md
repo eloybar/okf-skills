@@ -2,6 +2,10 @@
 
 Newest changes recorded chronologically.
 
+## 2026-08-06T10:42:00Z
+- Updated the Windows installation instructions in `README.md` to use a conditional `if ($?)` execution block, preventing failure when the clone target directory already exists.
+- Updated `docs/okf/concepts/knowledge-loop.md` timestamp to reflect README modifications.
+
 ## 2026-08-06T10:36:54Z
 - Broadened steering guidelines and maintenance triggers in `okf/SKILL.md` and `okf-maintain/SKILL.md` to cover platform/sandbox constraints (e.g., WebView/CORS quirks), developer utilities, and permanent engineering guidelines/patterns.
 - Updated `AGENTS.md` to incorporate these expanded maintenance rules.
