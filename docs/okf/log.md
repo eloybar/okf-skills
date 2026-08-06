@@ -2,7 +2,7 @@
 
 Newest changes recorded chronologically.
 
-## 2026-08-06T10:31:47Z
+## 2026-08-06T10:36:54Z
 - Broadened steering guidelines and maintenance triggers in `okf/SKILL.md` and `okf-maintain/SKILL.md` to cover platform/sandbox constraints (e.g., WebView/CORS quirks), developer utilities, and permanent engineering guidelines/patterns.
 - Updated `AGENTS.md` to incorporate these expanded maintenance rules.
 - Synchronized steering guidelines and skill copy snippets inside `index.html`.
