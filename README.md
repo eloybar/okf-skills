@@ -118,29 +118,43 @@ If your agent environment supports the `npx skills@latest` tool:
 
 ---
 
-### Method 2: Local Script Installer (Recommended for All Agents)
-This method copies the skills directly to your global agent paths, making them active globally in any directory on your system. The scripts have been updated to support and default to installing for **all supported agents** (Antigravity, Claude Code, and general agents like Cursor or Cline) simultaneously.
+### Method 2: Local Script Installer (Idempotent clone/update)
+This method clones or updates the skills repository locally and executes the installation script to copy them directly to your global agent paths.
 
-1. **Clone the repository and run the installer**:
+1. **Clone or update the repository and run the installer**:
    * **Windows (PowerShell)**:
      ```powershell
-     git clone https://github.com/eloybar/okf-skills.git; if ($?) { cd okf-skills; .\install.ps1 }
+     if (Test-Path okf-skills) { cd okf-skills; git pull } else { git clone https://github.com/eloybar/okf-skills.git; if ($?) { cd okf-skills } }; if ($?) { .\install.ps1 }
      ```
    * **macOS / Linux (Bash)**:
      ```bash
-     git clone https://github.com/eloybar/okf-skills.git && cd okf-skills && ./install.sh
+     if [ -d "okf-skills" ]; then cd okf-skills && git pull; else git clone https://github.com/eloybar/okf-skills.git && cd okf-skills; fi && ./install.sh
      ```
 
 2. **Clean up the clone** (Optional — you can safely delete the repository folder afterward):
    * *Windows*: `cd ..; Remove-Item -Path okf-skills -Recurse -Force`
    * *macOS/Linux*: `cd .. && rm -rf okf-skills`
 
-* **To Update**: Navigate to your cloned `okf-skills` folder, pull changes, and run the script again:
+* **To Update**: If you kept the repository folder, you can run the command from step 1 again (since it is idempotent) or navigate to your cloned `okf-skills` folder, pull, and run:
   * *Windows*: `git pull; .\install.ps1`
   * *macOS/Linux*: `git pull && ./install.sh`
 * **To Remove**: Run the installer with the remove action:
   * *Windows*: `.\install.ps1 -Action Remove`
   * *macOS/Linux*: `./install.sh --action Remove`
+
+---
+
+### Method 3: Direct Web Installer (Fastest - No Clone Required)
+This method executes the installer directly from GitHub. It automatically downloads, extracts, and installs the latest version of the skills without needing to clone the repository or install Node.js.
+
+* **Windows (PowerShell)**:
+  ```powershell
+  irm https://raw.githubusercontent.com/eloybar/okf-skills/main/install.ps1 | iex
+  ```
+* **macOS / Linux (Bash)**:
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/eloybar/okf-skills/main/install.sh | bash
+  ```
 
 > [!NOTE]
 > **Common Agent Skills Directories:**

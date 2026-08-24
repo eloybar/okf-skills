@@ -2,6 +2,11 @@
 
 Newest changes recorded chronologically.
 
+## 2026-08-24T20:01:45Z
+- Updated `README.md` installation instructions to make the PowerShell and Bash local script installer commands (Method 2) idempotent, preventing failures when the target clone directory already exists.
+- Added a Direct Web Installer section (Method 3) to `README.md` enabling quick installation via PowerShell or curl without local cloning.
+- Updated concept timestamps for `development-workflow.md` and `knowledge-loop.md` to align with the changes.
+
 ## 2026-08-24T18:51:02Z
 - Updated the `okf-wayfinder` skill (`okf-wayfinder/SKILL.md`) to explicitly instruct agents to create/update steering configuration files (`AGENTS.md`, `CLAUDE.md`, or `.cursorrules`) when initializing a new OKF bundle.
 - Synchronized the corresponding wayfinder skill copy snippet in `index.html` to prevent documentation drift in the interactive playbook/simulator.
