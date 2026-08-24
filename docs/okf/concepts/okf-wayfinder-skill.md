@@ -6,7 +6,7 @@ resource: file:///D:/projects/okf-skills/okf-wayfinder/SKILL.md
 tags: [wizard, onboarding, creation, documentation]
 generated:
   by: agent:Antigravity/3.5-Flash
-  at: 2026-08-06T10:27:35Z
+  at: 2026-08-24T18:48:18Z
 ---
 
 # Overview
