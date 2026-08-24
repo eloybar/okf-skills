@@ -11,7 +11,7 @@ Guide the developer through creating a brand new, fully conforming OKF concept f
 ## Steps
 
 1. **Locate the Bundle & Scan Registry**
-   - Check `/docs/okf` or `/okf` for the bundle root. If none exists, ask if you should initialize a new one. If initializing, create the root `index.md` containing `okf_version: 0.2` in its frontmatter, and create `log.md`.
+   - Check `/docs/okf` or `/okf` for the bundle root. If none exists, ask if you should initialize a new one. If initializing, create the root `index.md` containing `okf_version: 0.2` in its frontmatter, create `log.md`, and create the appropriate agent configuration/steering file (`AGENTS.md`, `CLAUDE.md`, or `.cursorrules`) as detailed in Step 5 of the core `okf` skill to guide future agents.
    - Scan existing concepts to extract the list of defined `types`, `tags`, and any untracked workspace files (`frontier`). This prevents vocabulary fragmentation and identifies undocumented files.
    - Run the utility script:
      ```powershell
