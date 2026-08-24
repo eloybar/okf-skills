@@ -2,6 +2,10 @@
 
 Newest changes recorded chronologically.
 
+## 2026-08-24T20:08:00Z
+- Fixed installation instructions in `README.md` for Method 2 (PowerShell and Bash) to check for a valid `.git` directory before pulling, and to automatically remove any non-git/broken folders before cloning to prevent "not a git repository" and "already exists" errors.
+- Synchronized concept timestamps for `development-workflow.md` and `knowledge-loop.md`.
+
 ## 2026-08-24T20:01:45Z
 - Updated `README.md` installation instructions to make the PowerShell and Bash local script installer commands (Method 2) idempotent, preventing failures when the target clone directory already exists.
 - Added a Direct Web Installer section (Method 3) to `README.md` enabling quick installation via PowerShell or curl without local cloning.
