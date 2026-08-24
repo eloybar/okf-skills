@@ -6,7 +6,7 @@ resource: README.md
 tags: [architecture, loop, feedback]
 generated:
   by: human:eloybar
-  at: 2026-08-06T10:42:00Z
+  at: 2026-08-06T10:42:42Z
 ---
 
 # Overview
