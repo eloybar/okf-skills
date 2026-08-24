@@ -5,8 +5,8 @@ description: The closed-loop process of bootstrapping, steering, maintaining, an
 resource: README.md
 tags: [architecture, loop, feedback]
 generated:
-  by: human:eloybar
-  at: 2026-08-06T10:42:42Z
+  by: agent:Antigravity/3.5-Flash
+  at: 2026-08-24T20:01:45Z
 ---
 
 # Overview
