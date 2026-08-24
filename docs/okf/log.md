@@ -2,6 +2,12 @@
 
 Newest changes recorded chronologically.
 
+## 2026-08-24T18:51:02Z
+- Updated the `okf-wayfinder` skill (`okf-wayfinder/SKILL.md`) to explicitly instruct agents to create/update steering configuration files (`AGENTS.md`, `CLAUDE.md`, or `.cursorrules`) when initializing a new OKF bundle.
+- Synchronized the corresponding wayfinder skill copy snippet in `index.html` to prevent documentation drift in the interactive playbook/simulator.
+- Updated the metadata timestamp in the `okf-wayfinder-skill` concept map (`docs/okf/concepts/okf-wayfinder-skill.md`).
+- Created the `development-workflow` playbook concept (`docs/okf/concepts/development-workflow.md`) documenting the standard git contribution, PR creation, rebase-merge, and remote branch cleanup workflow.
+
 ## 2026-08-06T10:42:00Z
 - Updated the Windows installation instructions in `README.md` to use a conditional `if ($?)` execution block, preventing failure when the clone target directory already exists.
 - Updated `docs/okf/concepts/knowledge-loop.md` timestamp to reflect README modifications.
