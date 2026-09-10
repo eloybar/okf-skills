@@ -5,7 +5,7 @@ description: Statically analyzes the OKF bundle to verify conformance, link inte
 resource: file:///D:/projects/okf-skills/okf-lint/SKILL.md
 tags: [linter, verification, quality-gate, CI-CD]
 generated:
-  by: agent:Antigravity/3.5-Flash
+  by: Antigravity/3.5-Flash
   at: 2026-08-06T10:27:35Z
 ---
 

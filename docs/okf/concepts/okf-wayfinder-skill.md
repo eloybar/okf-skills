@@ -5,7 +5,7 @@ description: Guided wizard to bootstrap and document concepts using codebase con
 resource: file:///D:/projects/okf-skills/okf-wayfinder/SKILL.md
 tags: [wizard, onboarding, creation, documentation]
 generated:
-  by: agent:Antigravity/3.5-Flash
+  by: Antigravity/3.5-Flash
   at: 2026-08-24T20:01:30Z
 ---
 

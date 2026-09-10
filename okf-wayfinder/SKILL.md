@@ -21,13 +21,14 @@ Guide the developer through creating a brand new, fully conforming OKF concept f
 2. **Categorize the Concept & Propose Frontier Files**
    - Read the `frontier` (untracked files) list returned by the taxonomy script.
    - Propose these undocumented files directly to the user (e.g., *"I see these workspace files are undocumented. Would you like to create a concept for one of them?"*).
-   - Display existing types (including standard types: `Concept`, `Skill`, `Utility`, `Decision`) and ask:
+   - Display existing types (including standard types: `Concept`, `Skill`, `Utility`, `Decision`, `Attested Computation`) and ask:
      > "Select the concept type:
      > 1) Concept [existing]
      > 2) Skill [existing]
      > 3) Utility [existing]
      > 4) Decision (Architectural Decision Record/Rationale)
-     > 5) [Custom type...]"
+     > 5) Attested Computation (Sanctioned executable calculation)
+     > 6) [Custom type...]"
    - Ensure that any links between concepts use descriptive name labels (e.g., `[Label](/concepts/target.md)`) rather than bare filenames or URLs.
 
 3. **Autogenerate a Telemetry Draft (If Applicable)**
@@ -41,8 +42,8 @@ Guide the developer through creating a brand new, fully conforming OKF concept f
 
 5. **Draft and Verify Conformance**
    - Compile the inputs into a clean `.md` concept file with a valid YAML frontmatter block.
-   - Ensure the `generated` frontmatter block is populated (with `by` in actor format and `at` as the current UTC ISO timestamp).
-   - Add the concept to `index.md` and log the change in `log.md`.
+   - Ensure the `generated` frontmatter block is populated (with `by` in standard actor format `<producer>/<version>`, `human:<id>`, or `process:<id>` and `at` as the current UTC ISO timestamp). If applicable, set `status: stable` and provenance `sources`.
+   - Add the concept to `index.md` and log the change in `log.md` under a `## YYYY-MM-DD` date heading.
 
 ## Directory Organization & Scaling
 

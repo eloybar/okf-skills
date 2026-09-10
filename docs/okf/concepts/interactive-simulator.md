@@ -5,7 +5,7 @@ description: A self-contained HTML brief and token efficiency calculator explain
 resource: file:///D:/projects/okf-skills/index.html
 tags: [simulation, onboarding, visual-brief, playground]
 generated:
-  by: agent:Antigravity/3.5-Flash
+  by: Antigravity/3.5-Flash
   at: 2026-08-24T20:01:30Z
 ---
 
