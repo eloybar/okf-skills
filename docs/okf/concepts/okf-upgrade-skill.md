@@ -7,7 +7,7 @@ tags: [upgrade, migration, automation]
 status: stable
 generated:
   by: human:blub0x
-  at: 2026-08-04T07:41:00Z
+  at: 2026-09-10T13:17:00Z
 ---
 
 # Overview

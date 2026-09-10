@@ -18,7 +18,7 @@ Welcome to the self-documenting knowledge bundle for the OKF Skills repository.
 - [The Knowledge Loop Lifecycle](/concepts/knowledge-loop.md) — The lifecycle binding specification, steering, maintenance, and visualization.
 - [Interactive Simulator & Playbook](/concepts/interactive-simulator.md) — Visual playbook and token saving calculator.
 - [Skill Installer Scripts](/concepts/skill-installers.md) — Automated install, update, and remove scripts.
-- [Development Workflow](/concepts/development-workflow.md) — Recommended git contribution process.
+- [Git Development Workflow](/concepts/git-development-workflow.md) — Core process specification for branch management, commit grouping, pull requests, and rebase-merging.
 
 ## Not yet specified
 - `AGENTS.md` — Root agent steering guidelines.
