@@ -5,8 +5,9 @@ Newest changes recorded chronologically.
 ## 2026-09-10
 - Incorporated `docs/SPEC.md` into the OKF bundle by creating the [OKF Specification v0.2](/concepts/okf-specification.md) concept document.
 - Updated [OKF Core Skill](/concepts/okf-skill.md) and [The Knowledge Loop Lifecycle](/concepts/knowledge-loop.md) to cross-link to the new specification concept.
-- Synchronized concept timestamps for `development-workflow.md` and `knowledge-loop.md` to resolve concept drift against `README.md`.
+- Synchronized concept timestamps for `knowledge-loop.md` to resolve concept drift against `README.md`.
 - Normalized bundle concept actors to `<producer>/<version>` and `log.md` date headings to `YYYY-MM-DD`.
+- Incorporated the comprehensive [Git Development and Pull Request Workflow](/concepts/git-development-workflow.md) playbook from Chronotrader into the bundle, superseding the previous development-workflow stub with detailed guidelines on branch naming, PR sizing, commit grouping, verification gates, rebase-merges, and AI coding agent mandates.
 
 ## 2026-08-24
 - Fixed installation instructions in `README.md` for Method 2 (PowerShell and Bash) to check for a valid `.git` directory before pulling, and to automatically remove any non-git/broken folders before cloning to prevent "not a git repository" and "already exists" errors.
