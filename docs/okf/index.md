@@ -7,7 +7,8 @@ okf_version: 0.2
 Welcome to the self-documenting knowledge bundle for the OKF Skills repository.
 
 ## Concepts and Skills
-- [OKF Core Skill](/concepts/okf-skill.md) — Specification and guidelines for authoring concepts.
+- [OKF Specification v0.2](/concepts/okf-specification.md) — Canonical specification for knowledge bundles, frontmatter schema, trust tiers, and attestation.
+- [OKF Core Skill](/concepts/okf-skill.md) — Authoring guidelines and format rules.
 - [OKF Maintain Skill](/concepts/okf-maintain-skill.md) — Keep bundle validated and synchronized post-edit.
 - [OKF Visualize Skill](/concepts/okf-visualize-skill.md) — Render interactive dependency graphs.
 - [OKF Wayfinder Skill](/concepts/okf-wayfinder-skill.md) — Guided wizard for concept onboarding.

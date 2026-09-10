@@ -5,14 +5,14 @@ description: The closed-loop process of bootstrapping, steering, maintaining, an
 resource: file:///D:/projects/okf-skills/README.md
 tags: [architecture, loop, feedback]
 generated:
-  by: agent:Antigravity/3.5-Flash
-  at: 2026-08-24T20:08:00Z
+  by: Antigravity/3.5-Flash
+  at: 2026-09-10T13:11:00Z
 ---
 
 # Overview
 The knowledge loop lifecycle binds the OKF skills together into a continuous self-documenting pipeline:
 
-1. **OKF Specification**: Defined by [OKF Core Skill](/concepts/okf-skill.md).
+1. **OKF Specification**: Standardized by the [OKF Specification v0.2](/concepts/okf-specification.md) and operationalized by [OKF Core Skill](/concepts/okf-skill.md).
 2. **Initial Bundle Creation**: Bootstraps the concept files and directory structure using [OKF Core Skill](/concepts/okf-skill.md).
 3. **Guided Wizard Onboarding**: Guided by the [OKF Wayfinder Skill](/concepts/okf-wayfinder-skill.md) to interview developers and capture tribal knowledge.
 4. **AGENTS.md Steering**: Directs new agent sessions to check, read, and respect concepts.

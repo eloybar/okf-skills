@@ -45,16 +45,31 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
 
 **Required** — the only hard rule:
 
-- `type` — the kind of concept, non-empty (e.g. `BigQuery Table`, `Playbook`, `Service`). Free-form; pick a consistent vocabulary within a bundle.
+- `type` — the kind of concept, non-empty (e.g. `BigQuery Table`, `Playbook`, `Service`, `Metric`, `Attested Computation`). Free-form; pick a consistent vocabulary within a bundle.
 
-**Recommended** — add when they apply:
+**Recommended & Lifecycle / Trust Fields (OKF v0.2)** — add when they apply:
 
 - `title` — display name
 - `description` — one-sentence summary
 - `resource` — URI of the underlying asset the concept describes
 - `tags` — list for cross-cutting categorization
-- `generated` — structured map recording who produced the concept (`by`, in actor format like `human:<id>` or `agent:<name>/<version>`) and when (`at`, ISO 8601 UTC timestamp; run `date -u +%Y-%m-%dT%H:%M:%SZ` — don't guess)
-- `sources` — structured list of references/provenance files the concept derives from
+- `status` — lifecycle status: `draft` | `stable` | `deprecated` (defaults to `stable`)
+- `stale_after` — ISO 8601 UTC timestamp instant on/after which the concept is considered stale (e.g. `2026-12-31T00:00:00Z`)
+- `generated` — structured map recording who produced the concept (`by`, in actor format: `<producer>/<version>` for agents, `human:<id>` for people, or `process:<id>` for automated processes) and when (`at`, ISO 8601 UTC timestamp; run `date -u +%Y-%m-%dT%H:%M:%SZ` — don't guess)
+- `verified` — list (or single mapping) of verification events (`- { by: <actor>, at: <ISO-8601> }`). Derives trust tier: `unverified` (no verifier), `machine-confirmed` (automated verifiers), or `human-reviewed` (`human:` verifier).
+- `sources` — structured list of references/provenance artifacts the concept derives from:
+  - `resource` (REQUIRED): absolute URL, bundle-relative path (`/...`), or scope descriptor.
+  - `id`: stable key used for per-claim attribution via footnotes `[^id]`.
+  - `title`, `author`, `usage_count`, `last_modified` (ISO 8601).
+- `usage_window` — optional sibling of `sources` framing `usage_count`: `{ from: <ISO-8601>, to: <ISO-8601> }`.
+
+**Attested Computations (type: Attested Computation)**:
+Carries a sanctioned way to compute a value:
+- `runtime` (REQUIRED): execution environment (e.g. `bigquery`, `postgres`, `python`, `dbt`).
+- `parameters`: list of typed inputs (`- { name: <str>, type: <str>, required: <bool> }`).
+- `computation`: path to an external query/code file (if not provided inline under `# Computation`).
+- `executor`: `{ resource: <path-to-skill-or-runner>, receipt: [<fields>] }`.
+- `attester`: `{ resource: <path-to-deterministic-verifier-code> }`.
 
 ```markdown
 ---
@@ -63,18 +78,25 @@ title: Orders
 description: One row per customer order, partitioned by order date.
 resource: bigquery://project.dataset.orders
 tags: [sales, core]
+status: stable
+stale_after: 2026-12-31T00:00:00Z
 generated:
   by: human:developer
   at: 2026-08-05T14:08:30Z
+verified:
+  - by: process:nightly-validator
+    at: 2026-08-06T02:00:00Z
 sources:
   - id: ga4-schema
     resource: https://developers.google.com/analytics/bigquery/export-schema
     title: GA4 BigQuery Export schema
     author: team:ga4-docs
-    last_modified: 2026-08-01
+    last_modified: 2026-08-01T00:00:00Z
 ---
 
-Orders is the system of record for placed orders...
+Orders is the system of record for placed orders.[^ga4-schema]
+
+[^ga4-schema]: GA4 BigQuery Export schema
 ```
 
 ## Body
@@ -83,6 +105,7 @@ Free-form markdown. Use these conventional headings when they fit, so consumers 
 
 - `# Schema` — structured field/column descriptions
 - `# Examples` — usage demonstrations
+- `# Computation` — the sanctioned computation block of an `Attested Computation` (when not using external `computation: <file>`)
 
 ## Directory Organization & Scaling
 
@@ -98,8 +121,8 @@ To prevent catalog clutter as the number of concepts increases, adhere to the fo
 
 Two reserved filenames, both optional — but if present, keep them current (step 4):
 
-- `index.md` — a listing of the directory's concepts, enabling progressive disclosure of a large bundle. For OKF v0.2, the root `index.md` must include `okf_version: 0.2` in its frontmatter.
-- `log.md` — an update history, newest changes recorded chronologically.
+- `index.md` — a listing of the directory's concepts, enabling progressive disclosure of a large bundle. For OKF v0.2, the root `index.md` may include `okf_version: "0.2"` in its frontmatter (no other `index.md` may contain frontmatter).
+- `log.md` — an update history, newest changes recorded chronologically. Date headings MUST use ISO 8601 `YYYY-MM-DD` form (e.g. `## 2026-08-24`).
 
 ## Conformance
 
@@ -109,5 +132,5 @@ Hard rules — a bundle conforms only if all hold:
 2. Every frontmatter has a non-empty `type`.
 3. Reserved files (`index.md`, `log.md`) follow their structures above.
 
-Everything else is soft guidance. When reading a bundle, degrade gracefully: tolerate unknown `type` values, missing recommended fields, and broken links rather than erroring.
+Everything else is soft guidance. When reading a bundle, degrade gracefully: tolerate unknown `type` values, missing recommended fields, and broken links (which may represent not-yet-written knowledge per §6.1) rather than erroring.
 
