@@ -36,5 +36,14 @@ node okf-upgrade/scripts/upgrade.js --user "ahormati"
 3. **Version Check**:
    - Inserts `okf_version: "0.2"` into the frontmatter of the root `index.md` file.
 
-4. **Lint Verification**:
+4. **Actor Normalization (§7)**:
+   - Normalizes non-standard `agent:<name>` actor formats to `<producer>/<version>` (e.g. `agent:Antigravity/3.5-Flash` -> `Antigravity/3.5-Flash`).
+
+5. **Log Date Heading Normalization (§9)**:
+   - Formats `log.md` date headings to ISO 8601 `YYYY-MM-DD` and merges duplicate date sections.
+
+6. **Bare Link Auto-Fixing**:
+   - Replaces bare/non-descriptive link labels (e.g. `[doc.md](doc.md)`) with the target concept's `title`.
+
+7. **Lint Verification**:
    - Automatically runs `okf-lint` on completion to verify compatibility.

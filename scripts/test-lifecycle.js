@@ -229,7 +229,88 @@ And one inside a code block which should NOT be touched:
   assert.ok(upgradedContent.includes('[Target Concept Display Title](/concepts/target_for_link.md)'), 'Upgrade should fix bare absolute link');
   assert.ok(upgradedContent.includes('[Target Concept Display Title](target_for_link.md)'), 'Upgrade should fix bare relative link');
   assert.ok(upgradedContent.includes('\n[target_for_link.md](/concepts/target_for_link.md)\n'), 'Upgrade should NOT modify links inside code blocks');
-  console.log('✓ Upgrade successfully auto-resolved bare link labels and skipped code blocks.');
+  // === STEP 11: TEST ACTOR & LOG NORMALIZATION, LINK TOLERANCE, AND IDEMPOTENCY ===
+  console.log('Step 11: Testing OKF v0.2 actor normalization, log.md normalization, and link tolerance...');
+
+  // 11a. Create concept with agent: prefix
+  const actorTestFile = path.join(bundleRoot, 'concepts', 'actor_test.md');
+  fs.writeFileSync(actorTestFile, `---
+type: Concept
+title: Actor Normalization Test
+generated:
+  by: agent:Antigravity/3.5-Flash
+  at: 2026-08-01T00:00:00Z
+verified:
+  - by: agent:test-bot/1.0
+    at: 2026-08-02T00:00:00Z
+---
+
+Testing actor format.
+`);
+
+  // 11b. Write non-normalized headings in log.md
+  const logFile = path.join(bundleRoot, 'log.md');
+  fs.writeFileSync(logFile, `# Change Log
+
+## 2026-08-24T20:08:00Z
+- Entry one
+
+## 2026-08-24T18:00:00Z
+- Entry two
+`);
+
+  // 11c. Add concept with a broken link to test tolerance (§6.1)
+  const brokenLinkFile = path.join(bundleRoot, 'concepts', 'broken_link_test.md');
+  fs.writeFileSync(brokenLinkFile, `---
+type: Concept
+title: Broken Link Concept
+generated:
+  by: human:tester
+  at: 2026-08-01T00:00:00Z
+---
+
+Here is a forward-looking link to [Future Concept](/concepts/nonexistent.md).
+`);
+
+  // Lint should pass without --strict-links (broken link is a warning, not an error)
+  const lintPermissiveOutput = execSync(`node "${scripts.lint}"`, { cwd: tempDir }).toString();
+  assert.ok(lintPermissiveOutput.includes('OKF Linting Passed Successfully!'), 'Linting should pass by default when broken links exist');
+  assert.ok(lintPermissiveOutput.includes('Warning: Broken concept link to'), 'Broken link should be reported as warning');
+  assert.ok(lintPermissiveOutput.includes('Warning: Log date heading'), 'Non-standard log heading should be flagged as warning');
+  assert.ok(lintPermissiveOutput.includes('Warning: \'generated.by\' uses non-standard'), 'Non-standard actor should be flagged as warning');
+  console.log('✓ Linter properly tolerated broken link and reported warnings for unnormalized actors and log headings.');
+
+  // Lint should fail with --strict-links
+  try {
+    execSync(`node "${scripts.lint}" --strict-links`, { cwd: tempDir, stdio: 'pipe' });
+    assert.fail('Linter should have failed with --strict-links');
+  } catch (e) {
+    if (e.name === 'AssertionError') throw e;
+    console.log('✓ Linter failed as expected when run with --strict-links.');
+  }
+
+  // 11d. Run okf-upgrade to normalize actors and log.md
+  execSync(`node "${scripts.upgrade}"`, { cwd: tempDir, stdio: 'ignore' });
+
+  // Verify actor was normalized (agent: prefix removed)
+  const normalizedActorContent = fs.readFileSync(actorTestFile, 'utf8');
+  assert.ok(normalizedActorContent.includes('by: Antigravity/3.5-Flash'), 'Upgrade should strip agent: prefix from generated.by');
+  assert.ok(normalizedActorContent.includes('by: test-bot/1.0'), 'Upgrade should strip agent: prefix from verified.by');
+  console.log('✓ Actor format normalized to <producer>/<version>.');
+
+  // Verify log.md was normalized to YYYY-MM-DD and merged
+  const normalizedLogContent = fs.readFileSync(logFile, 'utf8').replace(/\r\n/g, '\n');
+  assert.ok(normalizedLogContent.includes('## 2026-08-24\n- Entry one\n\n- Entry two'), 'Log headings should be normalized and merged under YYYY-MM-DD');
+  console.log('✓ Log file normalized to standard YYYY-MM-DD headings.');
+
+  // Clean up the broken link concept before final verification
+  fs.unlinkSync(brokenLinkFile);
+
+  // 11e. Verify idempotency: running okf-upgrade again should produce 0 modifications
+  const secondUpgradeOutput = execSync(`node "${scripts.upgrade}"`, { cwd: tempDir }).toString();
+  assert.ok(secondUpgradeOutput.includes('Concepts modified: 0'), 'Second run of upgrade should modify 0 concepts');
+  assert.ok(secondUpgradeOutput.includes('Logs normalized:   0'), 'Second run of upgrade should normalize 0 logs');
+  console.log('✓ okf-upgrade verified strictly idempotent on compliant bundle.');
 
   console.log('\n======================================');
   console.log('🎉 ALL LIFE CYCLE TEST CASES PASSED SUCCESSFULLY!');

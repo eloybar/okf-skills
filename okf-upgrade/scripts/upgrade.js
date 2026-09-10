@@ -135,11 +135,29 @@ function serializeFrontmatter(fm) {
         if (src.last_modified) lines.push(`    last_modified: ${src.last_modified}`);
       });
     } else if (Array.isArray(value)) {
-      lines.push(`${key}: [${value.join(', ')}]`);
+      if (value.length > 0 && typeof value[0] === 'object' && value[0] !== null) {
+        lines.push(`${key}:`);
+        value.forEach(item => {
+          const entries = Object.entries(item);
+          if (entries.length > 0) {
+            const [firstK, firstV] = entries[0];
+            lines.push(`  - ${firstK}: ${firstV}`);
+            for (let idx = 1; idx < entries.length; idx++) {
+              lines.push(`    ${entries[idx][0]}: ${entries[idx][1]}`);
+            }
+          }
+        });
+      } else {
+        lines.push(`${key}: [${value.join(', ')}]`);
+      }
     } else if (typeof value === 'object' && value !== null) {
       lines.push(`${key}:`);
       for (const [k, v] of Object.entries(value)) {
-        lines.push(`  ${k}: ${v}`);
+        if (Array.isArray(v)) {
+          lines.push(`  ${k}: [${v.join(', ')}]`);
+        } else {
+          lines.push(`  ${k}: ${v}`);
+        }
       }
     } else {
       lines.push(`${key}: ${value}`);
@@ -147,6 +165,92 @@ function serializeFrontmatter(fm) {
   }
   lines.push('---');
   return lines.join('\n');
+}
+
+function findLogFiles(dir, list = []) {
+  if (!fs.existsSync(dir)) return list;
+  const files = fs.readdirSync(dir);
+  for (const file of files) {
+    const fullPath = path.join(dir, file);
+    const stat = fs.statSync(fullPath);
+    if (stat.isDirectory()) {
+      findLogFiles(fullPath, list);
+    } else if (stat.isFile() && file.toLowerCase() === 'log.md') {
+      list.push(fullPath);
+    }
+  }
+  return list;
+}
+
+function normalizeLogFile(logPath) {
+  if (!fs.existsSync(logPath)) return false;
+  const content = fs.readFileSync(logPath, 'utf8');
+  const lines = content.split(/\r?\n/);
+  let modified = false;
+
+  const headerLines = [];
+  const dateSections = [];
+  let currentDate = null;
+  let currentItems = [];
+  let inDateSections = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const match = line.match(/^##\s*(\d{4}-\d{2}-\d{2})(?:T[0-9:Z\+\.\-]+)?(.*)$/);
+    if (match) {
+      inDateSections = true;
+      if (line !== `## ${match[1]}`) {
+        modified = true;
+      }
+      if (currentDate) {
+        dateSections.push({ date: currentDate, items: currentItems });
+      }
+      currentDate = match[1];
+      currentItems = [];
+    } else if (inDateSections) {
+      currentItems.push(line);
+    } else {
+      headerLines.push(line);
+    }
+  }
+  if (currentDate) {
+    dateSections.push({ date: currentDate, items: currentItems });
+  }
+
+  // Check if any consecutive sections share the same date
+  const hasDuplicateConsecutiveDates = dateSections.some((sec, idx) => idx > 0 && sec.date === dateSections[idx - 1].date);
+  if (!modified && !hasDuplicateConsecutiveDates) {
+    return false;
+  }
+
+  // Merge consecutive sections with identical dates
+  const mergedSections = [];
+  for (const sec of dateSections) {
+    const last = mergedSections[mergedSections.length - 1];
+    const cleanSecItems = sec.items.join('\n').trim();
+    if (last && last.date === sec.date) {
+      if (cleanSecItems) {
+        last.items = (last.items + '\n\n' + cleanSecItems).trim();
+      }
+      modified = true;
+    } else {
+      mergedSections.push({ date: sec.date, items: cleanSecItems });
+    }
+  }
+
+  let out = headerLines.join('\n').trim() + '\n\n';
+  for (let i = 0; i < mergedSections.length; i++) {
+    const sec = mergedSections[i];
+    out += `## ${sec.date}\n`;
+    if (sec.items) {
+      out += sec.items + '\n\n';
+    } else {
+      out += '\n';
+    }
+  }
+
+  fs.writeFileSync(logPath, out.trimEnd() + '\n', 'utf8');
+  return true;
 }
 
 function walkConcepts(dir, list = []) {
@@ -347,6 +451,32 @@ function main() {
       modified = true;
     }
 
+    // 4. Normalize actor convention: strip legacy 'agent:' prefix (§7)
+    if (fm.generated && typeof fm.generated === 'object') {
+      if (typeof fm.generated.by === 'string' && fm.generated.by.startsWith('agent:')) {
+        fm.generated.by = fm.generated.by.slice(6);
+        modified = true;
+        console.log(`[+] ${relativePath}: Normalized generated.by actor format (${fm.generated.by})`);
+      }
+    }
+    if (fm.verified) {
+      if (Array.isArray(fm.verified)) {
+        fm.verified.forEach(v => {
+          if (v && typeof v.by === 'string' && v.by.startsWith('agent:')) {
+            v.by = v.by.slice(6);
+            modified = true;
+            console.log(`[+] ${relativePath}: Normalized verified.by actor format (${v.by})`);
+          }
+        });
+      } else if (typeof fm.verified === 'object' && fm.verified !== null) {
+        if (typeof fm.verified.by === 'string' && fm.verified.by.startsWith('agent:')) {
+          fm.verified.by = fm.verified.by.slice(6);
+          modified = true;
+          console.log(`[+] ${relativePath}: Normalized verified.by actor format (${fm.verified.by})`);
+        }
+      }
+    }
+
     if (modified) {
       const newFmText = serializeFrontmatter(fm);
       fs.writeFileSync(mdPath, newFmText + '\n\n' + body.trim() + '\n', 'utf8');
@@ -354,9 +484,21 @@ function main() {
     }
   }
 
+  // Normalize all log.md files to ISO 8601 YYYY-MM-DD headings (§9)
+  const logFiles = findLogFiles(bundleRoot);
+  let logsUpgraded = 0;
+  for (const logPath of logFiles) {
+    const relLog = path.relative(bundleRoot, logPath).replace(/\\/g, '/');
+    if (normalizeLogFile(logPath)) {
+      console.log(`[+] ${relLog}: Normalized date headings to YYYY-MM-DD`);
+      logsUpgraded++;
+    }
+  }
+
   console.log(`----------------------------------------`);
   console.log(`Upgrade complete!`);
   console.log(`Concepts modified: ${conceptsUpgraded}`);
+  console.log(`Logs normalized:   ${logsUpgraded}`);
   console.log(`Root index updated: ${indexUpgraded ? 'Yes' : 'No'}`);
   console.log(`----------------------------------------`);
 

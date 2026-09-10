@@ -21,3 +21,9 @@ yarn-error.log*
 *.log
 tmp/
 temp/
+
+# Agent skill installations & lockfiles
+.agents/
+.claude/
+agent/
+skills-lock.json

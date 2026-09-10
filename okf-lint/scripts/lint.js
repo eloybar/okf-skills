@@ -146,16 +146,51 @@ function resolveResourceLocalPath(resourceUri, workspaceRoot) {
   return path.normalize(path.join(workspaceRoot, localPath));
 }
 
-function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, results = { errors: [], warnings: [], filesChecked: 0 }) {
+function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = false, results = { errors: [], warnings: [], filesChecked: 0 }) {
   if (!fs.existsSync(dir)) return results;
   const files = fs.readdirSync(dir);
   for (const file of files) {
     const fullPath = path.join(dir, file);
     const stat = fs.statSync(fullPath);
     if (stat.isDirectory()) {
-      scanAndLint(fullPath, bundleRoot, workspaceRoot, checkDrift, results);
+      scanAndLint(fullPath, bundleRoot, workspaceRoot, checkDrift, strictLinks, results);
     } else if (stat.isFile() && file.endsWith('.md')) {
-      if (file === 'index.md' || file === 'log.md') continue;
+      // Reserved files validation (§8, §9, §11)
+      if (file === 'index.md') {
+        const relativePath = path.relative(bundleRoot, fullPath).replace(/\\/g, '/');
+        const content = fs.readFileSync(fullPath, 'utf8');
+        const isRoot = path.resolve(fullPath) === path.resolve(path.join(bundleRoot, 'index.md'));
+        const fm = parseFrontmatter(content);
+        if (fm) {
+          if (!isRoot) {
+            results.errors.push(`[${relativePath}] Error: Only the bundle-root index.md may contain frontmatter (§8, §12).`);
+          } else {
+            const keys = Object.keys(fm);
+            for (const k of keys) {
+              if (k !== 'okf_version') {
+                results.warnings.push(`[${relativePath}] Warning: Bundle-root index.md should only carry 'okf_version' frontmatter key (§12). Found '${k}'.`);
+              }
+            }
+          }
+        }
+        continue;
+      }
+      if (file === 'log.md') {
+        const relativePath = path.relative(bundleRoot, fullPath).replace(/\\/g, '/');
+        const content = fs.readFileSync(fullPath, 'utf8');
+        const lines = content.split(/\r?\n/);
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          if (line.startsWith('## ')) {
+            const dateStr = line.slice(3).trim();
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+              results.warnings.push(`[${relativePath}:${i + 1}] Warning: Log date heading '${line}' does not use standard ISO 8601 YYYY-MM-DD form (§9). Run okf-upgrade to normalize.`);
+            }
+          }
+        }
+        continue;
+      }
+
       results.filesChecked++;
       const relativePath = path.relative(bundleRoot, fullPath).replace(/\\/g, '/');
       const content = fs.readFileSync(fullPath, 'utf8');
@@ -170,6 +205,21 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, results = { err
         results.errors.push(`[${relativePath}] Error: YAML frontmatter missing 'type' key.`);
       }
 
+      // Actor format checks (§7)
+      if (fm.generated && fm.generated.by && typeof fm.generated.by === 'string') {
+        if (fm.generated.by.startsWith('agent:')) {
+          results.warnings.push(`[${relativePath}] Warning: 'generated.by' uses non-standard '${fm.generated.by}'. OKF v0.2 actor convention (§7) uses <producer>/<version> for agents (without 'agent:' prefix), human:<id>, or process:<id>. Run okf-upgrade to normalize.`);
+        }
+      }
+      if (fm.verified) {
+        const verifiers = Array.isArray(fm.verified) ? fm.verified : [fm.verified];
+        verifiers.forEach(v => {
+          if (v && typeof v.by === 'string' && v.by.startsWith('agent:')) {
+            results.warnings.push(`[${relativePath}] Warning: 'verified.by' uses non-standard '${v.by}'. OKF v0.2 actor convention (§7) uses <producer>/<version> for agents (without 'agent:' prefix), human:<id>, or process:<id>. Run okf-upgrade to normalize.`);
+          }
+        });
+      }
+
       // 2. Link Integrity check
       const links = extractLinks(content);
       for (const link of links) {
@@ -180,7 +230,11 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, results = { err
           targetPath = path.join(path.dirname(fullPath), link.target);
         }
         if (!fs.existsSync(targetPath)) {
-          results.errors.push(`[${relativePath}] Error: Broken concept link to '${link.target}'. Target does not exist.`);
+          if (strictLinks) {
+            results.errors.push(`[${relativePath}] Error: Broken concept link to '${link.target}'. Target does not exist.`);
+          } else {
+            results.warnings.push(`[${relativePath}] Warning: Broken concept link to '${link.target}'. Target does not exist. (OKF v0.2 §6.1 tolerates broken links; use --strict-links to fail build)`);
+          }
         }
 
         // 2b. Refer by Name check: flag bare paths/URLs as warnings
@@ -340,6 +394,7 @@ async function main() {
   await checkSkillsVersion();
   const args = process.argv.slice(2);
   const checkDrift = args.includes('--drift');
+  const strictLinks = args.includes('--strict-links') || args.includes('--strict');
   
   const workspaceRoot = process.cwd();
   let bundleRoot = path.join(workspaceRoot, 'docs', 'okf');
@@ -356,9 +411,12 @@ async function main() {
   if (checkDrift) {
     console.log(`Git-based concept drift analysis enabled (--drift)`);
   }
+  if (strictLinks) {
+    console.log(`Strict link integrity enabled (--strict-links)`);
+  }
   console.log(`----------------------------------------`);
 
-  const results = scanAndLint(bundleRoot, bundleRoot, workspaceRoot, checkDrift);
+  const results = scanAndLint(bundleRoot, bundleRoot, workspaceRoot, checkDrift, strictLinks);
 
   // Check steering notice files for outdated templates
   const agentsPath = path.join(workspaceRoot, 'AGENTS.md');
