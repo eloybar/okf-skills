@@ -5,8 +5,8 @@ description: The closed-loop process of bootstrapping, steering, maintaining, an
 resource: file:///D:/projects/okf-skills/README.md
 tags: [architecture, loop, feedback]
 generated:
-  by: Antigravity/3.5-Flash
-  at: 2026-09-10T13:11:00Z
+  by: Antigravity/3.8-Flash
+  at: 2026-09-11T14:17:00Z
 ---
 
 # Overview
