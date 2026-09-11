@@ -128,7 +128,7 @@ This method clones or updates the skills repository locally and executes the ins
      ```
    * **macOS / Linux (Bash)**:
      ```bash
-     if [ -d "okf-skills/.git" ]; then cd okf-skills && git pull; else rm -rf okf-skills && git clone https://github.com/eloybar/okf-skills.git && cd okf-skills; fi && ./install.sh
+     if [ -d "okf-skills/.git" ]; then cd okf-skills && git pull; else rm -rf okf-skills && git clone https://github.com/eloybar/okf-skills.git && cd okf-skills; fi && bash ./install.sh
      ```
 
 2. **Clean up the clone** (Optional — you can safely delete the repository folder afterward):
@@ -137,10 +137,10 @@ This method clones or updates the skills repository locally and executes the ins
 
 * **To Update**: If you kept the repository folder, you can run the command from step 1 again (since it is idempotent) or navigate to your cloned `okf-skills` folder, pull, and run:
   * *Windows*: `git pull; .\install.ps1`
-  * *macOS/Linux*: `git pull && ./install.sh`
+  * *macOS/Linux*: `git pull && bash ./install.sh`
 * **To Remove**: Run the installer with the remove action:
   * *Windows*: `.\install.ps1 -Action Remove`
-  * *macOS/Linux*: `./install.sh --action Remove`
+  * *macOS/Linux*: `bash ./install.sh --action Remove`
 
 ---
 

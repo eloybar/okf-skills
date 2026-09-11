@@ -2,6 +2,10 @@
 
 Newest changes recorded chronologically.
 
+## 2026-09-11
+- Set executable git file mode (`100755`) on `install.sh` to prevent `Permission denied` errors when running `./install.sh` on Linux/macOS.
+- Updated `README.md` and `okf-lint` installer instructions to invoke `bash ./install.sh` for reliable execution across Unix environments.
+
 ## 2026-09-10
 - Incorporated `docs/SPEC.md` into the OKF bundle by creating the [OKF Specification v0.2](/concepts/okf-specification.md) concept document.
 - Updated [OKF Core Skill](/concepts/okf-skill.md) and [The Knowledge Loop Lifecycle](/concepts/knowledge-loop.md) to cross-link to the new specification concept.

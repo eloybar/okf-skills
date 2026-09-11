@@ -331,7 +331,7 @@ function printVersionWarning(latestVersion) {
   console.warn(`Latest version on GitHub is v${latestVersion}.`);
   console.warn(`To update, please run the installer script:`);
   console.warn(`  Windows (PowerShell): powershell -ExecutionPolicy Bypass -File .\\install.ps1 -Agent All`);
-  console.warn(`  macOS/Linux (Bash):   ./install.sh`);
+  console.warn(`  macOS/Linux (Bash):   bash ./install.sh`);
   console.warn(`----------------------------------------\n`);
 }
 
