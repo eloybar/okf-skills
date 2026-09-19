@@ -99,6 +99,27 @@ Authentication uses JWT tokens...
   execSync(`node "${scripts.maintain}"`, { cwd: tempDir, stdio: 'ignore' });
   console.log('✓ okf-maintain --sync executed and refreshed concept.');
 
+  // 6c. Verify steering notice audit & auto-sync
+  const mockClaudeFile = path.join(tempDir, 'CLAUDE.md');
+  fs.writeFileSync(mockClaudeFile, '# Claude Project\n\n## Knowledge Bundle / OKF\nOld steering notice.\n\n<!-- okf-steering-version: 1.4.0 -->\n');
+  
+  // maintain --check should detect outdated steering
+  try {
+    execSync(`node "${scripts.maintain}" --check`, { cwd: tempDir, stdio: 'pipe' });
+    assert.fail('maintain --check should have failed when outdated steering file is present');
+  } catch (e) {
+    if (e.name === 'AssertionError') throw e;
+    console.log('✓ okf-maintain --check correctly caught outdated steering notice.');
+  }
+
+  // maintain --sync should auto-heal CLAUDE.md
+  execSync(`node "${scripts.maintain}"`, { cwd: tempDir, stdio: 'ignore' });
+  const patchedClaudeContent = fs.readFileSync(mockClaudeFile, 'utf8');
+  assert.ok(patchedClaudeContent.includes('<!-- okf-steering-version: 1.5.0 -->'), 'maintain.js should bump steering tag to 1.5.0');
+  assert.ok(patchedClaudeContent.includes('Pre-Completion Verification Gate'), 'maintain.js should inject Pre-Completion Gate');
+  console.log('✓ okf-maintain --sync automatically auto-healed outdated steering notice.');
+  fs.unlinkSync(mockClaudeFile);
+
   // === STEP 7: LINT VERIFICATION ===
   console.log('Step 7: Verifying linter clears after upkeep via --json...');
   const lintJsonOutput = JSON.parse(execSync(`node "${scripts.lint}" --drift --json`, { cwd: tempDir }).toString());
