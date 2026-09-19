@@ -12,6 +12,7 @@ console.log(`Setting up sandbox workspace: ${tempDir}`);
 const scripts = {
   taxonomy: path.resolve(__dirname, '../okf-wayfinder/scripts/wayfinder_taxonomy.js'),
   lint: path.resolve(__dirname, '../okf-lint/scripts/lint.js'),
+  maintain: path.resolve(__dirname, '../okf-maintain/scripts/maintain.js'),
   query: path.resolve(__dirname, '../okf-query/scripts/query.js'),
   visualize: path.resolve(__dirname, '../okf-visualize/scripts/visualize.js'),
   upgrade: path.resolve(__dirname, '../okf-upgrade/scripts/upgrade.js')
@@ -83,16 +84,27 @@ Authentication uses JWT tokens...
   console.log('✓ Linter successfully detected concept-resource drift.');
 
   // === STEP 6: AUTO-UPKEEP (MAINTAIN) ===
-  console.log('Step 6: Simulating upkeep (updating concept timestamp)...');
-  const updatedISO = new Date().toISOString();
-  const updatedContent = fs.readFileSync(conceptFile, 'utf8').replace(nowISO, updatedISO);
-  fs.writeFileSync(conceptFile, updatedContent);
+  console.log('Step 6: Testing okf-maintain CLI script...');
+  
+  // 6a. Check mode detects drift
+  try {
+    execSync(`node "${scripts.maintain}" --check`, { cwd: tempDir, stdio: 'pipe' });
+    assert.fail('okf-maintain --check should have failed when drift is present');
+  } catch (e) {
+    if (e.name === 'AssertionError') throw e;
+    console.log('✓ okf-maintain --check correctly reported drift.');
+  }
+
+  // 6b. Sync mode resolves drift
+  execSync(`node "${scripts.maintain}"`, { cwd: tempDir, stdio: 'ignore' });
+  console.log('✓ okf-maintain --sync executed and refreshed concept.');
 
   // === STEP 7: LINT VERIFICATION ===
-  console.log('Step 7: Verifying linter clears after upkeep...');
-  const lintOutputAfter = execSync(`node "${scripts.lint}" --drift`, { cwd: tempDir }).toString();
-  assert.ok(lintOutputAfter.includes('OKF Linting Passed Successfully!'), 'Linter should pass with 0 warnings after update');
-  console.log('✓ Linter successfully passed after upkeep.');
+  console.log('Step 7: Verifying linter clears after upkeep via --json...');
+  const lintJsonOutput = JSON.parse(execSync(`node "${scripts.lint}" --drift --json`, { cwd: tempDir }).toString());
+  assert.equal(lintJsonOutput.success, true, 'Linter should report success: true');
+  assert.equal(lintJsonOutput.driftCount, 0, 'Linter should report driftCount: 0');
+  console.log('✓ Linter successfully verified with --json and passed after upkeep.');
 
   // === STEP 8: VISUALIZATION ===
   console.log('Step 8: Generating visualization...');
@@ -146,6 +158,24 @@ V2 authentication description.
   const lintV2Output = execSync(`node "${scripts.lint}" --drift`, { cwd: tempDir }).toString();
   assert.ok(lintV2Output.includes('Warning: Concept drift detected'), 'Linter should detect drift using generated.at fallback');
   console.log('✓ Linter successfully detected drift using generated.at.');
+
+  // 9d-2. Test stale_after validation
+  const staleTestFile = path.join(bundleRoot, 'concepts', 'stale_test.md');
+  fs.writeFileSync(staleTestFile, `---
+type: Concept
+title: Stale Concept Test
+stale_after: 2020-01-01T00:00:00Z
+generated:
+  by: human:tester
+  at: 2020-01-01T00:00:00Z
+---
+
+This concept is expired.
+`);
+  const staleLintJson = JSON.parse(execSync(`node "${scripts.lint}" --json`, { cwd: tempDir }).toString());
+  assert.ok(staleLintJson.staleCount > 0, 'Linter should report stale concepts');
+  console.log('✓ Linter successfully flagged expired concept via stale_after.');
+  fs.unlinkSync(staleTestFile);
 
   // 9e. Create Attested Computation concept and verify dependency validation
   const attestedConceptFile = path.join(bundleRoot, 'concepts', 'attested.md');

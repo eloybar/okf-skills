@@ -2,6 +2,15 @@
 
 Newest changes recorded chronologically.
 
+## 2026-09-19
+- Implemented `okf-maintain/scripts/maintain.js` CLI utility providing rapid automated synchronization of concept drift timestamps, frontier tracking in `index.md`, logging in `log.md`, and visualizer re-rendering.
+- Upgraded `okf-lint/scripts/lint.js` with `--json` structured metrics output and `stale_after` freshness validation conforming to OKF v0.2 §5.4.
+- Added root `package.json` manifest with standard npm script aliases (`npm test`, `npm run okf:lint:drift`, `npm run okf:maintain`, etc.) with zero runtime or dev dependencies.
+- Added Mandatory Pre-Completion Verification Gate to `AGENTS.md` and upgraded steering version comment to `1.5.0`.
+- Upgraded `okf`, `okf-maintain`, and `okf-lint` skills to version `1.5.0` and synchronized corresponding snippets inside `index.html`.
+- Updated integration lifecycle test suite (`scripts/test-lifecycle.js`) with comprehensive assertions for `maintain.js`, `lint.js --json`, and `stale_after` validation.
+- Validated bundle conformance with `okf-lint --drift` (0 errors, 0 warnings) and passed full integration test suite (`scripts/test-lifecycle.js`).
+
 ## 2026-09-11
 - Set executable git file mode (`100755`) on `install.sh` to prevent `Permission denied` errors when running `./install.sh` on Linux/macOS.
 - Updated `README.md` and `okf-lint` installer instructions to invoke `bash ./install.sh` for reliable execution across Unix environments.
