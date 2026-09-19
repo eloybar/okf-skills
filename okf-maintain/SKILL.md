@@ -1,10 +1,20 @@
 ---
 name: okf-maintain
 description: Use after changing or learning something about a codebase that has an okf/ knowledge bundle, so the bundle doesn't go stale. Fires when your edits touch code an existing OKF concept documents, or when you discover a fact a concept should record.
-version: 1.4.0
+version: 1.5.0
 ---
 
 Keep an existing **OKF bundle** current so it doesn't rot. This skill handles both reactive upkeep of existing files and the automatic authoring of new concept files when new significant components, schemas, or modules are introduced to the codebase. (For specific frontmatter/conformance rules, follow the `okf` skill, which is the single source of truth for how a concept is written).
+
+### ⚡ Fast Mechanical Upkeep (CLI Automation)
+Whenever code modifications touch existing resources or introduce untracked workspace files, run the automated maintainer script:
+```bash
+node okf-maintain/scripts/maintain.js        # Auto-syncs drift timestamps, frontier, log, and viz
+node okf-maintain/scripts/maintain.js --check # Audit mode: checks drift and frontier without changes
+```
+This automatically updates timestamps for drifted concepts, updates `## Not yet specified` in `index.md`, records the entry in `log.md`, regenerates `viz.html`, and runs `okf-lint --drift`.
+
+### Semantic Maintenance & New Concepts
 
 1. **Guard: confirm a bundle exists.** Look for an `okf/` directory at the repo root (or the bundle root this repo uses). If there is none, stop — there is nothing to maintain.
    - Done when you have the bundle root, or have stopped.
@@ -18,8 +28,8 @@ Keep an existing **OKF bundle** current so it doesn't rot. This skill handles bo
 4. **Update reserved files.** Append a dated line to `log.md` under an ISO 8601 `## YYYY-MM-DD` date heading describing the changes and additions. If you added a new concept, add it to `index.md` (and remove it from `## Not yet specified` if it was there). If any new undocumented workspace files are identified, list them under the `## Not yet specified` section of `index.md` to map the known frontier.
    - Done when `log.md` records the change and `index.md` lists any new concept and updates the undocumented frontier list — for each reserved file the bundle uses.
 
-5. **Steering Notice Upkeep.** Check if `AGENTS.md` or `CLAUDE.md` in the workspace root contains the version comment `<!-- okf-steering-version: 1.4.0 -->`. If the comment is missing or references a version older than `1.4.0`, overwrite or update the steering directives block to match the latest template format specified in the `okf` skill.
-   - Done when the steering notice contains the correct up-to-date directives and the `<!-- okf-steering-version: 1.4.0 -->` comment.
+5. **Steering Notice Upkeep.** Check if `AGENTS.md` or `CLAUDE.md` in the workspace root contains the version comment `<!-- okf-steering-version: 1.5.0 -->`. If the comment is missing or references a version older than `1.5.0`, overwrite or update the steering directives block to match the latest template format specified in the `okf` skill.
+   - Done when the steering notice contains the correct up-to-date directives and the `<!-- okf-steering-version: 1.5.0 -->` comment.
 
 6. **Conformance gate.** Verify the bundle still conforms, per the `okf` skill.
    - Done when every non-reserved `.md` has parseable frontmatter with a non-empty `type`.

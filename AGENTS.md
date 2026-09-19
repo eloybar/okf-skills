@@ -2,13 +2,18 @@
 
 Welcome! This codebase is designed as a **self-documenting repository** powered by the **Open Knowledge Format (OKF)**.
 
+## ⚡ Pre-Completion Verification Gate (MANDATORY)
+Before claiming any user request is complete or ending your turn after modifying workspace code:
+1. **Maintenance Sync:** Run `node okf-maintain/scripts/maintain.js` (or `npm run okf:maintain`) to auto-sync concept timestamps, unindexed frontier files in `index.md`, changelog entries in `log.md`, and rebuild `viz.html`.
+2. **Lint & Drift Gate:** Run `node okf-lint/scripts/lint.js --drift` (or `npm run okf:lint:drift`) to guarantee 0 errors and 0 warnings.
+
 ## 📂 Knowledge Bundle / OKF
 An OKF knowledge bundle is located in the `/docs/okf` directory. This bundle describes the core concepts, skills, and architecture of the OKF system implemented here.
 
 ### 1. Verification and Synchronization on Startup
 On startup, before making any modifications to the codebase:
-- Run the `okf-lint --drift` skill to detect and inspect any unsynchronized concept drift.
-- Run the `okf-maintain` skill to fix/sync any flagged concept drift.
+- Run the `okf-lint --drift` skill (or `npm run okf:lint:drift`) to detect and inspect any unsynchronized concept drift.
+- Run the `okf-maintain` skill (or `node okf-maintain/scripts/maintain.js`) to fix/sync any flagged concept drift.
 - **Specification Alignment:** Since this repository implements the OKF Skills themselves, you **MUST** check the live OKF Specification at `https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/okf/SPEC.md` to detect if the spec has changed. If there are new version requirements, format rules, or metadata definitions, verify that the local skill scripts (under the respective skill folders, e.g., `okf-lint`, `okf-maintain`, `okf-query`, etc.) and skill documents (like [okf/SKILL.md](file:///D:/projects/okf-skills/okf/SKILL.md)) are fully aligned and updated accordingly.
 
 ### 2. Locating the OKF Bundle
@@ -19,7 +24,7 @@ On startup, before making any modifications to the codebase:
 - **Retrieval before Edits**: Before analyzing or modifying any specific file, run the `okf-query --file <file-path>` skill to retrieve and inject relevant design guidelines, SLAs, and dependencies directly into your context.
 
 ### 4. Post-Edit Upkeep & Conformance
-- After making edits, run the `okf-maintain` skill to update the relevant concept files, frontmatter timestamps, index entries, and `log.md`. Make sure to update or create concepts if you:
+- After making edits, run the `okf-maintain` skill (`node okf-maintain/scripts/maintain.js`) to update the relevant concept files, frontmatter timestamps, index entries, and `log.md`. Make sure to update or create concepts if you:
   - Modify schemas, components, or API endpoints.
   - Discover platform or sandbox-specific constraints (e.g., mobile WebView quirks, CORS limitations, CDN asset blockages).
   - Improve or add structural documentation to developer utility pages (like testing environments).
@@ -27,5 +32,5 @@ On startup, before making any modifications to the codebase:
 - Run the `okf-lint` skill to guarantee that all markdown links are intact and all concept structures conform before completing the task.
 - **Interactive Simulator Sync:** If you modify `AGENTS.md`, the `okf` skill (`okf/SKILL.md`), or any other skill definition or implementation script in the repository, you **MUST** also update and synchronize the corresponding copy or snippet inside [index.html](file:///D:/projects/okf-skills/index.html) to prevent documentation drift in the interactive playbook and simulator.
 
-<!-- okf-steering-version: 1.4.0 -->
+<!-- okf-steering-version: 1.5.0 -->
 

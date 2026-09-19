@@ -6,11 +6,18 @@ resource: file:///D:/projects/okf-skills/okf-maintain/SKILL.md
 tags: [maintenance, automation, sync]
 generated:
   by: Antigravity/3.5-Flash
-  at: 2026-09-10T13:17:00Z
+  at: 2026-09-19T13:03:00Z
 ---
 
 # Overview
-The `okf-maintain` skill runs post-edit to verify that codebase modifications match the state of OKF concepts. It identifies affected concepts, handles folder scale transitions, refactors broken links, and forces updating concepts to prevent documentation rot.
+The `okf-maintain` skill runs post-edit to verify that codebase modifications match the state of OKF concepts. It provides both an automated CLI maintenance script ([`maintain.js`](/okf-maintain/scripts/maintain.js)) for rapid mechanical upkeep and guided workflows for authoring new concepts when architecture changes.
+
+# Architecture & CLI Automation
+- **Script**: Located at [`okf-maintain/scripts/maintain.js`](/okf-maintain/scripts/maintain.js).
+- **Execution Modes**:
+  - `node okf-maintain/scripts/maintain.js` (or `npm run okf:maintain`): Automatically detects concept-resource drift via Git timestamps and refreshes `generated.at`, scans for unindexed frontier files and updates `## Not yet specified` in `index.md`, appends entries to `log.md`, regenerates `viz.html`, and verifies with `okf-lint`.
+  - `node okf-maintain/scripts/maintain.js --check`: Non-destructive audit mode that exits with code 1 if drift or unindexed frontier files are found.
+  - `node okf-maintain/scripts/maintain.js --json`: Outputs structured JSON for CI and subagent tooling.
 
 # Workflow
 1. **Guard check**: Verifies the bundle directory exists (in this repo, `/docs/okf`).
