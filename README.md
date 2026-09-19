@@ -124,23 +124,23 @@ This method clones or updates the skills repository locally and executes the ins
 1. **Clone or update the repository and run the installer**:
    * **Windows (PowerShell)**:
      ```powershell
-     if (Test-Path okf-skills\.git) { cd okf-skills; git pull } else { if (Test-Path okf-skills) { Remove-Item okf-skills -Recurse -Force }; git clone https://github.com/eloybar/okf-skills.git; if ($?) { cd okf-skills } }; if ($?) { .\install.ps1 }
+     if (Test-Path okf-skills\.git\HEAD) { git -C okf-skills pull } else { if (Test-Path okf-skills) { Remove-Item okf-skills -Recurse -Force }; git clone https://github.com/eloybar/okf-skills.git }; if ($?) { powershell -ExecutionPolicy Bypass -File .\okf-skills\install.ps1 }
      ```
    * **macOS / Linux (Bash)**:
      ```bash
-     if [ -d "okf-skills/.git" ]; then cd okf-skills && git pull; else rm -rf okf-skills && git clone https://github.com/eloybar/okf-skills.git && cd okf-skills; fi && bash ./install.sh
+     if [ -f "okf-skills/.git/HEAD" ]; then git -C okf-skills pull; else rm -rf okf-skills && git clone https://github.com/eloybar/okf-skills.git; fi && bash ./okf-skills/install.sh
      ```
 
 2. **Clean up the clone** (Optional — you can safely delete the repository folder afterward):
-   * *Windows*: `cd ..; Remove-Item -Path okf-skills -Recurse -Force`
-   * *macOS/Linux*: `cd .. && rm -rf okf-skills`
+   * *Windows*: `Remove-Item -Path okf-skills -Recurse -Force`
+   * *macOS/Linux*: `rm -rf okf-skills`
 
 * **To Update**: If you kept the repository folder, you can run the command from step 1 again (since it is idempotent) or navigate to your cloned `okf-skills` folder, pull, and run:
-  * *Windows*: `git pull; .\install.ps1`
-  * *macOS/Linux*: `git pull && bash ./install.sh`
+  * *Windows*: `git -C okf-skills pull; powershell -ExecutionPolicy Bypass -File .\okf-skills\install.ps1`
+  * *macOS/Linux*: `git -C okf-skills pull && bash ./okf-skills/install.sh`
 * **To Remove**: Run the installer with the remove action:
-  * *Windows*: `.\install.ps1 -Action Remove`
-  * *macOS/Linux*: `bash ./install.sh --action Remove`
+  * *Windows*: `powershell -ExecutionPolicy Bypass -File .\okf-skills\install.ps1 -Action Remove`
+  * *macOS/Linux*: `bash ./okf-skills/install.sh --action Remove`
 
 ---
 
