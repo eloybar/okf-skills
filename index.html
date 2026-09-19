@@ -896,7 +896,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
           </div>
           <div class="card-text">
-            <h3 class="card-title">AGENTS.md / CLAUDE.md Setup</h3>
+            <h3 class="card-title">Agent Steering Notices Setup</h3>
             <p class="card-desc">The steering helm. Anchors the agent workflow, enforcing reading maps and triggering upkeep checks.</p>
           </div>
         </label>
@@ -1032,20 +1032,24 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
 4. **Update reserved files.** If the bundle has an `index.md`, add the new concept to it. Append a dated line to `log.md` if one exists. If bootstrapping a new bundle, ensure the root `index.md` contains the frontmatter `okf_version: 0.2`. See **Reserved files**.
    - Done when `index.md` lists the concept and `log.md` records the change — for each reserved file the bundle actually uses.
 
-5. **Steering Notice (AGENTS.md / CLAUDE.md).** If bootstrapping a new bundle or if the repository root-level steering notice does not mention the OKF bundle, create or update the appropriate agent configuration file depending on the active CLI/agent environment:
+5. **Steering Notice (AGENTS.md / CLAUDE.md / .cursorrules / .windsurfrules / .clinerules / GEMINI.md).** If bootstrapping a new bundle or if repository root-level agent steering files do not mention the OKF bundle, create or update the appropriate agent configuration file depending on the active CLI/agent environment:
    - **Detection**:
      * If the executing agent environment is **Claude Code** (e.g., command is `claude`, or environment variables/tools like `AskUserQuestion` indicate Claude Code), target **`CLAUDE.md`**.
-     * If the executing agent environment is **Google Antigravity / Gemini CLI** (e.g., command is `agy`, or tools like `ask_permission`/`ask_question` indicate Antigravity), target **`AGENTS.md`**.
-     * Otherwise (e.g. Cursor, Cline, general agents), default to creating **`AGENTS.md`** or **`.cursorrules`** as appropriate.
+     * If the executing agent environment is **Google Antigravity / Gemini CLI** (e.g., command is `agy`, or tools like `ask_permission`/`ask_question` indicate Antigravity), target **`AGENTS.md`** (or **`GEMINI.md`** if preferred).
+     * If the environment is **Cursor IDE**, target **`.cursorrules`** or **`AGENTS.md`**.
+     * If the environment is **Windsurf**, target **`.windsurfrules`** or **`AGENTS.md`**.
+     * If the environment is **Cline / Roo Code**, target **`.clinerules`** or **`AGENTS.md`**.
+     * Otherwise (e.g. Codex, OpenHands, general agents), default to creating **`AGENTS.md`**.
    - **Content**: 
+     * Include a **Pre-Completion Verification Gate** instructing agents before completing any work to run `okf-maintain` (or `node okf-maintain/scripts/maintain.js`) and `okf-lint --drift` (or `node okf-lint/scripts/lint.js --drift`).
      * Create or update the selected steering file with a dedicated **Knowledge Bundle / OKF** section.
      * Direct future agent sessions to first verify workspace synchronization on startup (running `okf-lint --drift` to detect drift, and `okf-maintain` to fix/sync any drift).
      * Instruct them to locate and use the **closest parent `okf/` directory** relative to the file they are editing (falling back to the root `okf/` if no local directory exists).
      * Instruct them to ground any initial user questions about the codebase by searching the OKF bundle first (e.g., running `okf-query --search <keywords>` or checking `index.md`) before answering or planning.
      * Instruct them to run `okf-query --file <file-path>` before analyzing/editing files to pull context.
      * Instruct them to maintain the bundle post-edit by running `okf-maintain` followed by `okf-lint` to update or create concepts if they modify schemas/components/APIs, discover platform/sandbox-specific constraints (e.g., mobile WebView quirks, CORS limits, CDN blockages), improve developer utility/test pages, or learn new codebase behaviors/patterns that warrant a permanent guideline.
-     * Include the steering version tracking tag at the bottom of the section: `<!-- okf-steering-version: 1.4.0 -->`.
-   - Done when the correct root-level agent steering file (`AGENTS.md` or `CLAUDE.md`) exists and contains the tailored OKF steering directives with the version tag.
+     * Include the steering version tracking tag at the bottom of the section: `<!-- okf-steering-version: 1.5.0 -->`.
+   - Done when the target root-level agent steering file (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, etc.) exists and contains the tailored OKF steering directives with the version tag.
 
 6. **Conformance gate.** Verify the bundle still conforms. See **Conformance**.
    - Done when every non-reserved `.md` has parseable frontmatter with a non-empty `type`, and each reserved file matches its structure.
@@ -1267,8 +1271,8 @@ function scanBundleTaxonomy(dir, bundleRoot, taxonomy = { types: new Set(), tags
       <div class="details-panel" id="details-panel-4">
         <div class="details-grid">
           <div class="details-info">
-            <h3>AGENTS.md / CLAUDE.md Steering Notice</h3>
-            <p>The project-level agent configuration file acts as the developer's guide for LLMs. The <code>/okf</code> bootstrapping skill automatically handles creating or updating the appropriate configuration file (like <code>AGENTS.md</code> or <code>CLAUDE.md</code>) depending on the executing CLI to ensure future agent sessions read the maps before writing files.</p>
+            <h3>Agent Steering Notices (AGENTS.md / CLAUDE.md / .cursorrules, etc.)</h3>
+            <p>The project-level agent configuration file acts as the developer's guide for LLMs. The <code>/okf</code> bootstrapping skill automatically handles creating or updating the appropriate configuration file (such as <code>AGENTS.md</code>, <code>CLAUDE.md</code>, <code>.cursorrules</code>, <code>.windsurfrules</code>, <code>.clinerules</code>, or <code>GEMINI.md</code>) depending on the executing CLI to ensure future agent sessions read the maps before writing files.</p>
             <ul>
               <li>Informs incoming agents about the existence of the bundle at okf/.</li><li>Instructs agents to do progressive lookups (system.md -> details).</li><li>Requires the use of the okf-maintain skill upon making code edits.</li><li>Sets up explicit constraint rules to prevent doc drifts.</li>
             </ul>
@@ -1439,8 +1443,8 @@ node okf-maintain/scripts/maintain.js --check # Audit mode: checks drift and fro
 4. **Update reserved files.** Append a dated line to `log.md` describing the changes and additions. If you added a new concept, add it to `index.md` (and remove it from `## Not yet specified` if it was there). If any new undocumented workspace files are identified, list them under the `## Not yet specified` section of `index.md` to map the known frontier.
    - Done when `log.md` records the change and `index.md` lists any new concept and updates the undocumented frontier list — for each reserved file the bundle uses.
 
-5. **Steering Notice Upkeep.** Check if `AGENTS.md` or `CLAUDE.md` in the workspace root contains the version comment `<!-- okf-steering-version: 1.5.0 -->`. If the comment is missing or references a version older than `1.5.0`, automatically update or overwrite the steering directives block without prompting for user confirmation (or run `node okf-maintain/scripts/maintain.js`), as this is a required conformance gate.
-   - Done when the steering notice contains the correct up-to-date directives and the `<!-- okf-steering-version: 1.5.0 -->` comment.
+5. **Steering Notice Upkeep.** Check if any agent steering files in the workspace root (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, or `GEMINI.md`) contain OKF directives. If any contain the version comment `<!-- okf-steering-version: 1.5.0 -->` or mention OKF, verify they are at version `1.5.0` with the Pre-Completion Verification Gate. If the comment is missing or references a version older than `1.5.0`, automatically update or overwrite the steering directives block without prompting for user confirmation (or run `node okf-maintain/scripts/maintain.js`), as this is a required conformance gate.
+   - Done when all present OKF steering notices contain the correct up-to-date directives and the `<!-- okf-steering-version: 1.5.0 -->` comment.
 
 6. **Conformance gate.** Verify the bundle still conforms, per the `okf` skill.
    - Done when every non-reserved `.md` has parseable frontmatter with a non-empty `type`.
@@ -2494,7 +2498,7 @@ node okf-upgrade/scripts/upgrade.js
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
           </div>
           <h3 class="feature-title">Brownfield Project Flow</h3>
-          <p class="feature-desc">Use the <strong>/okf</strong> bootstrapping skill first to scan the legacy codebase, file systems, and imports. Once the initial structure is built, commit the <code>okf/</code> directory and place the notice in <code>AGENTS.md</code> or <code>CLAUDE.md</code> to guide future modifications.</p>
+          <p class="feature-desc">Use the <strong>/okf</strong> bootstrapping skill first to scan the legacy codebase, file systems, and imports. Once the initial structure is built, commit the <code>okf/</code> directory and place the notice in <code>AGENTS.md</code>, <code>CLAUDE.md</code>, or your agent's steering file to guide future modifications.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon-circle">

@@ -15,7 +15,7 @@ The `okf-maintain` skill runs post-edit to verify that codebase modifications ma
 # Architecture & CLI Automation
 - **Script**: Located at [`okf-maintain/scripts/maintain.js`](/okf-maintain/scripts/maintain.js).
 - **Execution Modes**:
-  - `node okf-maintain/scripts/maintain.js` (or `npm run okf:maintain`): Automatically detects concept-resource drift via Git timestamps and refreshes `generated.at`, auto-heals outdated agent steering notices (`AGENTS.md` / `CLAUDE.md`) to the current version template without user prompting, scans for unindexed frontier files and updates `## Not yet specified` in `index.md`, appends entries to `log.md`, regenerates `viz.html`, and verifies with `okf-lint`.
+  - `node okf-maintain/scripts/maintain.js` (or `npm run okf:maintain`): Automatically detects concept-resource drift via Git timestamps and refreshes `generated.at`, auto-heals outdated agent steering notices (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `GEMINI.md`) to the current version template without user prompting, scans for unindexed frontier files and updates `## Not yet specified` in `index.md`, appends entries to `log.md`, regenerates `viz.html`, and verifies with `okf-lint`.
   - `node okf-maintain/scripts/maintain.js --check`: Non-destructive audit mode that exits with code 1 if drift, unindexed frontier files, or outdated steering notices are found.
   - `node okf-maintain/scripts/maintain.js --json`: Outputs structured JSON for CI and subagent tooling.
 

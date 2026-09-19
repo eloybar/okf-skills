@@ -21,11 +21,14 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
 4. **Update reserved files.** If the bundle has an `index.md`, add the new concept to it. Append a dated line to `log.md` if one exists. If bootstrapping a new bundle, ensure the root `index.md` contains the frontmatter `okf_version: 0.2`. See **Reserved files**.
    - Done when `index.md` lists the concept and `log.md` records the change — for each reserved file the bundle actually uses.
 
-5. **Steering Notice (AGENTS.md / CLAUDE.md).** If bootstrapping a new bundle or if the repository root-level steering notice does not mention the OKF bundle, create or update the appropriate agent configuration file depending on the active CLI/agent environment:
+5. **Steering Notice (AGENTS.md / CLAUDE.md / .cursorrules / .windsurfrules / .clinerules / GEMINI.md).** If bootstrapping a new bundle or if repository root-level agent steering files do not mention the OKF bundle, create or update the appropriate agent configuration file depending on the active CLI/agent environment:
    - **Detection**:
      * If the executing agent environment is **Claude Code** (e.g., command is `claude`, or environment variables/tools like `AskUserQuestion` indicate Claude Code), target **`CLAUDE.md`**.
-     * If the executing agent environment is **Google Antigravity / Gemini CLI** (e.g., command is `agy`, or tools like `ask_permission`/`ask_question` indicate Antigravity), target **`AGENTS.md`**.
-     * Otherwise (e.g. Cursor, Cline, general agents), default to creating **`AGENTS.md`** or **`.cursorrules`** as appropriate.
+     * If the executing agent environment is **Google Antigravity / Gemini CLI** (e.g., command is `agy`, or tools like `ask_permission`/`ask_question` indicate Antigravity), target **`AGENTS.md`** (or **`GEMINI.md`** if preferred).
+     * If the environment is **Cursor IDE**, target **`.cursorrules`** or **`AGENTS.md`**.
+     * If the environment is **Windsurf**, target **`.windsurfrules`** or **`AGENTS.md`**.
+     * If the environment is **Cline / Roo Code**, target **`.clinerules`** or **`AGENTS.md`**.
+     * Otherwise (e.g. Codex, OpenHands, general agents), default to creating **`AGENTS.md`**.
    - **Content**: 
      * Include a **Pre-Completion Verification Gate** instructing agents before completing any work to run `okf-maintain` (or `node okf-maintain/scripts/maintain.js`) and `okf-lint --drift` (or `node okf-lint/scripts/lint.js --drift`).
      * Create or update the selected steering file with a dedicated **Knowledge Bundle / OKF** section.
@@ -35,7 +38,7 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
      * Instruct them to run `okf-query --file <file-path>` before analyzing/editing files to pull context.
      * Instruct them to maintain the bundle post-edit by running `okf-maintain` followed by `okf-lint` to update or create concepts if they modify schemas/components/APIs, discover platform/sandbox-specific constraints (e.g., mobile WebView quirks, CORS limits, CDN blockages), improve developer utility/test pages, or learn new codebase behaviors/patterns that warrant a permanent guideline.
      * Include the steering version tracking tag at the bottom of the section: `<!-- okf-steering-version: 1.5.0 -->`.
-   - Done when the correct root-level agent steering file (`AGENTS.md` or `CLAUDE.md`) exists and contains the tailored OKF steering directives with the version tag.
+   - Done when the target root-level agent steering file (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, etc.) exists and contains the tailored OKF steering directives with the version tag.
 
 
 6. **Conformance gate.** Verify the bundle still conforms. See **Conformance**.

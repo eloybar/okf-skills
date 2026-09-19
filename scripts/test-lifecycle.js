@@ -99,26 +99,51 @@ Authentication uses JWT tokens...
   execSync(`node "${scripts.maintain}"`, { cwd: tempDir, stdio: 'ignore' });
   console.log('✓ okf-maintain --sync executed and refreshed concept.');
 
-  // 6c. Verify steering notice audit & auto-sync
+  // 6c. Verify multi-agent steering notice audit & auto-sync
   const mockClaudeFile = path.join(tempDir, 'CLAUDE.md');
+  const mockCursorFile = path.join(tempDir, '.cursorrules');
+  const mockWindsurfFile = path.join(tempDir, '.windsurfrules');
+
   fs.writeFileSync(mockClaudeFile, '# Claude Project\n\n## Knowledge Bundle / OKF\nOld steering notice.\n\n<!-- okf-steering-version: 1.4.0 -->\n');
-  
-  // maintain --check should detect outdated steering
+  fs.writeFileSync(mockCursorFile, '# Cursor Rules\n\n## Knowledge Bundle / OKF\nOld cursor steering notice.\n\n<!-- okf-steering-version: 1.3.0 -->\n');
+  fs.writeFileSync(mockWindsurfFile, '# Windsurf Rules\nNon-OKF rules content here.\n');
+
+  // maintain --check should detect outdated steering in both files
   try {
-    execSync(`node "${scripts.maintain}" --check`, { cwd: tempDir, stdio: 'pipe' });
-    assert.fail('maintain --check should have failed when outdated steering file is present');
+    execSync(`node "${scripts.maintain}" --check --json`, { cwd: tempDir, stdio: 'pipe' });
+    assert.fail('maintain --check should have failed when outdated steering files are present');
   } catch (e) {
     if (e.name === 'AssertionError') throw e;
-    console.log('✓ okf-maintain --check correctly caught outdated steering notice.');
+    const checkJson = JSON.parse(e.stdout.toString());
+    assert.ok(checkJson.outdatedSteering.includes('CLAUDE.md'), 'Outdated steering should include CLAUDE.md');
+    assert.ok(checkJson.outdatedSteering.includes('.cursorrules'), 'Outdated steering should include .cursorrules');
+    assert.ok(!checkJson.outdatedSteering.includes('.windsurfrules'), 'Unrelated .windsurfrules should not be flagged');
+    console.log('✓ okf-maintain --check correctly caught multiple outdated steering notices and ignored non-OKF files.');
   }
 
-  // maintain --sync should auto-heal CLAUDE.md
+  // lint should also flag both files
+  const lintPre = JSON.parse(execSync(`node "${scripts.lint}" --json`, { cwd: tempDir }).toString());
+  assert.ok(lintPre.warnings.some(w => w.includes('[CLAUDE.md] Warning: Steering notice')), 'Linter should warn on CLAUDE.md');
+  assert.ok(lintPre.warnings.some(w => w.includes('[.cursorrules] Warning: Steering notice')), 'Linter should warn on .cursorrules');
+  console.log('✓ okf-lint correctly audited multiple steering files.');
+
+  // maintain --sync should auto-heal both files
   execSync(`node "${scripts.maintain}"`, { cwd: tempDir, stdio: 'ignore' });
   const patchedClaudeContent = fs.readFileSync(mockClaudeFile, 'utf8');
-  assert.ok(patchedClaudeContent.includes('<!-- okf-steering-version: 1.5.0 -->'), 'maintain.js should bump steering tag to 1.5.0');
-  assert.ok(patchedClaudeContent.includes('Pre-Completion Verification Gate'), 'maintain.js should inject Pre-Completion Gate');
-  console.log('✓ okf-maintain --sync automatically auto-healed outdated steering notice.');
+  assert.ok(patchedClaudeContent.includes('<!-- okf-steering-version: 1.5.0 -->'), 'maintain.js should bump CLAUDE.md steering tag to 1.5.0');
+  assert.ok(patchedClaudeContent.includes('Pre-Completion Verification Gate'), 'maintain.js should inject Pre-Completion Gate in CLAUDE.md');
+
+  const patchedCursorContent = fs.readFileSync(mockCursorFile, 'utf8');
+  assert.ok(patchedCursorContent.includes('<!-- okf-steering-version: 1.5.0 -->'), 'maintain.js should bump .cursorrules steering tag to 1.5.0');
+  assert.ok(patchedCursorContent.includes('Pre-Completion Verification Gate'), 'maintain.js should inject Pre-Completion Gate in .cursorrules');
+
+  const windsurfContent = fs.readFileSync(mockWindsurfFile, 'utf8');
+  assert.strictEqual(windsurfContent, '# Windsurf Rules\nNon-OKF rules content here.\n', 'Non-OKF steering file should remain untouched');
+  console.log('✓ okf-maintain --sync automatically auto-healed multiple steering notices without altering non-OKF files.');
+
   fs.unlinkSync(mockClaudeFile);
+  fs.unlinkSync(mockCursorFile);
+  fs.unlinkSync(mockWindsurfFile);
 
   // === STEP 7: LINT VERIFICATION ===
   console.log('Step 7: Verifying linter clears after upkeep via --json...');

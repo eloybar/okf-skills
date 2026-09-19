@@ -557,8 +557,8 @@ async function main() {
     }
   }
 
-  // 3. Inspect steering notice files (AGENTS.md, CLAUDE.md)
-  const steeringFilesToCheck = ['AGENTS.md', 'CLAUDE.md'];
+  // 3. Inspect steering notice files across all supported agents
+  const steeringFilesToCheck = ['AGENTS.md', 'CLAUDE.md', '.cursorrules', '.windsurfrules', '.clinerules', 'GEMINI.md'];
   const outdatedSteeringFiles = [];
   for (const sName of steeringFilesToCheck) {
     const sPath = path.join(workspaceRoot, sName);
