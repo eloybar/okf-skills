@@ -283,6 +283,14 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
         }
       }
 
+      // 3b. Freshness / Stale After check (OKF v0.2 §5.4)
+      if (fm.stale_after) {
+        const staleDate = new Date(fm.stale_after);
+        if (!isNaN(staleDate.getTime()) && Date.now() >= staleDate.getTime()) {
+          results.warnings.push(`[${relativePath}] Warning: Concept is stale. 'stale_after' threshold (${staleDate.toISOString()}) has passed. Concept requires re-verification.`);
+        }
+      }
+
       // 4. Attested Computation checks
       if (fm.type === 'Attested Computation') {
         if (!fm.runtime) {
@@ -312,7 +320,7 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
   return results;
 }
 
-const INSTALLED_VERSION = '1.4.0';
+const INSTALLED_VERSION = '1.5.0';
 
 function compareVersions(v1, v2) {
   const parts1 = v1.split('.').map(Number);
@@ -391,8 +399,11 @@ function checkSkillsVersion() {
 }
 
 async function main() {
-  await checkSkillsVersion();
   const args = process.argv.slice(2);
+  const outputJson = args.includes('--json');
+  if (!outputJson) {
+    await checkSkillsVersion();
+  }
   const checkDrift = args.includes('--drift');
   const strictLinks = args.includes('--strict-links') || args.includes('--strict');
   
@@ -403,18 +414,24 @@ async function main() {
   }
 
   if (!fs.existsSync(bundleRoot)) {
-    console.error(`Error: OKF bundle not found in docs/okf or okf. Checked path: ${bundleRoot}`);
+    if (outputJson) {
+      console.log(JSON.stringify({ success: false, error: `OKF bundle not found in docs/okf or okf. Checked path: ${bundleRoot}` }, null, 2));
+    } else {
+      console.error(`Error: OKF bundle not found in docs/okf or okf. Checked path: ${bundleRoot}`);
+    }
     process.exit(1);
   }
 
-  console.log(`Starting OKF Linting in: ${bundleRoot}`);
-  if (checkDrift) {
-    console.log(`Git-based concept drift analysis enabled (--drift)`);
+  if (!outputJson) {
+    console.log(`Starting OKF Linting in: ${bundleRoot}`);
+    if (checkDrift) {
+      console.log(`Git-based concept drift analysis enabled (--drift)`);
+    }
+    if (strictLinks) {
+      console.log(`Strict link integrity enabled (--strict-links)`);
+    }
+    console.log(`----------------------------------------`);
   }
-  if (strictLinks) {
-    console.log(`Strict link integrity enabled (--strict-links)`);
-  }
-  console.log(`----------------------------------------`);
 
   const results = scanAndLint(bundleRoot, bundleRoot, workspaceRoot, checkDrift, strictLinks);
 
@@ -432,7 +449,7 @@ async function main() {
         
         if (versionMatch) {
           const steeringVersion = versionMatch[1].trim();
-          if (compareVersions(steeringVersion, '1.4.0') < 0) {
+          if (compareVersions(steeringVersion, '1.5.0') < 0) {
             isOutdated = true;
           }
         } else {
@@ -447,10 +464,24 @@ async function main() {
         }
         
         if (isOutdated) {
-          results.warnings.push(`[${path.basename(steeringPath)}] Warning: Steering notice appears to be outdated or missing the version tag (expected version 1.4.0). Update it with the latest template from the okf skill.`);
+          results.warnings.push(`[${path.basename(steeringPath)}] Warning: Steering notice appears to be outdated or missing the version tag (expected version 1.5.0). Update it with the latest template from the okf skill.`);
         }
       }
     } catch (e) {}
+  }
+
+  if (outputJson) {
+    const jsonOutput = {
+      success: results.errors.length === 0,
+      bundleRoot,
+      filesChecked: results.filesChecked,
+      errors: results.errors,
+      warnings: results.warnings,
+      driftCount: results.warnings.filter(w => w.includes('Concept drift detected')).length,
+      staleCount: results.warnings.filter(w => w.includes('Concept is stale')).length
+    };
+    console.log(JSON.stringify(jsonOutput, null, 2));
+    process.exit(results.errors.length === 0 ? 0 : 1);
   }
 
   console.log(`Files checked: ${results.filesChecked}`);

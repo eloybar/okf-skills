@@ -1280,6 +1280,11 @@ function scanBundleTaxonomy(dir, bundleRoot, taxonomy = { types: new Set(), tags
                 <button class="copy-btn" onclick="copyCode(this)">Copy</button>
               </div>
               <pre><code><span class="code-comment"># AGENTS.md / CLAUDE.md Content</span>
+<span class="code-keyword">## ⚡ Pre-Completion Verification Gate (MANDATORY)</span>
+Before claiming completion after modifying workspace code:
+<span class="code-keyword">1.</span> Run <span class="code-string">`node okf-maintain/scripts/maintain.js`</span> (or <span class="code-variable">okf-maintain</span>) to auto-sync concept timestamps, frontier, log, and viz.
+<span class="code-keyword">2.</span> Run <span class="code-string">`node okf-lint/scripts/lint.js --drift`</span> to ensure 0 errors and 0 warnings.
+
 <span class="code-keyword">## Knowledge Bundle / OKF</span>
  
 This repository uses Open Knowledge Format (OKF) concept mapping.
@@ -1290,7 +1295,7 @@ Before writing any code or analyzing subsystems:
 <span class="code-keyword">4.</span> Run the <span class="code-variable">okf-query --file &lt;file-path&gt;</span> skill to retrieve design guidelines, SLAs, and dependencies before analyzing/modifying a file.
 <span class="code-keyword">5.</span> Maintain the bundle: Update or create concepts (via <span class="code-variable">okf-maintain</span>) if you modify schemas/components/APIs, discover platform/sandbox constraints (e.g., mobile WebView quirks, CORS limits, CDN blockages), improve developer utilities (like testing environments), or learn new codebase behaviors/patterns.
 
-&lt;!-- okf-steering-version: 1.4.0 --&gt;</code></pre>
+&lt;!-- okf-steering-version: 1.5.0 --&gt;</code></pre>
             </div>
           </div>
         </div>
@@ -1408,10 +1413,19 @@ if (fileIndex !== -1) {
 ---
 name: okf-maintain
 description: Use after changing or learning something about a codebase that has an okf/ knowledge bundle, so the bundle doesn't go stale. Fires when your edits touch code an existing OKF concept documents, or when you discover a fact a concept should record.
-version: 1.4.0
+version: 1.5.0
 ---
 
 Keep an existing **OKF bundle** current so it doesn't rot. This skill handles both reactive upkeep of existing files and the automatic authoring of new concept files when new significant components, schemas, or modules are introduced to the codebase. (For specific frontmatter/conformance rules, follow the `okf` skill, which is the single source of truth for how a concept is written).
+
+### ⚡ Fast Mechanical Upkeep (CLI Automation)
+Whenever code modifications touch existing resources or introduce untracked workspace files, run the automated maintainer script:
+```bash
+node okf-maintain/scripts/maintain.js        # Auto-syncs drift timestamps, frontier, log, and viz
+node okf-maintain/scripts/maintain.js --check # Audit mode: checks drift and frontier without changes
+```
+
+### Semantic Maintenance & New Concepts
 
 1. **Guard: confirm a bundle exists.** Look for an `okf/` directory at the repo root (or the bundle root this repo uses). If there is none, stop — there is nothing to maintain.
    - Done when you have the bundle root, or have stopped.
@@ -1425,8 +1439,8 @@ Keep an existing **OKF bundle** current so it doesn't rot. This skill handles bo
 4. **Update reserved files.** Append a dated line to `log.md` describing the changes and additions. If you added a new concept, add it to `index.md` (and remove it from `## Not yet specified` if it was there). If any new undocumented workspace files are identified, list them under the `## Not yet specified` section of `index.md` to map the known frontier.
    - Done when `log.md` records the change and `index.md` lists any new concept and updates the undocumented frontier list — for each reserved file the bundle uses.
 
-5. **Steering Notice Upkeep.** Check if `AGENTS.md` or `CLAUDE.md` in the workspace root contains the version comment `<!-- okf-steering-version: 1.4.0 -->`. If the comment is missing or references a version older than `1.4.0`, overwrite or update the steering directives block to match the latest template format specified in the `okf` skill.
-   - Done when the steering notice contains the correct up-to-date directives and the `<!-- okf-steering-version: 1.4.0 -->` comment.
+5. **Steering Notice Upkeep.** Check if `AGENTS.md` or `CLAUDE.md` in the workspace root contains the version comment `<!-- okf-steering-version: 1.5.0 -->`. If the comment is missing or references a version older than `1.5.0`, overwrite or update the steering directives block to match the latest template format specified in the `okf` skill.
+   - Done when the steering notice contains the correct up-to-date directives and the `<!-- okf-steering-version: 1.5.0 -->` comment.
 
 6. **Conformance gate.** Verify the bundle still conforms, per the `okf` skill.
    - Done when every non-reserved `.md` has parseable frontmatter with a non-empty `type`.
