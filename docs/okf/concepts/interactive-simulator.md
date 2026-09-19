@@ -6,7 +6,7 @@ resource: file:///D:/projects/okf-skills/index.html
 tags: [simulation, onboarding, visual-brief, playground]
 generated:
   by: Antigravity/3.5-Flash
-  at: 2026-09-19T14:18:07.132Z
+  at: 2026-09-19T14:24:26.901Z
 ---
 
 # Overview
