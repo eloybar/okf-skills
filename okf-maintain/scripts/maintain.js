@@ -340,6 +340,108 @@ function appendLogEntry(logPath, entries, dateStr) {
   return true;
 }
 
+const TARGET_STEERING_VERSION = '1.5.0';
+
+function compareVersions(v1, v2) {
+  const parts1 = v1.split('.').map(Number);
+  const parts2 = v2.split('.').map(Number);
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const p1 = parts1[i] || 0;
+    const p2 = parts2[i] || 0;
+    if (p1 > p2) return 1;
+    if (p1 < p2) return -1;
+  }
+  return 0;
+}
+
+function buildSteeringDirectivesBlock(bundleRelPath, targetVersion) {
+  return `## ⚡ Pre-Completion Verification Gate (MANDATORY)
+Before claiming any user request is complete or ending your turn after modifying workspace code:
+1. **Maintenance Sync:** Run \`node okf-maintain/scripts/maintain.js\` (or \`npm run okf:maintain\`) to auto-sync concept timestamps, unindexed frontier files in \`index.md\`, changelog entries in \`log.md\`, and rebuild \`viz.html\`.
+2. **Lint & Drift Gate:** Run \`node okf-lint/scripts/lint.js --drift\` (or \`npm run okf:lint:drift\`) to guarantee 0 errors and 0 warnings.
+
+## 📂 Knowledge Bundle / OKF
+An OKF knowledge bundle is located in the \`${bundleRelPath}\` directory. This bundle describes the core concepts, skills, and architecture of the OKF system implemented here.
+
+### 1. Verification and Synchronization on Startup
+On startup, before making any modifications to the codebase:
+- Run the \`okf-lint --drift\` skill (or \`npm run okf:lint:drift\`) to detect and inspect any unsynchronized concept drift.
+- Run the \`okf-maintain\` skill (or \`node okf-maintain/scripts/maintain.js\`) to fix/sync any flagged concept drift.
+
+### 2. Locating the OKF Bundle
+- Always locate and use \`${bundleRelPath}\` relative to the workspace root to check and maintain the bundle.
+
+### 3. Context Grounding & Retrieval
+- **Grounding Initial Questions**: Before answering any initial user questions about the codebase, system behavior, or design on session startup, first attempt to ground your answer in the OKF bundle. Run the \`okf-query --search <keywords>\` skill with relevant query terms or check the [Index File](${bundleRelPath}/index.md) to find documentation and concepts explaining the subject.
+- **Retrieval before Edits**: Before analyzing or modifying any specific file, run the \`okf-query --file <file-path>\` skill to retrieve and inject relevant design guidelines, SLAs, and dependencies directly into your context.
+
+### 4. Post-Edit Upkeep & Conformance
+- After making edits, run the \`okf-maintain\` skill (\`node okf-maintain/scripts/maintain.js\`) to update the relevant concept files, frontmatter timestamps, index entries, and \`log.md\`. Make sure to update or create concepts if you:
+  - Modify schemas, components, or API endpoints.
+  - Discover platform or sandbox-specific constraints (e.g., mobile WebView quirks, CORS limitations, CDN asset blockages).
+  - Improve or add structural documentation to developer utility pages (like testing environments).
+  - Learn a new codebase behavior or pattern that warrants a permanent engineering guideline.
+- Run the \`okf-lint\` skill to guarantee that all markdown links are intact and all concept structures conform before completing the task.
+
+<!-- okf-steering-version: ${targetVersion} -->`;
+}
+
+function inspectAndSyncSteeringFile(filePath, workspaceRoot, bundleRoot, targetVersion, dryRun = false) {
+  if (!fs.existsSync(filePath)) return { exists: false, outdated: false, updated: false };
+  let content = fs.readFileSync(filePath, 'utf8');
+
+  // Check if file is related to OKF
+  const isOkfRelated = content.includes('Knowledge Bundle') ||
+                       content.includes('okf-maintain') ||
+                       content.includes('okf-steering-version') ||
+                       content.includes('Open Knowledge Format');
+  if (!isOkfRelated) return { exists: true, outdated: false, updated: false };
+
+  const versionMatch = content.match(/<!-- okf-steering-version:\s*([0-9.]+)\s*-->/);
+  let isOutdated = false;
+  if (versionMatch) {
+    const v = versionMatch[1].trim();
+    if (compareVersions(v, targetVersion) < 0) {
+      isOutdated = true;
+    }
+  } else {
+    isOutdated = true;
+  }
+
+  if (!content.includes('Pre-Completion Verification Gate')) {
+    isOutdated = true;
+  }
+
+  if (!isOutdated) {
+    return { exists: true, outdated: false, updated: false };
+  }
+
+  if (dryRun) {
+    return { exists: true, outdated: true, updated: false };
+  }
+
+  let bundleRel = path.relative(workspaceRoot, bundleRoot).replace(/\\/g, '/');
+  if (!bundleRel.startsWith('/')) bundleRel = '/' + bundleRel;
+  const newBlock = buildSteeringDirectivesBlock(bundleRel, targetVersion);
+
+  let newContent = content;
+  const startRegex = /(## (?:⚡ )?Pre-Completion Verification Gate[\s\S]*?|## (?:📂 )?Knowledge Bundle \/ OKF[\s\S]*?)(?:<!-- okf-steering-version:\s*[0-9.]+\s*-->)/;
+
+  if (startRegex.test(content)) {
+    newContent = content.replace(startRegex, newBlock);
+  } else if (content.includes('<!-- okf-steering-version:')) {
+    newContent = content.replace(/(?:## (?:📂 )?Knowledge Bundle[\s\S]*?)?<!-- okf-steering-version:\s*[0-9.]+\s*-->/, newBlock);
+  } else if (content.includes('## Knowledge Bundle / OKF')) {
+    const idx = content.indexOf('## Knowledge Bundle / OKF');
+    newContent = content.slice(0, idx).trimEnd() + '\n\n' + newBlock + '\n';
+  } else {
+    newContent = content.trimEnd() + '\n\n' + newBlock + '\n';
+  }
+
+  fs.writeFileSync(filePath, newContent, 'utf8');
+  return { exists: true, outdated: true, updated: true };
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const isCheckMode = args.includes('--check');
@@ -455,15 +557,27 @@ async function main() {
     }
   }
 
+  // 3. Inspect steering notice files (AGENTS.md, CLAUDE.md)
+  const steeringFilesToCheck = ['AGENTS.md', 'CLAUDE.md'];
+  const outdatedSteeringFiles = [];
+  for (const sName of steeringFilesToCheck) {
+    const sPath = path.join(workspaceRoot, sName);
+    const res = inspectAndSyncSteeringFile(sPath, workspaceRoot, bundleRoot, TARGET_STEERING_VERSION, true);
+    if (res.outdated) {
+      outdatedSteeringFiles.push(sName);
+    }
+  }
+
   if (isCheckMode) {
-    const clean = driftedConcepts.length === 0 && missingFrontierInIndex.length === 0;
+    const clean = driftedConcepts.length === 0 && missingFrontierInIndex.length === 0 && outdatedSteeringFiles.length === 0;
     if (isJson) {
       console.log(JSON.stringify({
         success: clean,
         bundleRoot,
         drifted: driftedConcepts,
         stale: staleConcepts,
-        unindexedFrontier: missingFrontierInIndex
+        unindexedFrontier: missingFrontierInIndex,
+        outdatedSteering: outdatedSteeringFiles
       }, null, 2));
     } else {
       console.log(`OKF Maintenance Audit: ${bundleRoot}`);
@@ -472,6 +586,7 @@ async function main() {
       console.log(`Drifted concepts:    ${driftedConcepts.length}`);
       console.log(`Stale concepts:      ${staleConcepts.length}`);
       console.log(`Unindexed frontier:  ${missingFrontierInIndex.length}`);
+      console.log(`Outdated steering:   ${outdatedSteeringFiles.length}`);
       console.log(`----------------------------------------`);
       if (driftedConcepts.length > 0) {
         console.log(`Drifted concepts:`);
@@ -480,6 +595,10 @@ async function main() {
       if (missingFrontierInIndex.length > 0) {
         console.log(`Unindexed frontier files:`);
         missingFrontierInIndex.forEach(f => console.log(`  - ${f}`));
+      }
+      if (outdatedSteeringFiles.length > 0) {
+        console.log(`Outdated steering files:`);
+        outdatedSteeringFiles.forEach(s => console.log(`  - ${s} (outdated or missing Pre-Completion Gate; run okf-maintain to sync)`));
       }
     }
     process.exit(clean ? 0 : 1);
@@ -511,14 +630,27 @@ async function main() {
     }
   }
 
-  // 3c. Record in log.md
+  // 3c. Auto-sync steering notice files
+  const updatedSteering = [];
+  for (const sName of steeringFilesToCheck) {
+    const sPath = path.join(workspaceRoot, sName);
+    const res = inspectAndSyncSteeringFile(sPath, workspaceRoot, bundleRoot, TARGET_STEERING_VERSION, false);
+    if (res.updated) {
+      updatedSteering.push(sName);
+    }
+  }
+  if (updatedSteering.length > 0) {
+    logEntries.push(`Synchronized steering notice in \`${updatedSteering.join(', ')}\` to v${TARGET_STEERING_VERSION}.`);
+  }
+
+  // 3d. Record in log.md
   const logPath = path.join(bundleRoot, 'log.md');
   let logUpdated = false;
   if (logEntries.length > 0 && fs.existsSync(logPath)) {
     logUpdated = appendLogEntry(logPath, logEntries, dateStr);
   }
 
-  // 3d. Regenerate visualizer if available
+  // 3e. Regenerate visualizer if available
   let vizGenerated = false;
   const vizScript = path.join(workspaceRoot, 'okf-visualize', 'scripts', 'visualize.js');
   if (fs.existsSync(vizScript)) {
@@ -528,7 +660,7 @@ async function main() {
     } catch (e) {}
   }
 
-  // 3e. Verify with okf-lint if available
+  // 3f. Verify with okf-lint if available
   let lintPassed = true;
   const lintScript = path.join(workspaceRoot, 'okf-lint', 'scripts', 'lint.js');
   if (fs.existsSync(lintScript)) {
@@ -546,6 +678,7 @@ async function main() {
       bundleRoot,
       updatedConcepts: updatedFiles,
       indexFrontierUpdated: indexUpdated,
+      steeringUpdated: updatedSteering,
       logUpdated,
       vizGenerated,
       lintPassed
@@ -555,6 +688,7 @@ async function main() {
     console.log(`----------------------------------------`);
     console.log(`Concepts synchronized: ${updatedFiles.length}`);
     console.log(`Frontier updated:       ${indexUpdated ? 'Yes' : 'Up to date'}`);
+    console.log(`Steering updated:       ${updatedSteering.length > 0 ? updatedSteering.join(', ') : 'Up to date'}`);
     console.log(`Log recorded:           ${logUpdated ? 'Yes' : 'Up to date'}`);
     console.log(`Visualization updated:  ${vizGenerated ? 'Yes' : 'N/A'}`);
     console.log(`Lint verification:      ${lintPassed ? 'Passed' : 'Failed'}`);
