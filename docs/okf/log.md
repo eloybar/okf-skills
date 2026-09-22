@@ -3,6 +3,7 @@
 Newest changes recorded chronologically.
 
 ## 2026-09-22
+- Synchronized workspace frontier mapping in `index.md` (14 undocumented files mapped).
 - Synchronized timestamp for 5 drifted concept(s): concepts/interactive-simulator.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md, concepts/okf-skill.md.
 - Added mandatory Pre-Work Grounding Gate to `AGENTS.md` and upgraded steering version tracking to v1.6.0.
 - Enhanced `okf-query` with Tier 2 directory and subsystem matching, enabling queries on files within documented modules to resolve matching concepts with actionable search fallback guidance.

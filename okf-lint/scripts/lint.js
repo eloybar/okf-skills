@@ -253,8 +253,9 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
       }
 
       // 3. Concept Drift check
+      const isDeprecated = fm.status === 'deprecated' || relativePath.startsWith('archive/');
       const lastModified = fm.timestamp || (fm.generated && fm.generated.at);
-      if (checkDrift && lastModified) {
+      if (checkDrift && lastModified && !isDeprecated) {
         const resourcesToCheck = [];
         if (fm.resource) {
           resourcesToCheck.push({ path: fm.resource, label: `Resource file '${path.basename(resolveResourceLocalPath(fm.resource, workspaceRoot) || fm.resource)}'` });
@@ -284,7 +285,7 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
       }
 
       // 3b. Freshness / Stale After check (OKF v0.2 §5.4)
-      if (fm.stale_after) {
+      if (fm.stale_after && !isDeprecated) {
         const staleDate = new Date(fm.stale_after);
         if (!isNaN(staleDate.getTime()) && Date.now() >= staleDate.getTime()) {
           results.warnings.push(`[${relativePath}] Warning: Concept is stale. 'stale_after' threshold (${staleDate.toISOString()}) has passed. Concept requires re-verification.`);
