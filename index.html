@@ -490,6 +490,20 @@
       box-shadow: 0 0 10px hsla(199, 89%, 48%, 0.15);
     }
 
+    /* PURE CSS TAB SELECTION FOR STEP 10p */
+    #s10p-tab-1:checked ~ .code-tab-container #s10p-panel-1,
+    #s10p-tab-2:checked ~ .code-tab-container #s10p-panel-2 {
+      display: block;
+    }
+
+    #s10p-tab-1:checked ~ .code-tab-container label[for="s10p-tab-1"],
+    #s10p-tab-2:checked ~ .code-tab-container label[for="s10p-tab-2"] {
+      background: hsla(217, 91%, 60%, 0.25);
+      color: var(--accent-sky);
+      border-color: var(--accent-sky);
+      box-shadow: 0 0 10px hsla(199, 89%, 48%, 0.15);
+    }
+
     /* PURE CSS INTERACTIVE SELECTORS */
     #toggle-step-1:checked ~ .pipeline-section #details-panel-1,
     #toggle-step-2:checked ~ .pipeline-section #details-panel-2,
@@ -499,7 +513,8 @@
     #toggle-step-6:checked ~ .pipeline-section #details-panel-6,
     #toggle-step-7:checked ~ .pipeline-section #details-panel-7,
     #toggle-step-8:checked ~ .pipeline-section #details-panel-8,
-    #toggle-step-9:checked ~ .pipeline-section #details-panel-9 {
+    #toggle-step-9:checked ~ .pipeline-section #details-panel-9,
+    #toggle-step-10:checked ~ .pipeline-section #details-panel-10 {
       margin-top: 2.5rem;
       padding: 2.5rem;
       border-color: var(--border-color);
@@ -517,7 +532,8 @@
     #toggle-step-6:checked ~ .pipeline-section #step-card-6,
     #toggle-step-7:checked ~ .pipeline-section #step-card-7,
     #toggle-step-8:checked ~ .pipeline-section #step-card-8,
-    #toggle-step-9:checked ~ .pipeline-section #step-card-9 {
+    #toggle-step-9:checked ~ .pipeline-section #step-card-9,
+    #toggle-step-10:checked ~ .pipeline-section #step-card-10 {
       transform: translateY(-5px);
       background: var(--bg-surface-hover);
       border-color: var(--accent-sky);
@@ -533,7 +549,8 @@
     #toggle-step-6:checked ~ .pipeline-section #step-card-6 .card-icon,
     #toggle-step-7:checked ~ .pipeline-section #step-card-7 .card-icon,
     #toggle-step-8:checked ~ .pipeline-section #step-card-8 .card-icon,
-    #toggle-step-9:checked ~ .pipeline-section #step-card-9 .card-icon {
+    #toggle-step-9:checked ~ .pipeline-section #step-card-9 .card-icon,
+    #toggle-step-10:checked ~ .pipeline-section #step-card-10 .card-icon {
       background: var(--gradient-primary);
       color: var(--text-primary);
     }
@@ -840,6 +857,7 @@
     <input type="radio" name="timeline-toggle" id="toggle-step-7" style="display:none;">
     <input type="radio" name="timeline-toggle" id="toggle-step-8" style="display:none;">
     <input type="radio" name="timeline-toggle" id="toggle-step-9" style="display:none;">
+    <input type="radio" name="timeline-toggle" id="toggle-step-10" style="display:none;">
 
     <!-- Hero / Header -->
     <header>
@@ -958,6 +976,18 @@
           <div class="card-text">
             <h3 class="card-title">Bundle Upgrader (/okf-upgrade)</h3>
             <p class="card-desc">The migration bridge. Automatically updates legacy bundles from v0.1 format to the v0.2 spec.</p>
+          </div>
+        </label>
+
+        <!-- Step 10 -->
+        <label for="toggle-step-10" class="pipeline-card" id="step-card-10" tabindex="0" role="button">
+          <div class="card-step">10</div>
+          <div class="card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+          </div>
+          <div class="card-text">
+            <h3 class="card-title">Bundle Pruner (/okf-prune)</h3>
+            <p class="card-desc">The garbage collector. Audits, archives, and cleans up expired, deprecated, broken, or orphaned concepts.</p>
           </div>
         </label>
 
@@ -2454,6 +2484,95 @@ node okf-upgrade/scripts/upgrade.js
 }</code></pre>
                </div>
 
+            </div>
+      <!-- Details Panel 10 -->
+      <div class="details-panel" id="details-panel-10">
+        <div class="details-grid">
+          <div class="details-info">
+            <h3>Bundle Hygiene & Lifecycle Pruning</h3>
+            <p>The <code>/okf-prune</code> skill manages bundle hygiene by detecting and safely archiving or removing obsolete knowledge documents across four critical lifecycle categories.</p>
+            <ul>
+              <li><strong>Stale concepts</strong>: Flags concepts whose <code>stale_after</code> expiration instant has passed.</li>
+              <li><strong>Deprecated concepts</strong>: Relocates concepts marked <code>status: deprecated</code> from active listings to <code>archive/</code>.</li>
+              <li><strong>Ghost concepts</strong>: Catches concepts referencing deleted local source code files or missing assets.</li>
+              <li><strong>Orphaned concepts</strong>: Discovers concepts disconnected from the knowledge graph with zero inbound links.</li>
+              <li><strong>Automated Index & Log sync</strong>: Updates <code>index.md</code> and appends pruning audit records to <code>log.md</code>.</li>
+            </ul>
+          </div>
+          <div class="details-code-container">
+            <!-- Hidden radio selectors for code tabs -->
+            <input type="radio" name="s10p-tab-selector" id="s10p-tab-1" checked style="display:none;">
+            <input type="radio" name="s10p-tab-selector" id="s10p-tab-2" style="display:none;">
+
+            <div class="code-tab-container">
+               <div class="code-tabs">
+                 <label for="s10p-tab-1" class="tab-btn">SKILL.md</label>
+                 <label for="s10p-tab-2" class="tab-btn">prune.js</label>
+               </div>
+
+               <!-- Panel 1: SKILL.md -->
+               <div class="details-code tab-panel" id="s10p-panel-1">
+                 <div class="code-header">
+                   <span>SKILL.md (Instructions)</span>
+                   <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                 </div>
+                 <pre><code><span class="code-comment"># okf-prune/SKILL.md</span>
+---
+name: okf-prune
+description: Use when an OKF bundle contains stale, expired, deprecated, orphaned, or dangling concepts that need pruning, archiving, or cleanup.
+version: 1.0.0
+---
+
+# `okf-prune` Workflow
+
+Maintain knowledge bundle hygiene through automated concept lifecycle pruning, archiving, and garbage collection.
+
+## Usage
+
+```bash
+# Audit mode (exits 1 if prunable items found)
+node okf-prune/scripts/prune.js --check
+
+# Safe archive mode (default action)
+node okf-prune/scripts/prune.js
+
+# Hard permanent deletion mode
+node okf-prune/scripts/prune.js --delete
+```</code></pre>
+               </div>
+
+               <!-- Panel 2: prune.js -->
+               <div class="details-code tab-panel" id="s10p-panel-2">
+                 <div class="code-header">
+                   <span>scripts/prune.js (CLI Implementation)</span>
+                   <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                 </div>
+                 <pre><code>function main() {
+  const workspaceRoot = process.cwd();
+  let bundleRoot = path.join(workspaceRoot, 'docs', 'okf');
+  if (!fs.existsSync(bundleRoot)) {
+    bundleRoot = path.join(workspaceRoot, 'okf');
+  }
+
+  const concepts = scanConcepts(bundleRoot, bundleRoot);
+  const inboundCounts = buildInboundLinkCounts(concepts, bundleRoot);
+  const candidates = identifyPrunableConcepts(concepts, inboundCounts);
+
+  if (isCheck) {
+    printAuditReport(candidates);
+    process.exit(candidates.length === 0 ? 0 : 1);
+  }
+
+  // Safe Archive or Hard Delete
+  for (const item of candidates) {
+    if (isDelete) {
+      deleteConcept(item);
+    } else {
+      archiveConcept(item, bundleRoot);
+    }
+  }
+}</code></pre>
+               </div>
             </div>
           </div>
         </div>

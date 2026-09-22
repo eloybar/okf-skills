@@ -12,7 +12,9 @@
     "okf:maintain:check": "node okf-maintain/scripts/maintain.js --check",
     "okf:viz": "node okf-visualize/scripts/visualize.js --bundle docs/okf",
     "okf:query": "node okf-query/scripts/query.js",
-    "okf:upgrade": "node okf-upgrade/scripts/upgrade.js"
+    "okf:upgrade": "node okf-upgrade/scripts/upgrade.js",
+    "okf:prune": "node okf-prune/scripts/prune.js",
+    "okf:prune:check": "node okf-prune/scripts/prune.js --check"
   },
   "keywords": [
     "okf",
