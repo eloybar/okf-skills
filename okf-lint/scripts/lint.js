@@ -435,6 +435,7 @@ async function main() {
 
   const results = scanAndLint(bundleRoot, bundleRoot, workspaceRoot, checkDrift, strictLinks);
 
+  const TARGET_STEERING_VERSION = '1.6.0';
   // Check steering notice files for outdated templates across all supported agents
   const steeringFilesToCheck = ['AGENTS.md', 'CLAUDE.md', '.cursorrules', '.windsurfrules', '.clinerules', 'GEMINI.md'];
   for (const sName of steeringFilesToCheck) {
@@ -452,19 +453,20 @@ async function main() {
 
           if (versionMatch) {
             const steeringVersion = versionMatch[1].trim();
-            if (compareVersions(steeringVersion, '1.5.0') < 0) {
+            if (compareVersions(steeringVersion, TARGET_STEERING_VERSION) < 0) {
               isOutdated = true;
             }
           } else {
             isOutdated = true;
           }
 
-          if (!steeringContent.includes('Pre-Completion Verification Gate')) {
+          if (!steeringContent.includes('Pre-Completion Verification Gate') ||
+              !steeringContent.includes('Pre-Work Grounding Gate')) {
             isOutdated = true;
           }
 
           if (isOutdated) {
-            results.warnings.push(`[${sName}] Warning: Steering notice appears to be outdated or missing the Pre-Completion Gate / version tag (expected version 1.5.0). Run okf-maintain to sync.`);
+            results.warnings.push(`[${sName}] Warning: Steering notice appears to be outdated or missing the Pre-Work Gate / Pre-Completion Gate / version tag (expected version ${TARGET_STEERING_VERSION}). Run okf-maintain to sync.`);
           }
         }
       } catch (e) {}

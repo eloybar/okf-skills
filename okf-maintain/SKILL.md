@@ -1,7 +1,7 @@
 ---
 name: okf-maintain
 description: Use after changing or learning something about a codebase that has an okf/ knowledge bundle, so the bundle doesn't go stale. Fires when your edits touch code an existing OKF concept documents, or when you discover a fact a concept should record.
-version: 1.5.0
+version: 1.6.0
 ---
 
 Keep an existing **OKF bundle** current so it doesn't rot. This skill handles both reactive upkeep of existing files and the automatic authoring of new concept files when new significant components, schemas, or modules are introduced to the codebase. (For specific frontmatter/conformance rules, follow the `okf` skill, which is the single source of truth for how a concept is written).
@@ -28,8 +28,8 @@ This automatically updates timestamps for drifted concepts, updates `## Not yet 
 4. **Update reserved files.** Append a dated line to `log.md` under an ISO 8601 `## YYYY-MM-DD` date heading describing the changes and additions. If you added a new concept, add it to `index.md` (and remove it from `## Not yet specified` if it was there). If any new undocumented workspace files are identified, list them under the `## Not yet specified` section of `index.md` to map the known frontier.
    - Done when `log.md` records the change and `index.md` lists any new concept and updates the undocumented frontier list — for each reserved file the bundle uses.
 
-5. **Steering Notice Upkeep.** Check if any agent steering files in the workspace root (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, or `GEMINI.md`) contain OKF directives. If any contain the version comment `<!-- okf-steering-version: 1.5.0 -->` or mention OKF, verify they are at version `1.5.0` with the Pre-Completion Verification Gate. If the comment is missing or references a version older than `1.5.0`, automatically update or overwrite the steering directives block without prompting for user confirmation (or run `node okf-maintain/scripts/maintain.js`), as this is a required conformance gate.
-   - Done when all present OKF steering notices contain the correct up-to-date directives and the `<!-- okf-steering-version: 1.5.0 -->` comment.
+5. **Steering Notice Upkeep.** Check if any agent steering files in the workspace root (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, or `GEMINI.md`) contain OKF directives. If any contain the version comment `<!-- okf-steering-version: 1.6.0 -->` or mention OKF, verify they are at version `1.6.0` with both the Pre-Work Grounding Gate and the Pre-Completion Verification Gate. If the comment is missing or references a version older than `1.6.0`, automatically update or overwrite the steering directives block without prompting for user confirmation (or run `node okf-maintain/scripts/maintain.js`), as this is a required conformance gate.
+   - Done when all present OKF steering notices contain the correct up-to-date directives and the `<!-- okf-steering-version: 1.6.0 -->` comment.
 
 6. **Conformance gate.** Verify the bundle still conforms, per the `okf` skill.
    - Done when every non-reserved `.md` has parseable frontmatter with a non-empty `type`.

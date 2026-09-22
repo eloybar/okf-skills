@@ -2,7 +2,7 @@
 name: okf
 description: Author and maintain Open Knowledge Format (OKF) bundles — directories of typed markdown concept files.
 disable-model-invocation: true
-version: 1.5.0
+version: 1.6.0
 ---
 
 Capture knowledge as an **OKF bundle**: a directory of markdown **concept** files, each carrying YAML **frontmatter** plus a free-form body. No SDK, no central authority — readable, diffable, portable. Spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md
@@ -30,6 +30,7 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
      * If the environment is **Cline / Roo Code**, target **`.clinerules`** or **`AGENTS.md`**.
      * Otherwise (e.g. Codex, OpenHands, general agents), default to creating **`AGENTS.md`**.
    - **Content**: 
+     * Include a **Pre-Work Grounding Gate** instructing agents before inspecting code, planning architecture, answering system questions, or modifying files to query the bundle (`node okf-query/scripts/query.js --search <keywords>` or inspect `index.md`), retrieve file/module contracts (`node okf-query/scripts/query.js --file <path>`), and explicitly cite consulted concepts.
      * Include a **Pre-Completion Verification Gate** instructing agents before completing any work to run `okf-maintain` (or `node okf-maintain/scripts/maintain.js`) and `okf-lint --drift` (or `node okf-lint/scripts/lint.js --drift`).
      * Create or update the selected steering file with a dedicated **Knowledge Bundle / OKF** section.
      * Direct future agent sessions to first verify workspace synchronization on startup (running `okf-lint --drift` to detect drift, and `okf-maintain` to fix/sync any drift).
@@ -37,7 +38,7 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
      * Instruct them to ground any initial user questions about the codebase by searching the OKF bundle first (e.g., running `okf-query --search <keywords>` or checking `index.md`) before answering or planning.
      * Instruct them to run `okf-query --file <file-path>` before analyzing/editing files to pull context.
      * Instruct them to maintain the bundle post-edit by running `okf-maintain` followed by `okf-lint` to update or create concepts if they modify schemas/components/APIs, discover platform/sandbox-specific constraints (e.g., mobile WebView quirks, CORS limits, CDN blockages), improve developer utility/test pages, or learn new codebase behaviors/patterns that warrant a permanent guideline.
-     * Include the steering version tracking tag at the bottom of the section: `<!-- okf-steering-version: 1.5.0 -->`.
+     * Include the steering version tracking tag at the bottom of the section: `<!-- okf-steering-version: 1.6.0 -->`.
    - Done when the target root-level agent steering file (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, etc.) exists and contains the tailored OKF steering directives with the version tag.
 
 

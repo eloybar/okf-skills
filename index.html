@@ -1041,6 +1041,7 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
      * If the environment is **Cline / Roo Code**, target **`.clinerules`** or **`AGENTS.md`**.
      * Otherwise (e.g. Codex, OpenHands, general agents), default to creating **`AGENTS.md`**.
    - **Content**: 
+     * Include a **Pre-Work Grounding Gate** instructing agents before inspecting code, planning architecture, answering system questions, or modifying files to query the bundle (`node okf-query/scripts/query.js --search <keywords>` or inspect `index.md`), retrieve file/module contracts (`node okf-query/scripts/query.js --file <path>`), and explicitly cite consulted concepts.
      * Include a **Pre-Completion Verification Gate** instructing agents before completing any work to run `okf-maintain` (or `node okf-maintain/scripts/maintain.js`) and `okf-lint --drift` (or `node okf-lint/scripts/lint.js --drift`).
      * Create or update the selected steering file with a dedicated **Knowledge Bundle / OKF** section.
      * Direct future agent sessions to first verify workspace synchronization on startup (running `okf-lint --drift` to detect drift, and `okf-maintain` to fix/sync any drift).
@@ -1048,7 +1049,7 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
      * Instruct them to ground any initial user questions about the codebase by searching the OKF bundle first (e.g., running `okf-query --search <keywords>` or checking `index.md`) before answering or planning.
      * Instruct them to run `okf-query --file <file-path>` before analyzing/editing files to pull context.
      * Instruct them to maintain the bundle post-edit by running `okf-maintain` followed by `okf-lint` to update or create concepts if they modify schemas/components/APIs, discover platform/sandbox-specific constraints (e.g., mobile WebView quirks, CORS limits, CDN blockages), improve developer utility/test pages, or learn new codebase behaviors/patterns that warrant a permanent guideline.
-     * Include the steering version tracking tag at the bottom of the section: `<!-- okf-steering-version: 1.5.0 -->`.
+     * Include the steering version tracking tag at the bottom of the section: `<!-- okf-steering-version: 1.6.0 -->`.
    - Done when the target root-level agent steering file (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, etc.) exists and contains the tailored OKF steering directives with the version tag.
 
 6. **Conformance gate.** Verify the bundle still conforms. See **Conformance**.
@@ -1284,6 +1285,12 @@ function scanBundleTaxonomy(dir, bundleRoot, taxonomy = { types: new Set(), tags
                 <button class="copy-btn" onclick="copyCode(this)">Copy</button>
               </div>
               <pre><code><span class="code-comment"># AGENTS.md / CLAUDE.md Content</span>
+<span class="code-keyword">## ⚡ Pre-Work Grounding Gate (MANDATORY)</span>
+Before inspecting code, planning architecture, answering system questions, or modifying files:
+<span class="code-keyword">1.</span> Run <span class="code-string">`node okf-query/scripts/query.js --search &lt;keywords&gt;`</span> (or <span class="code-variable">okf-query</span>) or inspect <span class="code-string">`docs/okf/index.md`</span>.
+<span class="code-keyword">2.</span> Run <span class="code-string">`node okf-query/scripts/query.js --file &lt;file-path&gt;`</span> to retrieve file/subsystem context and contracts.
+<span class="code-keyword">3.</span> Explicitly cite consulted OKF concepts (or state no concept found) before modifying code.
+
 <span class="code-keyword">## ⚡ Pre-Completion Verification Gate (MANDATORY)</span>
 Before claiming completion after modifying workspace code:
 <span class="code-keyword">1.</span> Run <span class="code-string">`node okf-maintain/scripts/maintain.js`</span> (or <span class="code-variable">okf-maintain</span>) to auto-sync concept timestamps, frontier, log, and viz.
@@ -1299,7 +1306,7 @@ Before writing any code or analyzing subsystems:
 <span class="code-keyword">4.</span> Run the <span class="code-variable">okf-query --file &lt;file-path&gt;</span> skill to retrieve design guidelines, SLAs, and dependencies before analyzing/modifying a file.
 <span class="code-keyword">5.</span> Maintain the bundle: Update or create concepts (via <span class="code-variable">okf-maintain</span>) if you modify schemas/components/APIs, discover platform/sandbox constraints (e.g., mobile WebView quirks, CORS limits, CDN blockages), improve developer utilities (like testing environments), or learn new codebase behaviors/patterns.
 
-&lt;!-- okf-steering-version: 1.5.0 --&gt;</code></pre>
+&lt;!-- okf-steering-version: 1.6.0 --&gt;</code></pre>
             </div>
           </div>
         </div>
@@ -1417,7 +1424,7 @@ if (fileIndex !== -1) {
 ---
 name: okf-maintain
 description: Use after changing or learning something about a codebase that has an okf/ knowledge bundle, so the bundle doesn't go stale. Fires when your edits touch code an existing OKF concept documents, or when you discover a fact a concept should record.
-version: 1.5.0
+version: 1.6.0
 ---
 
 Keep an existing **OKF bundle** current so it doesn't rot. This skill handles both reactive upkeep of existing files and the automatic authoring of new concept files when new significant components, schemas, or modules are introduced to the codebase. (For specific frontmatter/conformance rules, follow the `okf` skill, which is the single source of truth for how a concept is written).
@@ -1443,8 +1450,8 @@ node okf-maintain/scripts/maintain.js --check # Audit mode: checks drift and fro
 4. **Update reserved files.** Append a dated line to `log.md` describing the changes and additions. If you added a new concept, add it to `index.md` (and remove it from `## Not yet specified` if it was there). If any new undocumented workspace files are identified, list them under the `## Not yet specified` section of `index.md` to map the known frontier.
    - Done when `log.md` records the change and `index.md` lists any new concept and updates the undocumented frontier list — for each reserved file the bundle uses.
 
-5. **Steering Notice Upkeep.** Check if any agent steering files in the workspace root (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, or `GEMINI.md`) contain OKF directives. If any contain the version comment `<!-- okf-steering-version: 1.5.0 -->` or mention OKF, verify they are at version `1.5.0` with the Pre-Completion Verification Gate. If the comment is missing or references a version older than `1.5.0`, automatically update or overwrite the steering directives block without prompting for user confirmation (or run `node okf-maintain/scripts/maintain.js`), as this is a required conformance gate.
-   - Done when all present OKF steering notices contain the correct up-to-date directives and the `<!-- okf-steering-version: 1.5.0 -->` comment.
+5. **Steering Notice Upkeep.** Check if any agent steering files in the workspace root (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, or `GEMINI.md`) contain OKF directives. If any contain the version comment `<!-- okf-steering-version: 1.6.0 -->` or mention OKF, verify they are at version `1.6.0` with both the Pre-Work Grounding Gate and Pre-Completion Verification Gate. If the comment is missing or references a version older than `1.6.0`, automatically update or overwrite the steering directives block without prompting for user confirmation (or run `node okf-maintain/scripts/maintain.js`), as this is a required conformance gate.
+   - Done when all present OKF steering notices contain the correct up-to-date directives and the `<!-- okf-steering-version: 1.6.0 -->` comment.
 
 6. **Conformance gate.** Verify the bundle still conforms, per the `okf` skill.
    - Done when every non-reserved `.md` has parseable frontmatter with a non-empty `type`.

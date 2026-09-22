@@ -68,6 +68,8 @@ Authentication uses JWT tokens...
   console.log('Step 4: Querying for concept context...');
   const queryResult = execSync(`node "${scripts.query}" --file "src/auth.js"`, { cwd: tempDir }).toString();
   assert.ok(queryResult.includes('User Authentication'), 'Query script should retrieve the auth concept file matching the resource path');
+  const querySubsystemResult = execSync(`node "${scripts.query}" --file "src/auth_helper.js"`, { cwd: tempDir }).toString();
+  assert.ok(querySubsystemResult.includes('User Authentication'), 'Query script should match concept via enclosing directory');
   console.log('✓ Context query retrieved correct matching concept.');
 
   // === STEP 5: MUTATE CODE (TRIGGER DRIFT) ===
@@ -130,11 +132,13 @@ Authentication uses JWT tokens...
   // maintain --sync should auto-heal both files
   execSync(`node "${scripts.maintain}"`, { cwd: tempDir, stdio: 'ignore' });
   const patchedClaudeContent = fs.readFileSync(mockClaudeFile, 'utf8');
-  assert.ok(patchedClaudeContent.includes('<!-- okf-steering-version: 1.5.0 -->'), 'maintain.js should bump CLAUDE.md steering tag to 1.5.0');
+  assert.ok(patchedClaudeContent.includes('<!-- okf-steering-version: 1.6.0 -->'), 'maintain.js should bump CLAUDE.md steering tag to 1.6.0');
+  assert.ok(patchedClaudeContent.includes('Pre-Work Grounding Gate'), 'maintain.js should inject Pre-Work Gate in CLAUDE.md');
   assert.ok(patchedClaudeContent.includes('Pre-Completion Verification Gate'), 'maintain.js should inject Pre-Completion Gate in CLAUDE.md');
 
   const patchedCursorContent = fs.readFileSync(mockCursorFile, 'utf8');
-  assert.ok(patchedCursorContent.includes('<!-- okf-steering-version: 1.5.0 -->'), 'maintain.js should bump .cursorrules steering tag to 1.5.0');
+  assert.ok(patchedCursorContent.includes('<!-- okf-steering-version: 1.6.0 -->'), 'maintain.js should bump .cursorrules steering tag to 1.6.0');
+  assert.ok(patchedCursorContent.includes('Pre-Work Grounding Gate'), 'maintain.js should inject Pre-Work Gate in .cursorrules');
   assert.ok(patchedCursorContent.includes('Pre-Completion Verification Gate'), 'maintain.js should inject Pre-Completion Gate in .cursorrules');
 
   const windsurfContent = fs.readFileSync(mockWindsurfFile, 'utf8');

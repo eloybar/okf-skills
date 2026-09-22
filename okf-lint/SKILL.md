@@ -43,3 +43,7 @@ node okf-lint/scripts/lint.js --strict-links
 
 4. **Verify Attested Computations**
    - For concepts with `type: Attested Computation`, ensure `runtime` is present and referenced files (`computation`, `executor.resource`, `attester.resource`) exist on disk.
+
+5. **Audit Steering Notices**
+   - Audit all present agent steering files (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `GEMINI.md`) in the workspace root for the current template version (v1.6.0), confirming both the `Pre-Work Grounding Gate` and `Pre-Completion Verification Gate` are present.
+
