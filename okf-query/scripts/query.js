@@ -173,6 +173,7 @@ function main() {
     const targetFile = path.resolve(workspaceRoot, args[fileIndex + 1]);
     const normalizedTarget = path.normalize(targetFile);
 
+    // Tier 1: Exact file match or resource is a directory enclosing target
     for (const c of allConcepts) {
       const resourceUris = [];
       if (c.frontmatter.resource) {
@@ -190,10 +191,37 @@ function main() {
         const resPath = resolveResourceLocalPath(uri, workspaceRoot);
         if (resPath) {
           const normalizedRes = path.normalize(resPath);
-          // Match if it's the exact same file, or if the resource is a parent folder of the target file
           if (normalizedTarget === normalizedRes || normalizedTarget.startsWith(normalizedRes + path.sep)) {
             matched.push(c);
             break;
+          }
+        }
+      }
+    }
+
+    // Tier 2: Directory / Subsystem match (target resides in the same directory as a documented resource)
+    if (matched.length === 0) {
+      for (const c of allConcepts) {
+        const resourceUris = [];
+        if (c.frontmatter.resource) {
+          resourceUris.push(c.frontmatter.resource);
+        }
+        if (Array.isArray(c.frontmatter.sources)) {
+          for (const src of c.frontmatter.sources) {
+            if (src.resource) {
+              resourceUris.push(src.resource);
+            }
+          }
+        }
+
+        for (const uri of resourceUris) {
+          const resPath = resolveResourceLocalPath(uri, workspaceRoot);
+          if (resPath) {
+            const resDir = path.dirname(path.normalize(resPath));
+            if (resDir !== workspaceRoot && (normalizedTarget === resDir || normalizedTarget.startsWith(resDir + path.sep))) {
+              matched.push(c);
+              break;
+            }
           }
         }
       }
@@ -220,7 +248,14 @@ function main() {
   }
 
   if (matched.length === 0) {
-    console.log('No matching OKF concepts found.');
+    if (fileIndex !== -1) {
+      const relTarget = path.relative(workspaceRoot, path.resolve(workspaceRoot, args[fileIndex + 1]));
+      console.log(`No matching OKF concepts found for file: ${relTarget}`);
+      console.log(`Tip: Try searching by keyword: node okf-query/scripts/query.js --search <module-or-topic>`);
+      console.log(`Or inspect the catalog index at: ${fs.existsSync(path.join(bundleRoot, 'index.md')) ? path.relative(workspaceRoot, path.join(bundleRoot, 'index.md')).replace(/\\/g, '/') : 'docs/okf/index.md'}`);
+    } else {
+      console.log('No matching OKF concepts found.');
+    }
     return;
   }
 

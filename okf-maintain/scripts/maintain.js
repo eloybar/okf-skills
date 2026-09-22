@@ -340,7 +340,7 @@ function appendLogEntry(logPath, entries, dateStr) {
   return true;
 }
 
-const TARGET_STEERING_VERSION = '1.5.0';
+const TARGET_STEERING_VERSION = '1.6.0';
 
 function compareVersions(v1, v2) {
   const parts1 = v1.split('.').map(Number);
@@ -355,7 +355,13 @@ function compareVersions(v1, v2) {
 }
 
 function buildSteeringDirectivesBlock(bundleRelPath, targetVersion) {
-  return `## ⚡ Pre-Completion Verification Gate (MANDATORY)
+  return `## ⚡ Pre-Work Grounding Gate (MANDATORY)
+Before inspecting code, planning architecture, answering system questions, or modifying files:
+1. **Initial Search & Discovery:** Query the OKF bundle using \`node okf-query/scripts/query.js --search <keywords>\` (or \`npm run okf:query -- --search <keywords>\`) or inspect \`${bundleRelPath}/index.md\` to ground domain understanding.
+2. **Target File Retrieval:** Before modifying or analyzing any specific file, run \`node okf-query/scripts/query.js --file <file-path>\` (or \`npm run okf:query -- --file <file-path>\`) to inject relevant design contracts, constraints, and dependencies. If no direct concept is found, fall back to searching keywords for the enclosing directory/module.
+3. **Grounding Citation:** You MUST explicitly cite the consulted OKF concept(s) (or state *"OKF Check: no matching concept found for <topic>"*) in your plan, explanation, or response before modifying code.
+
+## ⚡ Pre-Completion Verification Gate (MANDATORY)
 Before claiming any user request is complete or ending your turn after modifying workspace code:
 1. **Maintenance Sync:** Run \`node okf-maintain/scripts/maintain.js\` (or \`npm run okf:maintain\`) to auto-sync concept timestamps, unindexed frontier files in \`index.md\`, changelog entries in \`log.md\`, and rebuild \`viz.html\`.
 2. **Lint & Drift Gate:** Run \`node okf-lint/scripts/lint.js --drift\` (or \`npm run okf:lint:drift\`) to guarantee 0 errors and 0 warnings.
@@ -372,8 +378,8 @@ On startup, before making any modifications to the codebase:
 - Always locate and use \`${bundleRelPath}\` relative to the workspace root to check and maintain the bundle.
 
 ### 3. Context Grounding & Retrieval
-- **Grounding Initial Questions**: Before answering any initial user questions about the codebase, system behavior, or design on session startup, first attempt to ground your answer in the OKF bundle. Run the \`okf-query --search <keywords>\` skill with relevant query terms or check the [Index File](${bundleRelPath}/index.md) to find documentation and concepts explaining the subject.
-- **Retrieval before Edits**: Before analyzing or modifying any specific file, run the \`okf-query --file <file-path>\` skill to retrieve and inject relevant design guidelines, SLAs, and dependencies directly into your context.
+- **Grounding Initial Questions**: Before answering any initial user questions about the codebase, system behavior, or design on session startup, first attempt to ground your answer in the OKF bundle. Run \`node okf-query/scripts/query.js --search <keywords>\` (or \`npm run okf:query -- --search <keywords>\`) or check the [Index File](${bundleRelPath}/index.md) to find documentation and concepts explaining the subject.
+- **Retrieval before Edits**: Before analyzing or modifying any specific file, run \`node okf-query/scripts/query.js --file <file-path>\` (or \`npm run okf:query -- --file <file-path>\`) to retrieve and inject relevant design guidelines, SLAs, and dependencies directly into your context. If \`--file\` yields no results, fall back to searching by parent folder or keyword.
 
 ### 4. Post-Edit Upkeep & Conformance
 - After making edits, run the \`okf-maintain\` skill (\`node okf-maintain/scripts/maintain.js\`) to update the relevant concept files, frontmatter timestamps, index entries, and \`log.md\`. Make sure to update or create concepts if you:
@@ -381,7 +387,7 @@ On startup, before making any modifications to the codebase:
   - Discover platform or sandbox-specific constraints (e.g., mobile WebView quirks, CORS limitations, CDN asset blockages).
   - Improve or add structural documentation to developer utility pages (like testing environments).
   - Learn a new codebase behavior or pattern that warrants a permanent engineering guideline.
-- Run the \`okf-lint\` skill to guarantee that all markdown links are intact and all concept structures conform before completing the task.
+- Run the \`okf-lint\` skill (\`node okf-lint/scripts/lint.js\`) to guarantee that all markdown links are intact and all concept structures conform before completing the task.
 
 <!-- okf-steering-version: ${targetVersion} -->`;
 }
@@ -408,7 +414,7 @@ function inspectAndSyncSteeringFile(filePath, workspaceRoot, bundleRoot, targetV
     isOutdated = true;
   }
 
-  if (!content.includes('Pre-Completion Verification Gate')) {
+  if (!content.includes('Pre-Completion Verification Gate') || !content.includes('Pre-Work Grounding Gate')) {
     isOutdated = true;
   }
 
@@ -425,7 +431,7 @@ function inspectAndSyncSteeringFile(filePath, workspaceRoot, bundleRoot, targetV
   const newBlock = buildSteeringDirectivesBlock(bundleRel, targetVersion);
 
   let newContent = content;
-  const startRegex = /(## (?:⚡ )?Pre-Completion Verification Gate[\s\S]*?|## (?:📂 )?Knowledge Bundle \/ OKF[\s\S]*?)(?:<!-- okf-steering-version:\s*[0-9.]+\s*-->)/;
+  const startRegex = /(## (?:⚡ )?Pre-Work Grounding Gate[\s\S]*?|## (?:⚡ )?Pre-Completion Verification Gate[\s\S]*?|## (?:📂 )?Knowledge Bundle \/ OKF[\s\S]*?)(?:<!-- okf-steering-version:\s*[0-9.]+\s*-->)/;
 
   if (startRegex.test(content)) {
     newContent = content.replace(startRegex, newBlock);
@@ -598,7 +604,7 @@ async function main() {
       }
       if (outdatedSteeringFiles.length > 0) {
         console.log(`Outdated steering files:`);
-        outdatedSteeringFiles.forEach(s => console.log(`  - ${s} (outdated or missing Pre-Completion Gate; run okf-maintain to sync)`));
+        outdatedSteeringFiles.forEach(s => console.log(`  - ${s} (outdated or missing Pre-Work / Pre-Completion Gate; run okf-maintain to sync)`));
       }
     }
     process.exit(clean ? 0 : 1);

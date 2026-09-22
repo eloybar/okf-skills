@@ -2,6 +2,12 @@
 
 Welcome! This codebase is designed as a **self-documenting repository** powered by the **Open Knowledge Format (OKF)**.
 
+## ⚡ Pre-Work Grounding Gate (MANDATORY)
+Before inspecting code, planning architecture, answering system questions, or modifying files:
+1. **Initial Search & Discovery:** Query the OKF bundle using `node okf-query/scripts/query.js --search <keywords>` (or `npm run okf:query -- --search <keywords>`) or inspect `/docs/okf/index.md` to ground domain understanding.
+2. **Target File Retrieval:** Before modifying or analyzing any specific file, run `node okf-query/scripts/query.js --file <file-path>` (or `npm run okf:query -- --file <file-path>`) to inject relevant design contracts, constraints, and dependencies. If no direct concept is found, fall back to searching keywords for the enclosing directory/module.
+3. **Grounding Citation:** You MUST explicitly cite the consulted OKF concept(s) (or state *"OKF Check: no matching concept found for <topic>"*) in your plan, explanation, or response before modifying code.
+
 ## ⚡ Pre-Completion Verification Gate (MANDATORY)
 Before claiming any user request is complete or ending your turn after modifying workspace code:
 1. **Maintenance Sync:** Run `node okf-maintain/scripts/maintain.js` (or `npm run okf:maintain`) to auto-sync concept timestamps, unindexed frontier files in `index.md`, changelog entries in `log.md`, and rebuild `viz.html`.
@@ -20,8 +26,8 @@ On startup, before making any modifications to the codebase:
 - Always locate and use `/docs/okf` relative to the workspace root to check and maintain the bundle.
 
 ### 3. Context Grounding & Retrieval
-- **Grounding Initial Questions**: Before answering any initial user questions about the codebase, system behavior, or design on session startup, first attempt to ground your answer in the OKF bundle. Run the `okf-query --search <keywords>` skill with relevant query terms or check the [Index File](/docs/okf/index.md) to find documentation and concepts explaining the subject.
-- **Retrieval before Edits**: Before analyzing or modifying any specific file, run the `okf-query --file <file-path>` skill to retrieve and inject relevant design guidelines, SLAs, and dependencies directly into your context.
+- **Grounding Initial Questions**: Before answering any initial user questions about the codebase, system behavior, or design on session startup, first attempt to ground your answer in the OKF bundle. Run `node okf-query/scripts/query.js --search <keywords>` (or `npm run okf:query -- --search <keywords>`) or check the [Index File](/docs/okf/index.md) to find documentation and concepts explaining the subject.
+- **Retrieval before Edits**: Before analyzing or modifying any specific file, run `node okf-query/scripts/query.js --file <file-path>` (or `npm run okf:query -- --file <file-path>`) to retrieve and inject relevant design guidelines, SLAs, and dependencies directly into your context. If `--file` yields no results, fall back to searching by parent folder or keyword.
 
 ### 4. Post-Edit Upkeep & Conformance
 - After making edits, run the `okf-maintain` skill (`node okf-maintain/scripts/maintain.js`) to update the relevant concept files, frontmatter timestamps, index entries, and `log.md`. Make sure to update or create concepts if you:
@@ -32,5 +38,5 @@ On startup, before making any modifications to the codebase:
 - Run the `okf-lint` skill to guarantee that all markdown links are intact and all concept structures conform before completing the task.
 - **Interactive Simulator Sync:** If you modify `AGENTS.md`, the `okf` skill (`okf/SKILL.md`), or any other skill definition or implementation script in the repository, you **MUST** also update and synchronize the corresponding copy or snippet inside [index.html](file:///D:/projects/okf-skills/index.html) to prevent documentation drift in the interactive playbook and simulator.
 
-<!-- okf-steering-version: 1.5.0 -->
+<!-- okf-steering-version: 1.6.0 -->
 

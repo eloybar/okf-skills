@@ -6,7 +6,7 @@ resource: file:///D:/projects/okf-skills/README.md
 tags: [architecture, loop, feedback]
 generated:
   by: Antigravity/3.8-Flash
-  at: 2026-09-19T14:34:20.382Z
+  at: 2026-09-22T15:32:00Z
 ---
 
 # Overview
@@ -15,7 +15,7 @@ The knowledge loop lifecycle binds the OKF skills together into a continuous sel
 1. **OKF Specification**: Standardized by the [OKF Specification v0.2](/concepts/okf-specification.md) and operationalized by [OKF Core Skill](/concepts/okf-skill.md).
 2. **Initial Bundle Creation**: Bootstraps the concept files and directory structure using [OKF Core Skill](/concepts/okf-skill.md).
 3. **Guided Wizard Onboarding**: Guided by the [OKF Wayfinder Skill](/concepts/okf-wayfinder-skill.md) to interview developers and capture tribal knowledge.
-4. **AGENTS.md Steering**: Directs new agent sessions to check, read, and respect concepts.
+4. **Agent Steering Gates**: Enforces mandatory Pre-Work Grounding Gates and Pre-Completion Verification Gates via `AGENTS.md`, `CLAUDE.md`, or IDE rules to guide autonomous agents to check, read, and maintain concepts.
 5. **Context Retrieval**: Runs [OKF Query Skill](/concepts/okf-query-skill.md) to automatically fetch and inject relevant concepts into agent prompts.
 6. **Model-Invoked Maintenance**: Automated post-edit checks run by [OKF Maintain Skill](/concepts/okf-maintain-skill.md) to update and validate concepts.
 7. **CI Quality & Drift Gate**: Uses [OKF Lint Skill](/concepts/okf-lint-skill.md) to statically analyze files and block PRs on broken links or un-synced concept drift.

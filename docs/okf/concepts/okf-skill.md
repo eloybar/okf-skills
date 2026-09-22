@@ -5,8 +5,8 @@ description: Core skill that defines the structure and authoring guidelines of O
 resource: file:///D:/projects/okf-skills/okf/SKILL.md
 tags: [core, okf, documentation]
 generated:
-  by: Antigravity/3.5-Flash
-  at: 2026-09-19T14:24:26.901Z
+  by: Antigravity/3.8-Flash
+  at: 2026-09-22T15:32:00Z
 ---
 
 # Overview
@@ -17,4 +17,4 @@ The `okf` skill defines the Open Knowledge Format (OKF) rules for writing self-d
 - **Bundle Directory**: In this repository, it is located at `/docs/okf`.
 - **Cross-linking**: Uses bundle-relative absolute paths to form an untyped concept dependency graph.
 - **Directory Organization**: Outlines how to transition from a flat layout to a nested directory structure as the concept count scales (>= 10 concepts).
-- **Steering Notice**: Sets up `AGENTS.md` (or `CLAUDE.md`) to guide autonomous agents to read/maintain the bundle.
+- **Steering Notice**: Sets up agent steering files (e.g. `AGENTS.md`, `CLAUDE.md`, `.cursorrules`) with mandatory Pre-Work Grounding Gates and Pre-Completion Verification Gates to guide autonomous agents to read, respect, and maintain the bundle.
