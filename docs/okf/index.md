@@ -15,6 +15,7 @@ Welcome to the self-documenting knowledge bundle for the OKF Skills repository.
 - [OKF Lint Skill](/concepts/okf-lint-skill.md) — Check conformance, link integrity, and concept drift.
 - [OKF Query Skill](/concepts/okf-query-skill.md) — Context-aware search and retrieval.
 - [OKF Upgrade Skill](/concepts/okf-upgrade-skill.md) — Automated migration of bundles from v0.1 to v0.2.
+- [OKF Prune Skill](/concepts/okf-prune-skill.md) — Automated lifecycle cleanup, archiving, and garbage collection.
 - [The Knowledge Loop Lifecycle](/concepts/knowledge-loop.md) — The lifecycle binding specification, steering, maintenance, and visualization.
 - [Interactive Simulator & Playbook](/concepts/interactive-simulator.md) — Visual playbook and token saving calculator.
 - [Skill Installer Scripts](/concepts/skill-installers.md) — Automated install, update, and remove scripts.
@@ -26,6 +27,7 @@ Welcome to the self-documenting knowledge bundle for the OKF Skills repository.
 - `install.sh` — Bash shell script installer.
 - `okf-lint/scripts/lint.js` — Core linter verification and drift tracking script.
 - `okf-maintain/scripts/maintain.js` — Automated maintenance, drift sync, and frontier management script.
+- `okf-prune/scripts/prune.js` — Undocumented codebase file.
 - `okf-query/scripts/query.js` — Core context-aware querying and prompt injection script.
 - `okf-upgrade/scripts/upgrade.js` — Core automated migration script.
 - `okf-visualize/scripts/visualize.js` — Cytoscape graph visualizer script.

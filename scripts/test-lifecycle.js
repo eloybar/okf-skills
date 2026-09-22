@@ -15,7 +15,8 @@ const scripts = {
   maintain: path.resolve(__dirname, '../okf-maintain/scripts/maintain.js'),
   query: path.resolve(__dirname, '../okf-query/scripts/query.js'),
   visualize: path.resolve(__dirname, '../okf-visualize/scripts/visualize.js'),
-  upgrade: path.resolve(__dirname, '../okf-upgrade/scripts/upgrade.js')
+  upgrade: path.resolve(__dirname, '../okf-upgrade/scripts/upgrade.js'),
+  prune: path.resolve(__dirname, '../okf-prune/scripts/prune.js')
 };
 
 // Initialize Git inside the sandbox (needed for drift checks)
@@ -391,6 +392,150 @@ Here is a forward-looking link to [Future Concept](/concepts/nonexistent.md).
   assert.ok(secondUpgradeOutput.includes('Concepts modified: 0'), 'Second run of upgrade should modify 0 concepts');
   assert.ok(secondUpgradeOutput.includes('Logs normalized:   0'), 'Second run of upgrade should normalize 0 logs');
   console.log('✓ okf-upgrade verified strictly idempotent on compliant bundle.');
+
+  // === STEP 12: TEST OKF PRUNE (LIFECYCLE GARBAGE COLLECTION) ===
+  console.log('Step 12: Testing OKF Prune (lifecycle garbage collection & archiving)...');
+
+  // 12a. Create candidate concepts for pruning: stale, deprecated, ghost, orphan
+  const stalePruneFile = path.join(bundleRoot, 'concepts', 'stale_prune.md');
+  fs.writeFileSync(stalePruneFile, `---
+type: Concept
+title: Stale Concept
+stale_after: 2020-01-01T00:00:00Z
+generated:
+  by: human:tester
+  at: 2019-12-01T00:00:00Z
+---
+Expired concept content.
+`);
+
+  const deprecatedPruneFile = path.join(bundleRoot, 'concepts', 'deprecated_prune.md');
+  fs.writeFileSync(deprecatedPruneFile, `---
+type: Concept
+title: Deprecated Feature
+status: deprecated
+generated:
+  by: human:tester
+  at: 2026-01-01T00:00:00Z
+---
+Deprecated feature documentation.
+`);
+
+  const ghostPruneFile = path.join(bundleRoot, 'concepts', 'ghost_prune.md');
+  fs.writeFileSync(ghostPruneFile, `---
+type: Concept
+title: Ghost Resource Concept
+resource: file:///src/non_existent_code.js
+generated:
+  by: human:tester
+  at: 2026-01-01T00:00:00Z
+---
+Concept pointing to deleted source file.
+`);
+
+  const orphanPruneFile = path.join(bundleRoot, 'concepts', 'orphan_prune.md');
+  fs.writeFileSync(orphanPruneFile, `---
+type: Concept
+title: Orphaned Concept
+generated:
+  by: human:tester
+  at: 2026-01-01T00:00:00Z
+---
+Unreferenced isolated concept.
+`);
+
+  // Link stale, deprecated, and ghost in index.md so they have inbound links, leaving orphan as the unlinked one
+  const currentIdxContent = fs.readFileSync(path.join(bundleRoot, 'index.md'), 'utf8');
+  fs.writeFileSync(path.join(bundleRoot, 'index.md'), currentIdxContent + `
+- [Stale Concept](/concepts/stale_prune.md)
+- [Deprecated Feature](/concepts/deprecated_prune.md)
+- [Ghost Resource Concept](/concepts/ghost_prune.md)
+`);
+
+  // 12b. Run okf-prune --check with filters and verify specific candidate detection
+  function runPruneJson(extraArgs) {
+    try {
+      const out = execSync(`node "${scripts.prune}" ${extraArgs} --json`, { cwd: tempDir, stdio: ['pipe', 'pipe', 'pipe'] });
+      return { code: 0, data: JSON.parse(out.toString()) };
+    } catch (e) {
+      if (e.stdout) {
+        return { code: e.status || 1, data: JSON.parse(e.stdout.toString()) };
+      }
+      throw e;
+    }
+  }
+
+  // Check --stale filter
+  const staleCheck = runPruneJson('--check --stale');
+  assert.equal(staleCheck.code, 1, 'Check with stale items should exit with code 1');
+  assert.equal(staleCheck.data.totalPrunable, 1, 'Should detect exactly 1 stale concept');
+  assert.equal(staleCheck.data.candidates[0].relPath, 'concepts/stale_prune.md');
+  console.log('✓ okf-prune --check --stale correctly filtered expired concepts.');
+
+  // Check --deprecated filter
+  const depCheck = runPruneJson('--check --deprecated');
+  assert.equal(depCheck.code, 1, 'Check with deprecated items should exit with code 1');
+  assert.equal(depCheck.data.totalPrunable, 1, 'Should detect exactly 1 deprecated concept');
+  assert.equal(depCheck.data.candidates[0].relPath, 'concepts/deprecated_prune.md');
+  console.log('✓ okf-prune --check --deprecated correctly filtered deprecated concepts.');
+
+  // Check --ghosts filter
+  const ghostCheck = runPruneJson('--check --ghosts');
+  assert.equal(ghostCheck.code, 1, 'Check with ghost items should exit with code 1');
+  assert.ok(ghostCheck.data.candidates.some(c => c.relPath === 'concepts/ghost_prune.md'), 'Should detect ghost concept');
+  console.log('✓ okf-prune --check --ghosts correctly filtered missing resource concepts.');
+
+  // Check all candidates
+  const allCheck = runPruneJson('--check');
+  assert.equal(allCheck.code, 1, 'Check mode should exit with code 1 when candidates exist');
+  assert.ok(allCheck.data.candidates.some(c => c.relPath === 'concepts/stale_prune.md'), 'Should include stale concept');
+  assert.ok(allCheck.data.candidates.some(c => c.relPath === 'concepts/deprecated_prune.md'), 'Should include deprecated concept');
+  assert.ok(allCheck.data.candidates.some(c => c.relPath === 'concepts/ghost_prune.md'), 'Should include ghost concept');
+  assert.ok(allCheck.data.candidates.some(c => c.relPath === 'concepts/orphan_prune.md'), 'Should include orphan concept');
+  console.log('✓ okf-prune --check correctly identified all prunable candidate categories.');
+
+  // 12c. Run okf-prune in default archive mode
+  const pruneOutput = runPruneJson('');
+  assert.equal(pruneOutput.code, 0, 'Prune execution should succeed with exit code 0');
+  assert.ok(fs.existsSync(path.join(bundleRoot, 'archive', 'concepts', 'stale_prune.md')), 'Stale concept should be moved to archive/');
+  assert.ok(fs.existsSync(path.join(bundleRoot, 'archive', 'concepts', 'deprecated_prune.md')), 'Deprecated concept should be moved to archive/');
+  assert.ok(fs.existsSync(path.join(bundleRoot, 'archive', 'concepts', 'ghost_prune.md')), 'Ghost concept should be moved to archive/');
+  assert.ok(fs.existsSync(path.join(bundleRoot, 'archive', 'concepts', 'orphan_prune.md')), 'Orphan concept should be moved to archive/');
+  assert.ok(!fs.existsSync(stalePruneFile), 'Original stale file should be removed from active concepts');
+
+  // Verify archived file frontmatter has status: deprecated and archived_at
+  const archivedStaleContent = fs.readFileSync(path.join(bundleRoot, 'archive', 'concepts', 'stale_prune.md'), 'utf8');
+  assert.ok(archivedStaleContent.includes('status: deprecated'), 'Archived concept should have status: deprecated');
+  assert.ok(archivedStaleContent.includes('archived_at:'), 'Archived concept should have archived_at timestamp');
+
+  // Verify index.md updated with ## Archived Concepts
+  const updatedIndex = fs.readFileSync(path.join(bundleRoot, 'index.md'), 'utf8');
+  assert.ok(updatedIndex.includes('## Archived Concepts'), 'index.md should contain ## Archived Concepts section');
+  assert.ok(updatedIndex.includes('/archive/concepts/stale_prune.md'), 'index.md should link to archived location');
+
+  // Verify log.md updated with prune entry
+  const updatedLog = fs.readFileSync(path.join(bundleRoot, 'log.md'), 'utf8');
+  assert.ok(updatedLog.includes('Pruned (archived) concept'), 'log.md should record archived concepts');
+
+  console.log('✓ okf-prune successfully archived concepts, updated index.md, and recorded changelog.');
+
+  // 12d. Verify audit passes cleanly after pruning
+  execSync(`node "${scripts.prune}" --check`, { cwd: tempDir });
+  console.log('✓ okf-prune --check verified 0 prunable items remaining.');
+
+  // 12e. Test --delete mode
+  const deleteTestFile = path.join(bundleRoot, 'concepts', 'delete_target.md');
+  fs.writeFileSync(deleteTestFile, `---
+type: Concept
+title: Delete Target
+status: deprecated
+---
+Should be deleted.
+`);
+  const delOutput = runPruneJson('--delete --deprecated');
+  assert.equal(delOutput.code, 0, 'Delete execution should succeed');
+  assert.ok(!fs.existsSync(deleteTestFile), 'Target file should be deleted');
+  console.log('✓ okf-prune --delete successfully removed target file.');
 
   console.log('\n======================================');
   console.log('🎉 ALL LIFE CYCLE TEST CASES PASSED SUCCESSFULLY!');
