@@ -6,7 +6,7 @@ resource: file:///D:/projects/okf-skills/okf-lint/SKILL.md
 tags: [linter, verification, quality-gate, CI-CD]
 generated:
   by: Antigravity/3.8-Flash
-  at: 2026-09-22T15:32:00Z
+  at: 2026-09-22T15:45:31.360Z
 ---
 
 # Overview

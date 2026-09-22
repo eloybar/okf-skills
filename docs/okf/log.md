@@ -3,6 +3,7 @@
 Newest changes recorded chronologically.
 
 ## 2026-09-22
+- Synchronized timestamp for 5 drifted concept(s): concepts/interactive-simulator.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md, concepts/okf-skill.md.
 - Added mandatory Pre-Work Grounding Gate to `AGENTS.md` and upgraded steering version tracking to v1.6.0.
 - Enhanced `okf-query` with Tier 2 directory and subsystem matching, enabling queries on files within documented modules to resolve matching concepts with actionable search fallback guidance.
 - Updated `okf-lint` and `okf-maintain` to audit and auto-heal steering notices across all supported agents (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, etc.) to v1.6.0 with both Pre-Work Grounding and Pre-Completion Verification Gates.
