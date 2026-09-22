@@ -7,7 +7,7 @@ tags: [pruning, cleanup, lifecycle, archiving, automation]
 status: stable
 generated:
   by: Antigravity/3.5-Flash
-  at: 2026-09-22T17:37:00Z
+  at: 2026-09-22T17:45:38.071Z
 ---
 
 # Overview

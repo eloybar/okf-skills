@@ -3,6 +3,7 @@
 Newest changes recorded chronologically.
 
 ## 2026-09-22
+- Synchronized timestamp for 3 drifted concept(s): concepts/interactive-simulator.md, concepts/okf-prune-skill.md, concepts/skill-installers.md.
 - Synchronized workspace frontier mapping in `index.md` (14 undocumented files mapped).
 - Synchronized timestamp for 5 drifted concept(s): concepts/interactive-simulator.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md, concepts/okf-skill.md.
 - Added mandatory Pre-Work Grounding Gate to `AGENTS.md` and upgraded steering version tracking to v1.6.0.
