@@ -25,8 +25,9 @@ node okf-query/scripts/query.js --search "maintenance"
 
 2. **Match by File Path (`--file <path>`)**
    - Take a file path as input and resolve it relative to the workspace root.
-   - Scan all concept files and parse their `resource` values.
-   - If a concept's `resource` target path matches the input file path (or matches a directory containing the input file path), select it.
+   - Scan all concept files and parse their `resource` values (and `sources`).
+   - If a concept's `resource` target path matches the input file path, matches a directory containing the input file path, or resides in the same directory/subsystem as the input file, select it.
+   - If no direct concept is found, output actionable guidance suggesting search keywords or the catalog index.
 
 3. **Match by Text Search (`--search <query>`)**
    - Look for occurrences of the search term inside concept titles, tags, descriptions, and markdown body text.
