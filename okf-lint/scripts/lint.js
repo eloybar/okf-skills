@@ -4,6 +4,30 @@ const { execSync, execFileSync } = require('child_process');
 const https = require('https');
 const os = require('os');
 
+function splitRespectingQuotes(str, delimiter = ',') {
+  const result = [];
+  let current = '';
+  let inDouble = false;
+  let inSingle = false;
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    if (char === '"' && !inSingle) {
+      inDouble = !inDouble;
+      current += char;
+    } else if (char === "'" && !inDouble) {
+      inSingle = !inSingle;
+      current += char;
+    } else if (char === delimiter && !inDouble && !inSingle) {
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current);
+  return result;
+}
+
 function parseFrontmatter(content) {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!match) return null;
@@ -13,7 +37,7 @@ function parseFrontmatter(content) {
     val = val.trim();
     if (val.startsWith('{') && val.endsWith('}')) {
       const obj = {};
-      const pairs = val.slice(1, -1).split(',');
+      const pairs = splitRespectingQuotes(val.slice(1, -1), ',');
       for (const pair of pairs) {
         const colonIdx = pair.indexOf(':');
         if (colonIdx === -1) continue;
@@ -27,7 +51,7 @@ function parseFrontmatter(content) {
       return obj;
     }
     if (val.startsWith('[') && val.endsWith(']')) {
-      return val.slice(1, -1).split(',').map(item => {
+      return splitRespectingQuotes(val.slice(1, -1), ',').map(item => {
         item = item.trim();
         if ((item.startsWith('"') && item.endsWith('"')) || (item.startsWith("'") && item.endsWith("'"))) {
           item = item.slice(1, -1);
@@ -321,7 +345,7 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
   return results;
 }
 
-const INSTALLED_VERSION = '1.5.0';
+const INSTALLED_VERSION = '1.6.0';
 
 function compareVersions(v1, v2) {
   const parts1 = v1.split('.').map(Number);
@@ -363,8 +387,8 @@ function checkSkillsVersion() {
       return resolve();
     }
 
-    // Fetch latest version from GitHub
-    const url = 'https://raw.githubusercontent.com/eloybar/okf-skills/main/okf-lint/SKILL.md';
+    // Fetch latest version from GitHub package.json
+    const url = 'https://raw.githubusercontent.com/eloybar/okf-skills/main/package.json';
     const req = https.get(url, { timeout: 1500 }, (res) => {
       if (res.statusCode !== 200) {
         return resolve();
@@ -372,10 +396,16 @@ function checkSkillsVersion() {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
-        const match = data.match(/version:\s*([0-9.]+)/);
+        let latestVersion = null;
+        try {
+          const pkg = JSON.parse(data);
+          if (pkg && pkg.version) latestVersion = pkg.version;
+        } catch (e) {
+          const match = data.match(/"version":\s*"([0-9.]+)"/) || data.match(/version:\s*([0-9.]+)/);
+          if (match) latestVersion = match[1].trim();
+        }
         cache.lastChecked = Date.now();
-        if (match) {
-          const latestVersion = match[1].trim();
+        if (latestVersion) {
           cache.latestVersion = latestVersion;
           if (compareVersions(latestVersion, INSTALLED_VERSION) > 0) {
             printVersionWarning(latestVersion);
@@ -512,3 +542,9 @@ async function main() {
 if (require.main === module) {
   main();
 }
+
+module.exports = {
+  parseFrontmatter,
+  scanAndLint,
+  compareVersions
+};

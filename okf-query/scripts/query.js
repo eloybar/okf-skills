@@ -1,6 +1,30 @@
 const fs = require('fs');
 const path = require('path');
 
+function splitRespectingQuotes(str, delimiter = ',') {
+  const result = [];
+  let current = '';
+  let inDouble = false;
+  let inSingle = false;
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    if (char === '"' && !inSingle) {
+      inDouble = !inDouble;
+      current += char;
+    } else if (char === "'" && !inDouble) {
+      inSingle = !inSingle;
+      current += char;
+    } else if (char === delimiter && !inDouble && !inSingle) {
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current);
+  return result;
+}
+
 function parseFrontmatter(content) {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!match) return null;
@@ -10,7 +34,7 @@ function parseFrontmatter(content) {
     val = val.trim();
     if (val.startsWith('{') && val.endsWith('}')) {
       const obj = {};
-      const pairs = val.slice(1, -1).split(',');
+      const pairs = splitRespectingQuotes(val.slice(1, -1), ',');
       for (const pair of pairs) {
         const colonIdx = pair.indexOf(':');
         if (colonIdx === -1) continue;
@@ -24,7 +48,7 @@ function parseFrontmatter(content) {
       return obj;
     }
     if (val.startsWith('[') && val.endsWith(']')) {
-      return val.slice(1, -1).split(',').map(item => {
+      return splitRespectingQuotes(val.slice(1, -1), ',').map(item => {
         item = item.trim();
         if ((item.startsWith('"') && item.endsWith('"')) || (item.startsWith("'") && item.endsWith("'"))) {
           item = item.slice(1, -1);
@@ -287,3 +311,8 @@ function main() {
 if (require.main === module) {
   main();
 }
+
+module.exports = {
+  parseFrontmatter,
+  scanConcepts
+};

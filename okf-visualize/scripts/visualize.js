@@ -15,6 +15,30 @@ function parseArgs() {
   return args;
 }
 
+function splitRespectingQuotes(str, delimiter = ',') {
+  const result = [];
+  let current = '';
+  let inDouble = false;
+  let inSingle = false;
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    if (char === '"' && !inSingle) {
+      inDouble = !inDouble;
+      current += char;
+    } else if (char === "'" && !inDouble) {
+      inSingle = !inSingle;
+      current += char;
+    } else if (char === delimiter && !inDouble && !inSingle) {
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current);
+  return result;
+}
+
 function parseFrontmatter(content) {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!match) {
@@ -27,7 +51,7 @@ function parseFrontmatter(content) {
     val = val.trim();
     if (val.startsWith('{') && val.endsWith('}')) {
       const obj = {};
-      const pairs = val.slice(1, -1).split(',');
+      const pairs = splitRespectingQuotes(val.slice(1, -1), ',');
       for (const pair of pairs) {
         const colonIdx = pair.indexOf(':');
         if (colonIdx === -1) continue;
@@ -41,7 +65,7 @@ function parseFrontmatter(content) {
       return obj;
     }
     if (val.startsWith('[') && val.endsWith(']')) {
-      return val.slice(1, -1).split(',').map(item => {
+      return splitRespectingQuotes(val.slice(1, -1), ',').map(item => {
         item = item.trim();
         if ((item.startsWith('"') && item.endsWith('"')) || (item.startsWith("'") && item.endsWith("'"))) {
           item = item.slice(1, -1);
@@ -58,6 +82,7 @@ function parseFrontmatter(content) {
   const fm = {};
   const lines = fmText.split(/\r?\n/);
   let currentKey = null;
+  let inArray = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -65,60 +90,55 @@ function parseFrontmatter(content) {
 
     const matchIndent = line.match(/^(\s*)/);
     const indent = matchIndent ? matchIndent[1].length : 0;
-    const colonIndex = line.indexOf(':');
+    const trimmed = line.trim();
 
-    // Handle multiline lists (e.g., sources list)
-    if (line.trim().startsWith('-')) {
-      if (currentKey) {
-        if (!Array.isArray(fm[currentKey])) {
-          fm[currentKey] = [];
-        }
-        const arrayVal = line.trim().slice(1).trim();
-        if (arrayVal) {
-          fm[currentKey].push(parseInlineValue(arrayVal));
-        } else {
-          // Indented list object parsing
+    if (trimmed.startsWith('-')) {
+      const rest = trimmed.slice(1).trim();
+      if (!currentKey) continue;
+      if (!Array.isArray(fm[currentKey])) {
+        fm[currentKey] = [];
+      }
+      
+      if (rest.startsWith('{') && rest.endsWith('}')) {
+        fm[currentKey].push(parseInlineValue(rest));
+      } else {
+        const colonIdx = rest.indexOf(':');
+        if (colonIdx !== -1) {
+          const k = rest.slice(0, colonIdx).trim();
+          const v = parseInlineValue(rest.slice(colonIdx + 1).trim());
           const obj = {};
-          let j = i + 1;
-          while (j < lines.length) {
-            const subLine = lines[j];
-            const subIndentMatch = subLine.match(/^(\s*)/);
-            const subIndent = subIndentMatch ? subIndentMatch[1].length : 0;
-            if (subIndent <= indent) break;
-            
-            const subColonIndex = subLine.indexOf(':');
-            if (subColonIndex !== -1) {
-              const k = subLine.slice(0, subColonIndex).trim();
-              let v = subLine.slice(subColonIndex + 1).trim();
-              if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
-                v = v.slice(1, -1);
-              }
-              obj[k] = v;
-            }
-            j++;
-          }
+          obj[k] = v;
           fm[currentKey].push(obj);
-          i = j - 1;
+        } else {
+          fm[currentKey].push(parseInlineValue(rest));
         }
       }
+      inArray = true;
       continue;
     }
 
-    if (colonIndex === -1) continue;
+    const colonIdx = trimmed.indexOf(':');
+    if (colonIdx === -1) continue;
 
-    const key = line.slice(0, colonIndex).trim();
-    let val = line.slice(colonIndex + 1).trim();
+    const key = trimmed.slice(0, colonIdx).trim();
+    const val = parseInlineValue(trimmed.slice(colonIdx + 1).trim());
 
     if (indent === 0) {
       currentKey = key;
+      inArray = false;
       if (val === '') {
         fm[key] = {};
       } else {
-        fm[key] = parseInlineValue(val);
+        fm[key] = val;
       }
     } else {
-      if (fm[currentKey] && typeof fm[currentKey] === 'object') {
-        fm[currentKey][key] = parseInlineValue(val);
+      if (inArray && currentKey && Array.isArray(fm[currentKey])) {
+        const lastItem = fm[currentKey][fm[currentKey].length - 1];
+        if (lastItem && typeof lastItem === 'object') {
+          lastItem[key] = val;
+        }
+      } else if (currentKey && fm[currentKey] && typeof fm[currentKey] === 'object') {
+        fm[currentKey][key] = val;
       }
     }
   }
@@ -365,4 +385,12 @@ function main() {
   }));
 }
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  parseFrontmatter,
+  extractLinks,
+  buildGraph
+};

@@ -2,6 +2,17 @@
 
 Newest changes recorded chronologically.
 
+
+## 2026-10-10
+- Synchronized workspace frontier mapping in `index.md` (15 undocumented files mapped).
+- Hardened frontmatter parsing across all 7 OKF skill scripts (`lint.js`, `maintain.js`, `query.js`, `prune.js`, `upgrade.js`, `visualize.js`, `wayfinder_taxonomy.js`) with `splitRespectingQuotes` to preserve commas and colons in quoted strings.
+- Added comprehensive unit test suite `scripts/test-parser.js` testing 12 frontmatter parsing edge cases across all skill scripts.
+- Resolved version constant drift in `okf-lint/scripts/lint.js` by bumping `INSTALLED_VERSION` to `1.6.0` and fetching version from `package.json`.
+- Updated `README.md` to integrate Step 10: Lifecycle Pruning (`/okf-prune`) into the Knowledge Loop diagram, component list, and CLI package commands.
+- Synchronized `docs/okf/concepts/knowledge-loop.md` and `docs/okf/concepts/skill-installers.md` to reflect all 10 pipeline steps and 8 installed skills.
+- Synchronized mirror skill directories (`.agents/skills`, `.claude/skills`, `agent/skills`).
+- Updated `package.json` scripts with `test:unit` and `test:lifecycle`, and updated GitHub Actions CI workflow to run `npm test`.
+
 ## 2026-09-22
 - Synchronized timestamp for 3 drifted concept(s): concepts/interactive-simulator.md, concepts/okf-prune-skill.md, concepts/skill-installers.md.
 - Synchronized workspace frontier mapping in `index.md` (14 undocumented files mapped).
