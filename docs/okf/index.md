@@ -36,3 +36,4 @@ Welcome to the self-documenting knowledge bundle for the OKF Skills repository.
 - `okf-wayfinder/scripts/wayfinder_taxonomy.js` — Taxonomy registry and frontier tracker script.
 - `package.json` — Zero-dependency project manifest and npm script runner aliases.
 - `scripts/test-lifecycle.js` — Integration test suite for the OKF bundle lifecycle.
+- `scripts/test-parser.js` — Unit test suite verifying frontmatter parsing across all OKF skill scripts.

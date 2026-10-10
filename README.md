@@ -23,6 +23,8 @@ graph TD
     G -->|PR Validation| C
     G --> H["08. Visualizer Graph (/okf-visualize)"]
     H -->|HITL Review| C
+    G --> J["10. Lifecycle Pruner (/okf-prune)"]
+    J -->|Garbage Collection| C
 ```
 
 ### 1. OKF Specification
@@ -60,6 +62,10 @@ Generates dynamic Cytoscape.js HTML graph visualizations of concepts, dependenci
 ### 9. Bundle Upgrader
 Migrates legacy OKF v0.1 bundles to the modern OKF v0.2 format, correcting schema definitions and fixing bare links.
 * **Component**: [okf-upgrade/SKILL.md](okf-upgrade/SKILL.md)
+
+### 10. Lifecycle Pruning & Garbage Collection
+Audits, archives, and cleans up expired, deprecated, broken, or orphaned concepts across the knowledge base.
+* **Component**: [okf-prune/SKILL.md](okf-prune/SKILL.md)
 
 ---
 
@@ -106,8 +112,8 @@ If your agent environment supports the `npx skills@latest` tool:
 * **To Check for Updates / Update / Remove**:
   ```bash
   npx skills@latest check
-  npx skills@latest update okf okf-maintain okf-visualize okf-wayfinder okf-lint okf-query okf-upgrade
-  npx skills@latest remove okf okf-maintain okf-visualize okf-wayfinder okf-lint okf-query okf-upgrade
+  npx skills@latest update okf okf-maintain okf-visualize okf-wayfinder okf-lint okf-query okf-upgrade okf-prune
+  npx skills@latest remove okf okf-maintain okf-visualize okf-wayfinder okf-lint okf-query okf-upgrade okf-prune
   ```
 
 > [!TIP]
@@ -215,6 +221,7 @@ This repository implements the above pipeline via the following custom agent ski
 * **[okf-lint/](okf-lint/)**: Statically analyzes the bundle to check conformance, link integrity, and concept drift.
 * **[okf-query/](okf-query/)**: Performs keyword search and codebase-resource context retrieval.
 * **[okf-upgrade/](okf-upgrade/)**: Automatically upgrades an OKF bundle from v0.1 to v0.2.
+* **[okf-prune/](okf-prune/)**: Automatically identifies, archives, and prunes stale, deprecated, ghost, and orphaned concepts.
 * **[index.html](index.html)**: The visual playbook and token simulator.
 
 

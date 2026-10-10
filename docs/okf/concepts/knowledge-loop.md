@@ -20,6 +20,8 @@ The knowledge loop lifecycle binds the OKF skills together into a continuous sel
 6. **Model-Invoked Maintenance**: Automated post-edit checks run by [OKF Maintain Skill](/concepts/okf-maintain-skill.md) to update and validate concepts.
 7. **CI Quality & Drift Gate**: Uses [OKF Lint Skill](/concepts/okf-lint-skill.md) to statically analyze files and block PRs on broken links or un-synced concept drift.
 8. **Interactive Visualization**: Formulated by [OKF Visualize Skill](/concepts/okf-visualize-skill.md), allowing human-in-the-loop audit of the knowledge graph.
+9. **Bundle Upgrader**: Automated migration of legacy bundles from v0.1 format to v0.2 using [OKF Upgrade Skill](/concepts/okf-upgrade-skill.md).
+10. **Lifecycle Pruning & Garbage Collection**: Identifies, archives, or purges stale, deprecated, ghost, or orphaned concepts using [OKF Prune Skill](/concepts/okf-prune-skill.md).
 
 # Purpose
 By keeping documentation aligned with actual code state at commit/lifecycle boundaries, this workflow mitigates cold-starts for new agents or team members, enables token-efficient context retrieval, and completely eliminates documentation rot.
