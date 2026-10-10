@@ -19,5 +19,5 @@ The script detects and installs the skills to the configuration folders of all a
 - **Universal / General Agents**: `~/.agents/skills`
 
 # Operations
-- **Install/Update**: Copies the local directories (`okf/`, `okf-maintain/`, `okf-visualize/`, and `okf-wayfinder/`) directly to target directories, overwriting previous versions. If run outside a clone, it fetches the zip from the GitHub main branch.
+- **Install/Update**: Copies the skill directories (`okf/`, `okf-maintain/`, `okf-visualize/`, `okf-wayfinder/`, `okf-lint/`, `okf-query/`, `okf-upgrade/`, and `okf-prune/`) directly to target directories, overwriting previous versions. If run outside a clone, it fetches the zip from the GitHub main branch.
 - **Remove**: Deletes the skill folders recursively from the target paths.

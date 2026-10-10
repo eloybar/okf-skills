@@ -15,5 +15,5 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: '18'
-    - name: Run Integration Tests
-      run: node scripts/test-lifecycle.js
+    - name: Run Test Suite
+      run: npm test
