@@ -7,7 +7,7 @@ tags: [operations, git, workflow, process, pull-request, rebase]
 status: stable
 generated:
   by: Antigravity/3.8-Flash
-  at: 2026-09-19T14:34:20.382Z
+  at: 2026-10-10T12:30:13.800Z
 sources:
   - id: chronotrader-workflow
     resource: file:///D:/chronotrader/okf/operations/git-development-workflow.md

@@ -4,6 +4,7 @@ Newest changes recorded chronologically.
 
 
 ## 2026-10-10
+- Synchronized timestamp for 2 drifted concept(s): concepts/git-development-workflow.md, concepts/knowledge-loop.md.
 - Synchronized workspace frontier mapping in `index.md` (15 undocumented files mapped).
 - Hardened frontmatter parsing across all 7 OKF skill scripts (`lint.js`, `maintain.js`, `query.js`, `prune.js`, `upgrade.js`, `visualize.js`, `wayfinder_taxonomy.js`) with `splitRespectingQuotes` to preserve commas and colons in quoted strings.
 - Added comprehensive unit test suite `scripts/test-parser.js` testing 12 frontmatter parsing edge cases across all skill scripts.
