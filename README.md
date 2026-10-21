@@ -1,6 +1,8 @@
 # The Self-Documenting Codebase (OKF Skills)
 
 > **Live Interactive Visualizer & Token Simulator:** [👉 Visit the Interactive OKF Playbook & Simulator](https://eloybar.github.io/okf-skills/)
+>
+> **🎓 OKF Academy Interactive Course (v0.2):** [👉 Launch the Interactive Web Course (`course.html`)](https://eloybar.github.io/okf-skills/course.html) | [📖 Read the 7-Module Markdown Curriculum (`docs/course/README.md`)](docs/course/README.md)
 
 Integrating Open Knowledge Format (OKF) specifications with LLM skills constructs an adaptable, zero-rot knowledge ecosystem for brownfield and greenfield repositories. 
 

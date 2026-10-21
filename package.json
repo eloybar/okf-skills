@@ -4,7 +4,8 @@
   "description": "Agent skills, CLI utilities, and automation for the Open Knowledge Format (OKF)",
   "main": "okf-lint/scripts/lint.js",
   "scripts": {
-    "test": "node scripts/test-parser.js && node scripts/test-lifecycle.js",
+    "test": "node scripts/test-parser.js && node scripts/test-lifecycle.js && node scripts/test-course.js",
+    "test:course": "node scripts/test-course.js",
     "test:unit": "node scripts/test-parser.js",
     "test:lifecycle": "node scripts/test-lifecycle.js",
     "okf:lint": "node okf-lint/scripts/lint.js",
