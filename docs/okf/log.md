@@ -5,6 +5,7 @@ Newest changes recorded chronologically.
 
 
 ## 2026-10-21
+- Synchronized timestamp for 4 drifted concept(s): concepts/git-development-workflow.md, concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-course.md.
 - Synchronized workspace frontier mapping in `index.md` (16 undocumented files mapped).
 
 ## 2026-10-10
