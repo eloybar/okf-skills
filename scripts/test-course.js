@@ -4,7 +4,8 @@ const { execSync, spawnSync } = require('child_process');
 const assert = require('assert').strict;
 
 const rootDir = path.resolve(__dirname, '..');
-const sandboxDir = path.join(rootDir, 'docs', 'course', 'sandbox');
+const courseDir = path.join(rootDir, 'docs', 'course');
+const sandboxDir = path.join(courseDir, 'sandbox');
 
 console.log('Running OKF Course & Sandbox verification tests...');
 
@@ -56,3 +57,34 @@ assert.ok(pruneJson.candidates.some(c => c.relPath.includes('expired-auth-flow.m
 assert.ok(fs.existsSync(path.join(sandboxDir, 'okf', 'concepts', 'expired-auth-flow.md')), 'Dry-run must not delete sandbox file');
 
 console.log('✓ Sandbox fixtures and CLI lab targets verified.');
+
+// 5. Verify Syllabus & Modules 1-3 exist and contain key educational content
+const modules1To3 = [
+  {
+    file: 'README.md',
+    keywords: ['Syllabus', 'Module 1', 'Module 3', 'OKF v0.2', 'sandbox']
+  },
+  {
+    file: '01-why-okf-and-codebase-amnesia.md',
+    keywords: ['Readable', 'Parseable', 'Diffable', 'Portable', 'index.md', 'log.md', 'Hands-On Lab', 'Agent Tutor Prompt', 'Knowledge Check']
+  },
+  {
+    file: '02-concept-anatomy-and-wayfinder.md',
+    keywords: ['type', 'wayfinder_taxonomy.js', 'Not yet specified', 'Hands-On Lab', 'Agent Tutor Prompt', 'Knowledge Check']
+  },
+  {
+    file: '03-okf-v02-trust-provenance-and-attestation.md',
+    keywords: ['sources', 'generated', 'verified', 'machine-confirmed', 'human-reviewed', 'stale_after', 'Attested Computation', 'okf-upgrade', 'Hands-On Lab', 'Agent Tutor Prompt', 'Knowledge Check']
+  }
+];
+
+for (const mod of modules1To3) {
+  const fullPath = path.join(courseDir, mod.file);
+  assert.ok(fs.existsSync(fullPath), `Missing course file: docs/course/${mod.file}`);
+  const content = fs.readFileSync(fullPath, 'utf8');
+  for (const kw of mod.keywords) {
+    assert.ok(content.includes(kw), `Course file docs/course/${mod.file} missing required topic: "${kw}"`);
+  }
+}
+
+console.log('✓ Course Syllabus and Modules 1–3 verified.');
