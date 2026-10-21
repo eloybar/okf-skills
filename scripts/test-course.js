@@ -104,3 +104,31 @@ for (const mod of allCourseModules) {
 }
 
 console.log('✓ Course Syllabus and all 7 Markdown Modules verified.');
+
+// 6. Verify Interactive Web Academy (course.html), OKF concept, index.html CTA, and README.md
+const courseHtmlPath = path.join(rootDir, 'course.html');
+assert.ok(fs.existsSync(courseHtmlPath), 'Missing interactive web course: course.html');
+const courseHtml = fs.readFileSync(courseHtmlPath, 'utf8');
+const requiredWebFeatures = [
+  'OKF Academy',
+  'v0.1 vs. v0.2',
+  'Trust Tier',
+  'Attested Computation',
+  'localStorage',
+  'Practice with Your AI Agent',
+  'index.html'
+];
+for (const feat of requiredWebFeatures) {
+  assert.ok(courseHtml.includes(feat), `course.html missing interactive feature: "${feat}"`);
+}
+
+const okfCourseConceptPath = path.join(rootDir, 'docs', 'okf', 'concepts', 'okf-course.md');
+assert.ok(fs.existsSync(okfCourseConceptPath), 'Missing OKF concept for course: docs/okf/concepts/okf-course.md');
+
+const indexHtml = fs.readFileSync(path.join(rootDir, 'index.html'), 'utf8');
+assert.ok(indexHtml.includes('course.html'), 'index.html should link to course.html');
+
+const readmeMd = fs.readFileSync(path.join(rootDir, 'README.md'), 'utf8');
+assert.ok(readmeMd.includes('docs/course/README.md'), 'README.md should link to docs/course/README.md');
+
+console.log('✓ Interactive Web Academy (course.html) and repository integrations verified.');

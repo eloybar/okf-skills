@@ -18,6 +18,7 @@ Welcome to the self-documenting knowledge bundle for the OKF Skills repository.
 - [OKF Prune Skill](/concepts/okf-prune-skill.md) — Automated lifecycle cleanup, archiving, and garbage collection.
 - [The Knowledge Loop Lifecycle](/concepts/knowledge-loop.md) — The lifecycle binding specification, steering, maintenance, and visualization.
 - [Interactive Simulator & Playbook](/concepts/interactive-simulator.md) — Visual playbook and token saving calculator.
+- [OKF Academy Interactive Course](/concepts/okf-course.md) — Self-contained interactive web academy and 7-module curriculum teaching OKF v0.2.
 - [Skill Installer Scripts](/concepts/skill-installers.md) — Automated install, update, and remove scripts.
 - [Git Development Workflow](/concepts/git-development-workflow.md) — Core process specification for branch management, commit grouping, pull requests, and rebase-merging.
 
@@ -35,5 +36,6 @@ Welcome to the self-documenting knowledge bundle for the OKF Skills repository.
 - `okf-visualize/static/viz.js` — Interactive client-side visualizer behavior and sidebar logic.
 - `okf-wayfinder/scripts/wayfinder_taxonomy.js` — Taxonomy registry and frontier tracker script.
 - `package.json` — Zero-dependency project manifest and npm script runner aliases.
+- `scripts/test-course.js` — Undocumented codebase file.
 - `scripts/test-lifecycle.js` — Integration test suite for the OKF bundle lifecycle.
 - `scripts/test-parser.js` — Unit test suite verifying frontmatter parsing across all OKF skill scripts.

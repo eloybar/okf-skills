@@ -1,0 +1,1593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OKF Academy — Interactive Course: Mastering Self-Documenting Codebases (v0.2)</title>
+  <meta name="description" content="Complete interactive course on the Open Knowledge Format (OKF v0.2), the 10-step Knowledge Loop, provenance, trust tiers, attested computations, and autonomous agent upkeep.">
+
+  <!-- Google Fonts (Matching index.html Design System) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Outfit:wght@300;400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-base: hsl(222, 47%, 9%);
+      --bg-surface: hsla(222, 47%, 14%, 0.65);
+      --bg-surface-elevated: hsla(222, 47%, 17%, 0.85);
+      --bg-surface-hover: hsla(222, 47%, 20%, 0.9);
+      --border-color: hsla(217, 91%, 60%, 0.16);
+      --border-color-hover: hsla(217, 91%, 60%, 0.4);
+
+      --text-primary: hsl(210, 40%, 98%);
+      --text-secondary: hsl(215, 20%, 72%);
+      --text-muted: hsl(215, 16%, 52%);
+
+      --accent-sky: hsl(199, 89%, 48%);
+      --accent-indigo: hsl(245, 82%, 67%);
+      --accent-emerald: hsl(142, 72%, 45%);
+      --accent-amber: hsl(38, 92%, 55%);
+      --accent-rose: hsl(348, 83%, 58%);
+
+      --gradient-primary: linear-gradient(135deg, var(--accent-sky), var(--accent-indigo));
+      --gradient-surface: linear-gradient(180deg, hsla(222, 47%, 16%, 0.4) 0%, hsla(222, 47%, 11%, 0.75) 100%);
+
+      --font-display: 'Outfit', sans-serif;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+      --font-mono: 'Fira Code', monospace;
+
+      --transition-smooth: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    .glow-container {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: -1;
+      overflow: hidden;
+    }
+
+    .glow-circle {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(140px);
+      opacity: 0.11;
+    }
+
+    .glow-1 {
+      top: -10%;
+      right: 5%;
+      width: 45vw;
+      height: 45vw;
+      background: var(--accent-sky);
+    }
+
+    .glow-2 {
+      bottom: -10%;
+      left: -5%;
+      width: 40vw;
+      height: 40vw;
+      background: var(--accent-indigo);
+    }
+
+    /* Top Bar */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(16px);
+      background: hsla(222, 47%, 9%, 0.85);
+      border-bottom: 1px solid var(--border-color);
+      padding: 0.85rem 1.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-decoration: none;
+      color: var(--text-primary);
+    }
+
+    .brand-badge {
+      background: var(--gradient-primary);
+      color: #fff;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 0.8rem;
+      padding: 0.3rem 0.65rem;
+      border-radius: 8px;
+      letter-spacing: 0.04em;
+    }
+
+    .brand-title {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.15rem;
+    }
+
+    .topbar-links {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      flex-wrap: wrap;
+    }
+
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.45rem 0.9rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      color: var(--text-secondary);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      transition: var(--transition-smooth);
+      cursor: pointer;
+    }
+
+    .nav-btn:hover {
+      color: var(--text-primary);
+      border-color: var(--border-color-hover);
+      background: var(--bg-surface-hover);
+    }
+
+    /* Main Layout */
+    .academy-layout {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 5rem;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 2.25rem;
+      align-items: start;
+    }
+
+    @media (max-width: 980px) {
+      .academy-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      position: sticky;
+      top: 5rem;
+      background: var(--gradient-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.35rem;
+      backdrop-filter: blur(12px);
+    }
+
+    .progress-box {
+      margin-bottom: 1.25rem;
+      padding-bottom: 1.1rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    .progress-track {
+      height: 8px;
+      background: hsla(222, 47%, 8%, 0.9);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent-sky), var(--accent-emerald));
+      transition: width 0.35s ease;
+    }
+
+    .module-nav-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+
+    .module-nav-btn {
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      padding: 0.7rem 0.8rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: var(--transition-smooth);
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+      font-family: var(--font-body);
+    }
+
+    .module-nav-btn:hover {
+      background: var(--bg-surface);
+      color: var(--text-primary);
+    }
+
+    .module-nav-btn.active {
+      background: hsla(199, 89%, 48%, 0.12);
+      border-color: hsla(199, 89%, 48%, 0.4);
+      color: var(--text-primary);
+    }
+
+    .mod-status-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 1.5px solid var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 0.1rem;
+    }
+
+    .module-nav-btn.completed .mod-status-dot {
+      background: var(--accent-emerald);
+      border-color: var(--accent-emerald);
+      color: #062112;
+    }
+
+    .mod-nav-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .mod-nav-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    .mod-nav-sub {
+      font-size: 0.73rem;
+      color: var(--text-muted);
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    /* Module Content Area */
+    .module-panel {
+      display: none;
+      background: var(--gradient-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 18px;
+      padding: 2.25rem;
+      animation: fadeIn 0.25s ease;
+    }
+
+    .module-panel.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .module-header {
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1.5rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.28rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .pill-beginner { background: hsla(142, 72%, 45%, 0.15); color: hsl(142, 72%, 65%); border: 1px solid hsla(142, 72%, 45%, 0.3); }
+    .pill-intermediate { background: hsla(199, 89%, 48%, 0.15); color: hsl(199, 89%, 68%); border: 1px solid hsla(199, 89%, 48%, 0.3); }
+    .pill-advanced { background: hsla(245, 82%, 67%, 0.15); color: hsl(245, 82%, 78%); border: 1px solid hsla(245, 82%, 67%, 0.35); }
+    .pill-architect { background: hsla(38, 92%, 55%, 0.15); color: hsl(38, 92%, 70%); border: 1px solid hsla(38, 92%, 55%, 0.35); }
+
+    h1.module-title {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 0.6rem;
+    }
+
+    .module-lead {
+      font-size: 1.05rem;
+      color: var(--text-secondary);
+    }
+
+    h2.section-heading {
+      font-family: var(--font-display);
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin: 2rem 0 0.85rem;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    p {
+      margin-bottom: 1rem;
+      color: var(--text-secondary);
+    }
+
+    /* Cards & Grids */
+    .concept-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 1rem;
+      margin: 1.25rem 0;
+    }
+
+    .info-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.15rem;
+    }
+
+    .info-card h3 {
+      font-family: var(--font-display);
+      font-size: 1.02rem;
+      margin-bottom: 0.4rem;
+      color: var(--accent-sky);
+    }
+
+    .info-card p {
+      font-size: 0.9rem;
+      margin-bottom: 0;
+    }
+
+    /* Code & Pre Blocks */
+    pre.code-block {
+      background: hsl(222, 50%, 6%);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 1rem 1.15rem;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 0.83rem;
+      line-height: 1.55;
+      color: hsl(210, 40%, 92%);
+      margin: 0.85rem 0 1.25rem;
+    }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.85em;
+      background: hsla(217, 91%, 60%, 0.12);
+      padding: 0.15rem 0.35rem;
+      border-radius: 4px;
+      color: hsl(199, 89%, 75%);
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+    }
+
+    /* Interactive v0.1 vs v0.2 Diff Explorer */
+    .diff-explorer {
+      background: hsla(222, 47%, 11%, 0.9);
+      border: 1px solid hsla(199, 89%, 48%, 0.35);
+      border-radius: 14px;
+      padding: 1.35rem;
+      margin: 1.5rem 0;
+    }
+
+    .diff-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .diff-tab-btn {
+      padding: 0.5rem 0.9rem;
+      border-radius: 8px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 0.83rem;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+    }
+
+    .diff-tab-btn.active {
+      background: var(--gradient-primary);
+      color: #fff;
+      border-color: transparent;
+    }
+
+    .diff-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    @media (max-width: 820px) {
+      .diff-columns {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .diff-pane {
+      border-radius: 10px;
+      padding: 1rem;
+      border: 1px solid var(--border-color);
+    }
+
+    .diff-pane.v01 {
+      background: hsla(348, 83%, 58%, 0.06);
+      border-color: hsla(348, 83%, 58%, 0.3);
+    }
+
+    .diff-pane.v02 {
+      background: hsla(142, 72%, 45%, 0.06);
+      border-color: hsla(142, 72%, 45%, 0.35);
+    }
+
+    .diff-pane-title {
+      font-weight: 700;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.45rem;
+    }
+
+    .diff-pane.v01 .diff-pane-title { color: hsl(348, 83%, 70%); }
+    .diff-pane.v02 .diff-pane-title { color: hsl(142, 72%, 65%); }
+
+    /* Interactive Trust Tier Simulator */
+    .trust-sim {
+      background: hsla(245, 82%, 67%, 0.07);
+      border: 1px solid hsla(245, 82%, 67%, 0.35);
+      border-radius: 14px;
+      padding: 1.35rem;
+      margin: 1.5rem 0;
+    }
+
+    .sim-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin: 1rem 0;
+    }
+
+    .sim-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.55rem 0.9rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .trust-badge-output {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 1rem;
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+
+    .tier-unverified { background: hsla(215, 16%, 52%, 0.2); color: hsl(215, 20%, 80%); border: 1px solid hsla(215, 16%, 52%, 0.4); }
+    .tier-machine { background: hsla(199, 89%, 48%, 0.2); color: hsl(199, 89%, 70%); border: 1px solid hsla(199, 89%, 48%, 0.45); }
+    .tier-human { background: hsla(142, 72%, 45%, 0.2); color: hsl(142, 72%, 68%); border: 1px solid hsla(142, 72%, 45%, 0.45); }
+
+    /* Lab & Agent Tutor Boxes */
+    .lab-box {
+      background: hsla(199, 89%, 48%, 0.06);
+      border: 1px solid hsla(199, 89%, 48%, 0.3);
+      border-radius: 14px;
+      padding: 1.3rem;
+      margin: 1.5rem 0;
+    }
+
+    .tutor-box {
+      background: hsla(142, 72%, 45%, 0.06);
+      border: 1px solid hsla(142, 72%, 45%, 0.3);
+      border-radius: 14px;
+      padding: 1.3rem;
+      margin: 1.5rem 0;
+    }
+
+    .box-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.65rem;
+      flex-wrap: wrap;
+    }
+
+    .box-title {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+
+    .copy-btn {
+      background: var(--bg-surface-elevated);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color-hover);
+      border-radius: 7px;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+    }
+
+    .copy-btn:hover {
+      background: var(--accent-sky);
+      color: #04131d;
+    }
+
+    /* Quiz Section */
+    .quiz-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 1.4rem;
+      margin-top: 2rem;
+    }
+
+    .quiz-q {
+      margin-bottom: 1.25rem;
+      padding-bottom: 1.1rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .quiz-q:last-of-type {
+      border-bottom: none;
+      margin-bottom: 0.5rem;
+    }
+
+    .quiz-q-title {
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 0.6rem;
+    }
+
+    .quiz-options {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+
+    .quiz-opt-btn {
+      text-align: left;
+      padding: 0.6rem 0.85rem;
+      border-radius: 8px;
+      background: hsla(222, 47%, 10%, 0.8);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+      font-family: var(--font-body);
+    }
+
+    .quiz-opt-btn:hover {
+      border-color: var(--border-color-hover);
+      color: var(--text-primary);
+    }
+
+    .quiz-opt-btn.correct {
+      background: hsla(142, 72%, 45%, 0.18);
+      border-color: var(--accent-emerald);
+      color: hsl(142, 72%, 75%);
+    }
+
+    .quiz-opt-btn.wrong {
+      background: hsla(348, 83%, 58%, 0.16);
+      border-color: var(--accent-rose);
+      color: hsl(348, 83%, 75%);
+    }
+
+    .quiz-feedback {
+      margin-top: 0.5rem;
+      font-size: 0.83rem;
+      display: none;
+    }
+
+    .module-footer-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 2.25rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border-color);
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .primary-cta {
+      background: var(--gradient-primary);
+      color: #fff;
+      border: none;
+      padding: 0.7rem 1.35rem;
+      border-radius: 10px;
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+    }
+
+    .primary-cta:hover {
+      opacity: 0.92;
+      transform: translateY(-1px);
+    }
+  </style>
+</head>
+<body>
+  <div class="glow-container">
+    <div class="glow-circle glow-1"></div>
+    <div class="glow-circle glow-2"></div>
+  </div>
+
+  <!-- Top Navigation Bar -->
+  <nav class="topbar">
+    <a href="course.html" class="brand">
+      <span class="brand-badge">OKF v0.2</span>
+      <span class="brand-title">OKF Academy — Interactive Course</span>
+    </a>
+    <div class="topbar-links">
+      <a href="index.html" class="nav-btn">⚡ Interactive Simulator &amp; Playbook</a>
+      <a href="docs/okf/viz.html" class="nav-btn">🕸️ Live Knowledge Graph</a>
+      <a href="docs/course/README.md" class="nav-btn">📖 Markdown Curriculum</a>
+      <button class="nav-btn" onclick="resetCourseProgress()" title="Clear saved progress">↺ Reset Progress</button>
+    </div>
+  </nav>
+
+  <main class="academy-layout">
+    <!-- Sticky Sidebar Navigator -->
+    <aside class="sidebar">
+      <div class="progress-box">
+        <div class="progress-header">
+          <span>Course Progress</span>
+          <span id="progress-label">0 / 7 Completed (0%)</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+      </div>
+
+      <ul class="module-nav-list" id="module-nav-list">
+        <li>
+          <button class="module-nav-btn active" data-mod="1" onclick="selectModule(1)">
+            <span class="mod-status-dot" id="dot-1">1</span>
+            <span class="mod-nav-meta">
+              <span class="mod-nav-title">Why OKF &amp; Codebase Amnesia</span>
+              <span class="mod-nav-sub">🟢 Beginner • 15 min</span>
+            </span>
+          </button>
+        </li>
+        <li>
+          <button class="module-nav-btn" data-mod="2" onclick="selectModule(2)">
+            <span class="mod-status-dot" id="dot-2">2</span>
+            <span class="mod-nav-meta">
+              <span class="mod-nav-title">Concept Anatomy &amp; Wayfinder</span>
+              <span class="mod-nav-sub">🟢 Beginner → 🟡 Interm • 20 min</span>
+            </span>
+          </button>
+        </li>
+        <li>
+          <button class="module-nav-btn" data-mod="3" onclick="selectModule(3)">
+            <span class="mod-status-dot" id="dot-3">3</span>
+            <span class="mod-nav-meta">
+              <span class="mod-nav-title">What Changed in OKF v0.2</span>
+              <span class="mod-nav-sub">🟡 Core Focus • 30 min</span>
+            </span>
+          </button>
+        </li>
+        <li>
+          <button class="module-nav-btn" data-mod="4" onclick="selectModule(4)">
+            <span class="mod-status-dot" id="dot-4">4</span>
+            <span class="mod-nav-meta">
+              <span class="mod-nav-title">Steering Gates &amp; Context Injection</span>
+              <span class="mod-nav-sub">🟡 Intermediate • 20 min</span>
+            </span>
+          </button>
+        </li>
+        <li>
+          <button class="module-nav-btn" data-mod="5" onclick="selectModule(5)">
+            <span class="mod-status-dot" id="dot-5">5</span>
+            <span class="mod-nav-meta">
+              <span class="mod-nav-title">Upkeep, Drift Linting &amp; Graph Viz</span>
+              <span class="mod-nav-sub">🔵 Advanced • 25 min</span>
+            </span>
+          </button>
+        </li>
+        <li>
+          <button class="module-nav-btn" data-mod="6" onclick="selectModule(6)">
+            <span class="mod-status-dot" id="dot-6">6</span>
+            <span class="mod-nav-meta">
+              <span class="mod-nav-title">Knowledge Hygiene &amp; CI Gates</span>
+              <span class="mod-nav-sub">🔵 Adv → 🟣 Architect • 20 min</span>
+            </span>
+          </button>
+        </li>
+        <li>
+          <button class="module-nav-btn" data-mod="7" onclick="selectModule(7)">
+            <span class="mod-status-dot" id="dot-7">7</span>
+            <span class="mod-nav-meta">
+              <span class="mod-nav-title">Capstone: Self-Documenting Repo</span>
+              <span class="mod-nav-sub">🟣 Architect • 30 min</span>
+            </span>
+          </button>
+        </li>
+      </ul>
+    </aside>
+
+    <!-- Module Panels Container -->
+    <section id="modules-container">
+
+      <!-- ================= MODULE 1 ================= -->
+      <article class="module-panel active" id="mod-panel-1">
+        <div class="module-header">
+          <div class="badge-row">
+            <span class="pill pill-beginner">Module 1 • Beginner</span>
+            <span class="pill pill-intermediate">⏱ 15 Minutes</span>
+            <a href="docs/course/01-why-okf-and-codebase-amnesia.md" class="nav-btn">📄 Read Markdown Lesson</a>
+          </div>
+          <h1 class="module-title">The Crisis of Codebase Amnesia &amp; Why OKF Exists</h1>
+          <p class="module-lead">Why traditional wikis rot, why AI coding agents burn 60–85% of their context window on blind exploration, and how the Open Knowledge Format (OKF) creates a zero-rot memory loop.</p>
+        </div>
+
+        <h2 class="section-heading">1. The Dual Crisis: Wiki Rot &amp; The Agent Cold-Start Tax</h2>
+        <p>Traditional engineering documentation (Confluence, Notion, static <code>ARCHITECTURE.md</code> files) fails because it is <strong>decoupled from the Git commit lifecycle</strong>. When code changes on Tuesday, the wiki written six months ago silently becomes a lie. Meanwhile, every time an AI coding agent (Google Antigravity, Claude Code, Cursor, Codex) starts a new session, it suffers from complete <strong>codebase amnesia</strong> — running dozens of blind <code>grep</code> commands and reading 25+ raw files just to build a mental model.</p>
+
+        <div class="concept-grid">
+          <div class="info-card">
+            <h3>1. Readable</h3>
+            <p>Plain UTF-8 Markdown (<code>.md</code>) viewable in any editor, terminal, or GitHub PR without proprietary viewers.</p>
+          </div>
+          <div class="info-card">
+            <h3>2. Parseable</h3>
+            <p>Standard YAML frontmatter (<code>---</code>) at the top of every concept so CLI skills extract types, trust tiers, and links in milliseconds.</p>
+          </div>
+          <div class="info-card">
+            <h3>3. Diffable</h3>
+            <p>Colocated in Git (<code>/docs/okf</code>) so architectural updates travel in the exact same Pull Request as code edits.</p>
+          </div>
+          <div class="info-card">
+            <h3>4. Portable</h3>
+            <p>Zero vendor lock-in. Works identically across Antigravity, Claude Code, Cursor, Codex, and GitHub Actions CI.</p>
+          </div>
+        </div>
+
+        <h2 class="section-heading">2. Progressive Disclosure via Reserved Files (<code>index.md</code> &amp; <code>log.md</code>)</h2>
+        <p>Instead of dumping an entire documentation folder into an LLM's prompt, an OKF bundle uses two reserved root files:</p>
+        <pre class="code-block"><code>docs/okf/
+├── index.md      # Reserved: Progressive disclosure catalog + "## Not yet specified" frontier
+├── log.md        # Reserved: Chronological audit trail under "## YYYY-MM-DD" headings
+└── concepts/     # Domain &amp; architectural concept files (each requires a frontmatter "type")</code></pre>
+
+        <div class="lab-box">
+          <div class="box-header">
+            <span class="box-title">🧪 Hands-On CLI Lab 1: Querying Targeted Context vs. Raw Exploration</span>
+            <button class="copy-btn" onclick="copyText('node okf-query/scripts/query.js --search &quot;lifecycle&quot;', this)">Copy Command</button>
+          </div>
+          <p>Run this command from the repository root to retrieve the complete 10-step Knowledge Loop architecture in ~350 tokens instead of reading 3,000+ lines of script code:</p>
+          <pre class="code-block"><code>node okf-query/scripts/query.js --search "lifecycle"</code></pre>
+        </div>
+
+        <div class="tutor-box">
+          <div class="box-header">
+            <span class="box-title">🤖 Practice with Your AI Agent (Module 1 Tutor Prompt)</span>
+            <button class="copy-btn" onclick="copyText('Act as my OKF Academy Tutor for Module 1. Read docs/okf/index.md and docs/okf/log.md in this repository, show me how many concepts are indexed vs. in the Not yet specified frontier, and quiz me on Progressive Disclosure.', this)">Copy Agent Prompt</button>
+          </div>
+          <p>Paste this into Antigravity, Claude Code, or Cursor to have your coding agent walk you through this repo's live bundle.</p>
+        </div>
+
+        <div class="quiz-box" data-quiz-mod="1">
+          <h3 class="box-title" style="margin-bottom:0.85rem;">✅ Module 1 Knowledge Check</h3>
+          <div class="quiz-q" data-answer="1">
+            <div class="quiz-q-title">1. Which four core principles define the Open Knowledge Format (OKF)?</div>
+            <div class="quiz-options">
+              <button class="quiz-opt-btn" onclick="answerQuiz(1, 0, 0, this)">A) Encrypted, Cloud-Hosted, Proprietary, Stateful</button>
+              <button class="quiz-opt-btn" onclick="answerQuiz(1, 0, 1, this)">B) Readable, Parseable, Diffable, Portable</button>
+              <button class="quiz-opt-btn" onclick="answerQuiz(1, 0, 2, this)">C) Vector-Embedded, Database-Backed, Binary, Agent-Only</button>
+            </div>
+            <div class="quiz-feedback">Correct! OKF files are plain UTF-8 Markdown (Readable) with YAML frontmatter (Parseable), tracked in Git (Diffable), and usable across any agent runtime (Portable).</div>
+          </div>
+          <div class="quiz-q" data-answer="2">
+            <div class="quiz-q-title">2. Which two files at the root of an OKF bundle are reserved and do NOT represent individual domain concepts?</div>
+            <div class="quiz-options">
+              <button class="quiz-opt-btn" onclick="answerQuiz(1, 1, 0, this)">A) package.json and README.md</button>
+              <button class="quiz-opt-btn" onclick="answerQuiz(1, 1, 1, this)">B) config.yaml and schema.json</button>
+              <button class="quiz-opt-btn" onclick="answerQuiz(1, 1, 2, this)">C) index.md and log.md</button>
+            </div>
+            <div class="quiz-feedback">Spot on! <code>index.md</code> is the progressive disclosure catalog and frontier tracker, while <code>log.md</code> is the chronological change log.</div>
+          </div>
+        </div>
+
+        <div class="module-footer-nav">
+          <button class="nav-btn" onclick="markModuleComplete(1)">✓ Mark Module 1 Complete</button>
+          <button class="primary-cta" onclick="selectModule(2)">Next: Module 2 — Concept Anatomy &amp; Wayfinder →</button>
+        </div>
+      </article>
+
+      <!-- ================= MODULE 2 ================= -->
+      <article class="module-panel" id="mod-panel-2">
+        <div class="module-header">
+          <div class="badge-row">
+            <span class="pill pill-beginner">Module 2 • Beginner → Intermediate</span>
+            <span class="pill pill-intermediate">⏱ 20 Minutes</span>
+            <a href="docs/course/02-concept-anatomy-and-wayfinder.md" class="nav-btn">📄 Read Markdown Lesson</a>
+          </div>
+          <h1 class="module-title">Anatomy of an OKF Concept &amp; Guided Onboarding (<code>okf</code> + <code>okf-wayfinder</code>)</h1>
+          <p class="module-lead">How to structure concept YAML frontmatter, form an untyped dependency graph with bundle-relative links, scale past 10 concepts, and capture tribal knowledge via Wayfinder interviews.</p>
+        </div>
+
+        <h2 class="section-heading">1. Concept YAML Frontmatter &amp; Bundle-Relative Graph Links</h2>
+        <p>Every non-reserved <code>.md</code> file in an OKF bundle is a Concept and requires a non-empty <code>type</code> key in its YAML frontmatter. Internal links between concepts use <strong>bundle-relative absolute paths</strong> starting with <code>/</code> (e.g., <code>[MRR Metric](/concepts/revenue-mrr-metric.md)</code>) to form a directed dependency graph.</p>
+        <pre class="code-block"><code>---
+type: Architecture
+title: Payment Webhook Processor
+description: Handles incoming Stripe webhook events with Redis idempotency locks.
+resource: src/payments.js
+tags: [payments, stripe, webhooks]
+status: stable
+---
+
+# Overview
+Processes Stripe events idempotently...
+
+# Related Concepts
+- [Monthly Recurring Revenue (MRR)](/concepts/revenue-mrr-metric.md)</code></pre>
+
+        <h2 class="section-heading">2. Scaling Past 10 Concepts &amp; Overcoming "Blank Page Syndrome"</h2>
+        <p>When a flat bundle reaches <strong>10 or more concepts</strong>, <code>okf-maintain</code> transitions the layout into semantic subdirectories (such as <code>/concepts/</code>) and automatically refactors internal Markdown links. To eliminate "blank page syndrome" on undocumented files, <code>okf-wayfinder</code> runs <code>wayfinder_taxonomy.js</code> to scan your existing vocabulary (<code>existing_types</code>, <code>existing_tags</code>) and identify the undocumented <code>frontier</code>.</p>
+
+        <div class="lab-box">
+          <div class="box-header">
+            <span class="box-title">🧪 Hands-On CLI Lab 2: Scan the Sandbox Frontier with Wayfinder</span>
+            <button class="copy-btn" onclick="copyText('node -e &quot;const { execSync } = require(\x27child_process\x27); console.log(execSync(\x27node ../../../okf-wayfinder/scripts/wayfinder_taxonomy.js\x27, { cwd: \x27docs/course/sandbox\x27 }).toString());&quot;', this)">Copy Command</button>
+          </div>
+          <p>Run the Wayfinder taxonomy scanner against <code>docs/course/sandbox</code>. Observe how it automatically detects <code>src/invoice-tax-engine.js</code> as an undocumented frontier file while recognizing that <code>src/payments.js</code> is already documented:</p>
+          <pre class="code-block"><code>node -e "const { execSync } = require('child_process'); console.log(execSync('node ../../../okf-wayfinder/scripts/wayfinder_taxonomy.js', { cwd: 'docs/course/sandbox' }).toString());"</code></pre>
+        </div>
+
+        <div class="tutor-box">
+          <div class="box-header">
+            <span class="box-title">🤖 Practice with Your AI Agent (Module 2 Tutor Prompt)</span>
+            <button class="copy-btn" onclick="copyText('Act as my OKF Wayfinder interviewer for Module 2. Inspect docs/course/sandbox/src/invoice-tax-engine.js, ask me 2 interview questions about its regional tax business rules, and preview the OKF v0.2 concept you would generate.', this)">Copy Agent Prompt</button>
+          </div>
+          <p>Experience how <code>okf-wayfinder</code> interviews you with 2–3 high-signal questions instead of making you write Markdown by hand.</p>
+        </div>
+
+        <div class="quiz-box" data-quiz-mod="2">
+          <h3 class="box-title" style="margin-bottom:0.85rem;">✅ Module 2 Knowledge Check</h3>
+          <div class="quiz-q" data-answer="0">
+            <div class="quiz-q-title">1. What is the only strictly required frontmatter field for a standard OKF concept file?</div>
+            <div class="quiz-options">
+              <button class="quiz-opt-btn" onclick="answerQuiz(2, 0, 0, this)">A) type</button>
+              <button class="quiz-opt-btn" onclick="answerQuiz(2, 0, 1, this)">B) runtime</button>
+              <button class="quiz-opt-btn" onclick="answerQuiz(2, 0, 2, this)">C) stale_after</button>
+            </div>
+            <div class="quiz-feedback">Correct! Every non-reserved concept file must declare a non-empty <code>type</code> in its YAML frontmatter.</div>
+          </div>
+          <div class="quiz-q" data-answer="1">
+            <div class="quiz-q-title">2. At what concept count threshold does an OKF bundle transition from a flat directory to categorized subdirectories?</div>
+            <div class="quiz-options">
+              <button class="quiz-opt-btn" onclick="answerQuiz(2, 1, 0, this)">A) 3 concepts</button>
+              <button class="quiz-opt-btn" onclick="answerQuiz(2, 1, 1, this)">B) 10 or more concepts</button>
+              <button class="quiz-opt-btn" onclick="answerQuiz(2, 1, 2, this)">C) 1,000 concepts</button>
+            </div>
+            <div class="quiz-feedback">Correct! At ≥ 10 concepts, organizing into subdirectories keeps directory listings concise for progressive disclosure.</div>
+          </div>
+        </div>
+
+        <div class="module-footer-nav">
+          <button class="nav-btn" onclick="selectModule(1)">← Previous: Module 1</button>
+          <button class="primary-cta" onclick="selectModule(3)">Next: Module 3 — What Changed in OKF v0.2 →</button>
+        </div>
+      </article>
+
+      <!-- ================= MODULE 3 (CORE v0.2 FOCUS) ================= -->
+      <article class="module-panel" id="mod-panel-3">
+        <div class="module-header">
+          <div class="badge-row">
+            <span class="pill pill-intermediate">Module 3 • Core Focus: OKF v0.2</span>
+            <span class="pill pill-architect">⏱ 30 Minutes</span>
+            <a href="docs/course/03-okf-v02-trust-provenance-and-attestation.md" class="nav-btn">📄 Read Markdown Lesson</a>
+          </div>
+          <h1 class="module-title">What Changed in OKF v0.2 &amp; The Problems It Solves</h1>
+          <p class="module-lead">Explore the four architectural breakthroughs introduced in OKF v0.2: Structured Provenance (<code>sources</code> &amp; footnotes), Actor Identity &amp; Trust Tiers (<code>generated</code> &amp; <code>verified</code>), Time-Bounded Freshness (<code>status</code> &amp; <code>stale_after</code>), and <code>Attested Computation</code> contracts.</p>
+        </div>
+
+        <h2 class="section-heading">1. Interactive OKF v0.1 vs. v0.2 Diff &amp; Problem-Solver Explorer</h2>
+        <p>Click each of the four failure modes below to see why OKF v0.1 fell short in multi-agent production environments and how OKF v0.2 solves it:</p>
+
+        <div class="diff-explorer">
+          <div class="diff-tabs">
+            <button class="diff-tab-btn active" onclick="selectDiffTab('provenance', this)">1. Provenance &amp; Footnotes (sources)</button>
+            <button class="diff-tab-btn" onclick="selectDiffTab('trust', this)">2. Actor Identity &amp; Trust Tiers</button>
+            <button class="diff-tab-btn" onclick="selectDiffTab('lifecycle', this)">3. Lifecycle &amp; Expiration (stale_after)</button>
+            <button class="diff-tab-btn" onclick="selectDiffTab('attested', this)">4. Attested Computation Metrics</button>
+          </div>
+
+          <div id="diff-content-provenance" class="diff-tab-panel">
+            <p><strong>The Problem Solved:</strong> In v0.1, prose <code># Citations</code> at the bottom of a file couldn't be linked to specific sentences or evaluated for source credibility. OKF v0.2 introduces structured frontmatter <code>sources</code> with credibility signals (<code>author</code>, <code>usage_count</code>, <code>last_modified</code>, <code>usage_window</code>) bound to claims via <code>[^id]</code> Markdown footnotes.</p>
+            <div class="diff-columns">
+              <div class="diff-pane v01">
+                <div class="diff-pane-title">❌ OKF v0.1 (Unstructured Prose Citations)</div>
+                <pre class="code-block"><code>---
+type: Architecture
+title: Payment Service
+---
+
+Annual plans are normalized by dividing by 12.
+
+# Citations
+- Finance Doc: https://docs.acme.internal/asc606</code></pre>
+              </div>
+              <div class="diff-pane v02">
+                <div class="diff-pane-title">✅ OKF v0.2 (Verifiable Provenance &amp; Footnotes)</div>
+                <pre class="code-block"><code>---
+type: Architecture
+title: Payment Service
+sources:
+  - id: asc606-policy
+    title: Enterprise Revenue Policy (ASC 606)
+    url: https://docs.acme.internal/asc606
+    usage_window: 90d
+    credibility:
+      author: human:vp-finance
+      usage_count: 142
+---
+
+Annual plans are normalized by dividing by 12[^asc606-policy].
+
+[^asc606-policy]: Per ASC 606 section 4.2.</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div id="diff-content-trust" class="diff-tab-panel" style="display:none;">
+            <p><strong>The Problem Solved:</strong> A bare v0.1 <code>timestamp</code> hid whether a concept was just hallucinated by an agent or vetted by a staff engineer. OKF v0.2 separates <code>generated: { by, at }</code> from <code>verified: [{ by, at }]</code> using actor identifiers (<code>&lt;producer&gt;/&lt;version&gt;</code>, <code>human:&lt;id&gt;</code>, <code>process:&lt;id&gt;</code>) to compute three deterministic Trust Tiers.</p>
+            <div class="diff-columns">
+              <div class="diff-pane v01">
+                <div class="diff-pane-title">❌ OKF v0.1 (Ambiguous Single Timestamp)</div>
+                <pre class="code-block"><code>---
+type: Concept
+title: Auth Token Rotation
+timestamp: 2026-10-15T09:00:00Z
+---
+# Who wrote this? Did a human ever check it? Unknown!</code></pre>
+              </div>
+              <div class="diff-pane v02">
+                <div class="diff-pane-title">✅ OKF v0.2 (Actor Provenance &amp; Trust Tiers)</div>
+                <pre class="code-block"><code>---
+type: Concept
+title: Auth Token Rotation
+generated:
+  by: Antigravity/4.0
+  at: 2026-10-15T09:00:00Z
+verified:
+  - by: okf-lint/1.6.0
+    at: 2026-10-15T09:05:00Z
+  - by: human:sec-lead
+    at: 2026-10-16T14:20:00Z
+---
+# Computed Trust Tier: human-reviewed</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div id="diff-content-lifecycle" class="diff-tab-panel" style="display:none;">
+            <p><strong>The Problem Solved:</strong> Git drift only detects when a code file changes — it cannot detect when an external SLA, vendor contract, or deprecation deadline passes. OKF v0.2 adds explicit <code>status</code> (<code>draft</code>, <code>stable</code>, <code>deprecated</code>) and <code>stale_after</code> (ISO 8601 UTC expiration).</p>
+            <div class="diff-columns">
+              <div class="diff-pane v01">
+                <div class="diff-pane-title">❌ OKF v0.1 (No Lifecycle or Expiration)</div>
+                <pre class="code-block"><code>---
+type: Concept
+title: OAuth1 Handshake
+timestamp: 2024-06-01T12:00:00Z
+---
+# Agents keep using this deprecated pattern forever!</code></pre>
+              </div>
+              <div class="diff-pane v02">
+                <div class="diff-pane-title">✅ OKF v0.2 (Explicit Status &amp; stale_after)</div>
+                <pre class="code-block"><code>---
+type: Concept
+title: OAuth1 Handshake
+status: deprecated
+stale_after: 2025-01-01T00:00:00Z
+---
+# Flagged automatically by okf-lint &amp; archived by okf-prune!</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div id="diff-content-attested" class="diff-tab-panel" style="display:none;">
+            <p><strong>The Problem Solved:</strong> Prose definitions of metrics like "Net MRR" led to different SQL queries across teams. OKF v0.2 introduces <code>type: Attested Computation</code>, binding <code>runtime</code>, typed <code>parameters</code>, inline <code># Computation</code> code, <code>executor</code>, and <code>attester</code>.</p>
+            <div class="diff-columns">
+              <div class="diff-pane v01">
+                <div class="diff-pane-title">❌ OKF v0.1 (Prose-Only Metric Guessing)</div>
+                <pre class="code-block"><code>---
+type: Metric
+title: Monthly Recurring Revenue
+---
+Sum active subscriptions and divide annual plans by 12.</code></pre>
+              </div>
+              <div class="diff-pane v02">
+                <div class="diff-pane-title">✅ OKF v0.2 (type: Attested Computation)</div>
+                <pre class="code-block"><code>---
+type: Attested Computation
+title: Monthly Recurring Revenue (MRR)
+runtime: postgres
+parameters:
+  - name: as_of_date
+    type: date
+    default: "2026-10-01"
+executor: scripts/run-mrr-report.sh
+attester: scripts/verify-mrr-reconciliation.py
+---
+# Computation
+```sql
+SELECT ROUND(SUM(...)/100.0, 2) FROM subscriptions ...
+```</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <h2 class="section-heading">2. Interactive Trust Tier State Machine Simulator</h2>
+        <p>Toggle the checkboxes below to simulate how OKF v0.2 computes a concept's Trust Tier and how <code>okf-lint</code> prevents stale verifications when an agent edits a file later:</p>
+
+        <div class="trust-sim">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+            <div>
+              <span style="font-size:0.85rem; color:var(--text-secondary); font-weight:600;">Computed OKF v0.2 Trust Tier:</span>
+              <span id="sim-tier-badge" class="trust-badge-output tier-unverified">⚪ unverified</span>
+            </div>
+            <div id="sim-lint-status" style="font-family:var(--font-mono); font-size:0.82rem; color:var(--accent-emerald);">✔ okf-lint: 0 warnings</div>
+          </div>
+
+          <div class="sim-controls">
+            <label class="sim-toggle">
+              <input type="checkbox" id="sim-chk-machine" onchange="updateTrustSim()">
+              <span>Add Machine Verification (<code>okf-lint/1.6.0</code>)</span>
+            </label>
+            <label class="sim-toggle">
+              <input type="checkbox" id="sim-chk-human" onchange="updateTrustSim()">
+              <span>Add Human Expert Sign-off (<code>human:finance-lead</code>)</span>
+            </label>
+            <label class="sim-toggle">
+              <input type="checkbox" id="sim-chk-regen" onchange="updateTrustSim()">
+              <span>Simulate Later Agent Edit (<code>generated.at &gt; verified.at</code>)</span>
+            </label>
+          </div>
+
+          <pre class="code-block" id="sim-yaml-preview" style="margin-bottom:0;"></pre>
+        </div>
+
+        <div class="lab-box">
+          <div class="box-header">
+            <span class="box-title">🧪 Hands-On CLI Lab 3: Query the Sandbox Attested Computation &amp; Trust Tier</span>
+            <button class="copy-btn" onclick="copyText('node -e &quot;const { execSync } = require(\x27child_process\x27); console.log(execSync(\x27node ../../../okf-query/scripts/query.js --search MRR\x27, { cwd: \x27docs/course/sandbox\x27 }).toString());&quot;', this)">Copy Command</button>
+          </div>
+          <p>Query the <code>Monthly Recurring Revenue (MRR)</code> concept in the sandbox to see its <code>human-reviewed</code> trust tier, <code>stale_after</code> timestamp, and parameterized SQL <code># Computation</code> block:</p>
+          <pre class="code-block"><code>node -e "const { execSync } = require('child_process'); console.log(execSync('node ../../../okf-query/scripts/query.js --search MRR', { cwd: 'docs/course/sandbox' }).toString());"</code></pre>
+        </div>
+
+        <div class="tutor-box">
+          <div class="box-header">
+            <span class="box-title">🤖 Practice with Your AI Agent (Module 3 Tutor Prompt)</span>
+            <button class="copy-btn" onclick="copyText('Act as my OKF Academy Tutor for Module 3. Compare docs/course/sandbox/okf/concepts/legacy-payment-service.md (v0.1) with revenue-mrr-metric.md (v0.2) and show me the exact v0.2 upgraded version of legacy-payment-service.md without modifying the file on disk.', this)">Copy Agent Prompt</button>
+          </div>
+          <p>Have your coding agent walk you through migrating the sandbox's v0.1 payment concept to full v0.2 compliance.</p>
+        </div>
+
+        <div class="quiz-box" data-quiz-mod="3">
+          <h3 class="box-title" style="margin-bottom:0.85rem;">✅ Module 3 Knowledge Check</h3>
+          <div class="quiz-q" data-answer="2">
+            <div class="quiz-q-title">1. How does a concept earn the <code>human-reviewed</code> Trust Tier in OKF v0.2?</div>
+            <div class="quiz-options">
+              <button class="quiz-opt-btn" onclick="answerQuiz(3, 0, 0, this)">A) By having a generated.by field set to an LLM name</button>
+              <button class="quiz-opt-btn" onclick="answerQuiz(3, 0, 1, this)">B) By adding status: stable</button>
+              <button class="quiz-opt-btn" onclick="answerQuiz(3, 0, 2, this)">C) By having a verified entry with a human:&lt;id&gt; actor whose timestamp is &gt;= generated.at</button>
+            </div>
+            <div class="quiz-feedback">Correct! A <code>human:&lt;id&gt;</code> verification entry with <code>at &gt;= generated.at</code> establishes the <code>human-reviewed</code> trust tier.</div>
+          </div>
+          <div class="quiz-q" data-answer="1">
+            <div class="quiz-q-title">2. Which OKF v0.2 skill automatically migrates legacy <code>timestamp</code> fields and inline <code># Citations</code> to v0.2 <code>generated</code> and <code>sources</code> blocks?</div>
+            <div class="quiz-options">
+              <button class="quiz-opt-btn" onclick="answerQuiz(3, 1, 0, this)">A) okf-prune</button>
+              <button class="quiz-opt-btn" onclick="answerQuiz(3, 1, 1, this)">B) okf-upgrade</button>
+              <button class="quiz-opt-btn" onclick="answerQuiz(3, 1, 2, this)">C) okf-visualize</button>
+            </div>
+            <div class="quiz-feedback">Correct! <code>okf-upgrade</code> automates the v0.1 → v0.2 schema and citation migration.</div>
+          </div>
+        </div>
+
+        <div class="module-footer-nav">
+          <button class="nav-btn" onclick="selectModule(2)">← Previous: Module 2</button>
+          <button class="primary-cta" onclick="selectModule(4)">Next: Module 4 — Steering Gates &amp; Context Injection →</button>
+        </div>
+      </article>
+
+      <!-- ================= MODULE 4 ================= -->
+      <article class="module-panel" id="mod-panel-4">
+        <div class="module-header">
+          <div class="badge-row">
+            <span class="pill pill-intermediate">Module 4 • Intermediate</span>
+            <span class="pill pill-intermediate">⏱ 20 Minutes</span>
+            <a href="docs/course/04-steering-gates-and-context-injection.md" class="nav-btn">📄 Read Markdown Lesson</a>
+          </div>
+          <h1 class="module-title">Closing the Loop — Steering Gates &amp; Context Injection (<code>AGENTS.md</code> + <code>okf-query</code>)</h1>
+          <p class="module-lead">How mandatory Pre-Work Grounding Gates and Pre-Completion Verification Gates in <code>AGENTS.md</code> turn passive documentation into active agent guardrails.</p>
+        </div>
+
+        <h2 class="section-heading">1. The Two Mandatory Steering Gates (<code>okf-steering-version: 1.6.0</code>)</h2>
+        <div class="concept-grid">
+          <div class="info-card">
+            <h3>⚡ Gate 1: Pre-Work Grounding Gate</h3>
+            <p>Before inspecting or editing code, the agent MUST run <code>okf-query --search</code> or <code>--file &lt;target&gt;</code> and output an explicit <strong>Grounding Citation</strong> in its response.</p>
+          </div>
+          <div class="info-card">
+            <h3>⚡ Gate 2: Pre-Completion Gate</h3>
+            <p>Before ending its turn after modifying workspace files, the agent MUST run <code>okf-maintain</code> and <code>okf-lint --drift</code> to guarantee 0 errors and 0 warnings.</p>
+          </div>
+        </div>
+
+        <h2 class="section-heading">2. Two-Tier File Resolution in <code>okf-query --file</code></h2>
+        <p>When an agent runs <code>node okf-query/scripts/query.js --file &lt;path&gt;</code>, the script resolves context in two tiers: <strong>Tier 1</strong> matches concepts whose <code>resource</code> or <code>sources</code> directly target that file or a parent folder; if none match, <strong>Tier 2 (Subsystem Fallback)</strong> retrieves concepts documenting sibling files in the same directory so the agent still receives subsystem constraints.</p>
+
+        <div class="lab-box">
+          <div class="box-header">
+            <span class="box-title">🧪 Hands-On CLI Lab 4: Test Tier-1 &amp; Tier-2 File Context Injection</span>
+            <button class="copy-btn" onclick="copyText('node -e &quot;const { execSync } = require(\x27child_process\x27); console.log(execSync(\x27node ../../../okf-query/scripts/query.js --file src/invoice-tax-engine.js\x27, { cwd: \x27docs/course/sandbox\x27 }).toString());&quot;', this)">Copy Command</button>
+          </div>
+          <p>Run <code>okf-query --file</code> on the undocumented <code>src/invoice-tax-engine.js</code> in our sandbox and watch Tier-2 Subsystem Matching automatically inject the neighboring <code>src/</code> service context:</p>
+          <pre class="code-block"><code>node -e "const { execSync } = require('child_process'); console.log(execSync('node ../../../okf-query/scripts/query.js --file src/invoice-tax-engine.js', { cwd: 'docs/course/sandbox' }).toString());"</code></pre>
+        </div>
+
+        <div class="tutor-box">
+          <div class="box-header">
+            <span class="box-title">🤖 Practice with Your AI Agent (Module 4 Tutor Prompt)</span>
+            <button class="copy-btn" onclick="copyText('Act as my OKF Academy Tutor for Module 4. Demonstrate your Pre-Work Grounding Gate on okf-query/scripts/query.js, show your Grounding Citation, and walk me through how Tier 1 and Tier 2 file matching work.', this)">Copy Agent Prompt</button>
+          </div>
+          <p>Watch your AI coding agent execute the Pre-Work Grounding Gate live in your terminal or IDE.</p>
+        </div>
+
+        <div class="quiz-box" data-quiz-mod="4">
+          <h3 class="box-title" style="margin-bottom:0.85rem;">✅ Module 4 Knowledge Check</h3>
+          <div class="quiz-q" data-answer="0">
+            <div class="quiz-q-title">1. What must an agent include in its explanation/plan after running <code>okf-query</code> under the Pre-Work Grounding Gate?</div>
+            <div class="quiz-options">
+              <button class="quiz-opt-btn" onclick="answerQuiz(4, 0, 0, this)">A) An explicit Grounding Citation naming the consulted OKF concept(s)</button>
+              <button class="quiz-opt-btn" onclick="answerQuiz(4, 0, 1, this)">B) A full dump of package-lock.json</button>
+              <button class="quiz-opt-btn" onclick="answerQuiz(4, 0, 2, this)">C) Nothing; it is silent</button>
+            </div>
+            <div class="quiz-feedback">Correct! Explicit Grounding Citations make agent context retrieval auditable in every conversation.</div>
+          </div>
+        </div>
+
+        <div class="module-footer-nav">
+          <button class="nav-btn" onclick="selectModule(3)">← Previous: Module 3</button>
+          <button class="primary-cta" onclick="selectModule(5)">Next: Module 5 — Autonomous Upkeep &amp; Drift Linting →</button>
+        </div>
+      </article>
+
+      <!-- ================= MODULE 5 ================= -->
+      <article class="module-panel" id="mod-panel-5">
+        <div class="module-header">
+          <div class="badge-row">
+            <span class="pill pill-advanced">Module 5 • Advanced</span>
+            <span class="pill pill-intermediate">⏱ 25 Minutes</span>
+            <a href="docs/course/05-autonomous-upkeep-drift-and-visualization.md" class="nav-btn">📄 Read Markdown Lesson</a>
+          </div>
+          <h1 class="module-title">Autonomous Upkeep, Drift Detection &amp; Graph Visualization</h1>
+          <p class="module-lead">How <code>okf-maintain</code> eliminates manual upkeep toil, how <code>okf-lint --drift</code> compares Git history against concept timestamps, and how <code>okf-visualize</code> renders interactive Cytoscape.js dependency graphs.</p>
+        </div>
+
+        <h2 class="section-heading">1. Mechanical Upkeep with <code>okf-maintain</code></h2>
+        <p>Running <code>npm run okf:maintain</code> automatically syncs Git-drifted <code>generated.at</code> timestamps, auto-heals outdated agent steering notices (<code>AGENTS.md</code>, <code>CLAUDE.md</code>), updates the <code>## Not yet specified</code> frontier in <code>index.md</code>, appends dated entries to <code>log.md</code>, and rebuilds <code>viz.html</code>.</p>
+
+        <h2 class="section-heading">2. Static &amp; Git-History Verification with <code>okf-lint --drift</code></h2>
+        <p>When run with <code>--drift</code>, <code>okf-lint</code> executes <code>git log -1 --format=%aI -- &lt;resource&gt;</code> for every concept and warns if the underlying source code was committed more recently than the concept's <code>generated.at</code> timestamp.</p>
+
+        <div class="lab-box">
+          <div class="box-header">
+            <span class="box-title">🧪 Hands-On CLI Lab 5: Run the JSON Drift &amp; Conformance Audit</span>
+            <button class="copy-btn" onclick="copyText('node okf-lint/scripts/lint.js --drift --json', this)">Copy Command</button>
+          </div>
+          <p>Run <code>okf-lint</code> in machine-readable JSON mode with Git drift analysis enabled:</p>
+          <pre class="code-block"><code>node okf-lint/scripts/lint.js --drift --json</code></pre>
+        </div>
+
+        <div class="tutor-box">
+          <div class="box-header">
+            <span class="box-title">🤖 Practice with Your AI Agent (Module 5 Tutor Prompt)</span>
+            <button class="copy-btn" onclick="copyText('Act as my OKF Academy Tutor for Module 5. Run node okf-maintain/scripts/maintain.js --check --json and node okf-lint/scripts/lint.js --drift --json on this repository, and explain how git-based drift detection differs from stale_after expiration.', this)">Copy Agent Prompt</button>
+          </div>
+          <p>Have your coding agent run and explain both non-destructive audit checks.</p>
+        </div>
+
+        <div class="quiz-box" data-quiz-mod="5">
+          <h3 class="box-title" style="margin-bottom:0.85rem;">✅ Module 5 Knowledge Check</h3>
+          <div class="quiz-q" data-answer="1">
+            <div class="quiz-q-title">1. Which flag runs <code>okf-maintain</code> in a read-only CI check mode without modifying files on disk?</div>
+            <div class="quiz-options">
+              <button class="quiz-opt-btn" onclick="answerQuiz(5, 0, 0, this)">A) --delete</button>
+              <button class="quiz-opt-btn" onclick="answerQuiz(5, 0, 1, this)">B) --check</button>
+              <button class="quiz-opt-btn" onclick="answerQuiz(5, 0, 2, this)">C) --upgrade</button>
+            </div>
+            <div class="quiz-feedback">Correct! <code>node okf-maintain/scripts/maintain.js --check</code> exits with code 1 if drift or unindexed frontier files exist, without mutating the repo.</div>
+          </div>
+        </div>
+
+        <div class="module-footer-nav">
+          <button class="nav-btn" onclick="selectModule(4)">← Previous: Module 4</button>
+          <button class="primary-cta" onclick="selectModule(6)">Next: Module 6 — Pruning &amp; CI Quality Gates →</button>
+        </div>
+      </article>
+
+      <!-- ================= MODULE 6 ================= -->
+      <article class="module-panel" id="mod-panel-6">
+        <div class="module-header">
+          <div class="badge-row">
+            <span class="pill pill-advanced">Module 6 • Advanced → Architect</span>
+            <span class="pill pill-architect">⏱ 20 Minutes</span>
+            <a href="docs/course/06-pruning-hygiene-and-ci-gates.md" class="nav-btn">📄 Read Markdown Lesson</a>
+          </div>
+          <h1 class="module-title">Knowledge Hygiene at Scale — Pruning &amp; CI Gates (<code>okf-prune</code> + GitHub Actions)</h1>
+          <p class="module-lead">How to audit, archive, or garbage-collect Expired, Deprecated, Ghost, and Orphaned concepts with <code>okf-prune</code> and enforce zero-drift in GitHub Actions CI.</p>
+        </div>
+
+        <h2 class="section-heading">1. The 4 Decay Categories in <code>okf-prune</code></h2>
+        <div class="concept-grid">
+          <div class="info-card">
+            <h3>1. Expired (<code>--stale</code>)</h3>
+            <p>Concepts whose <code>stale_after</code> ISO 8601 timestamp is in the past.</p>
+          </div>
+          <div class="info-card">
+            <h3>2. Deprecated (<code>--deprecated</code>)</h3>
+            <p>Concepts explicitly marked <code>status: deprecated</code>.</p>
+          </div>
+          <div class="info-card">
+            <h3>3. Ghost Resources (<code>--ghosts</code>)</h3>
+            <p>Concepts whose <code>resource</code> points to a local file that was deleted.</p>
+          </div>
+          <div class="info-card">
+            <h3>4. Orphans (<code>--orphans</code>)</h3>
+            <p>Concepts with zero inbound links from <code>index.md</code> or other concepts.</p>
+          </div>
+        </div>
+
+        <h2 class="section-heading">2. Safe Archiving vs. Deletion &amp; The <code>fetch-depth: 0</code> CI Rule</h2>
+        <p>By default, <code>okf-prune</code> moves candidates into <code>archive/</code>, sets <code>status: deprecated</code> and <code>archived_at</code>, and moves their link under <code>## Archived Concepts</code> in <code>index.md</code> so agents don't ingest obsolete docs while preserving history. In GitHub Actions (<code>.github/workflows/okf-test.yml</code>), always set <code>fetch-depth: 0</code> on <code>actions/checkout@v4</code> so <code>okf-lint --drift</code> can read true Git commit timestamps!</p>
+
+        <div class="lab-box">
+          <div class="box-header">
+            <span class="box-title">🧪 Hands-On CLI Lab 6: Dry-Run Prune Audit on the Sandbox</span>
+            <button class="copy-btn" onclick="copyText('node -e &quot;const { spawnSync } = require(\x27child_process\x27); console.log(spawnSync(\x27node\x27, [\x27../../../okf-prune/scripts/prune.js\x27, \x27--dry-run\x27], { cwd: \x27docs/course/sandbox\x27, encoding: \x27utf8\x27 }).stdout);&quot;', this)">Copy Command</button>
+          </div>
+          <p>Run <code>okf-prune --dry-run</code> in the sandbox to see it catch <code>expired-auth-flow.md</code> without deleting or moving the file:</p>
+          <pre class="code-block"><code>node -e "const { spawnSync } = require('child_process'); console.log(spawnSync('node', ['../../../okf-prune/scripts/prune.js', '--dry-run'], { cwd: 'docs/course/sandbox', encoding: 'utf8' }).stdout);"</code></pre>
+        </div>
+
+        <div class="tutor-box">
+          <div class="box-header">
+            <span class="box-title">🤖 Practice with Your AI Agent (Module 6 Tutor Prompt)</span>
+            <button class="copy-btn" onclick="copyText('Act as my OKF Academy Tutor for Module 6. Run okf-prune --dry-run --json in docs/course/sandbox and inspect .github/workflows/okf-test.yml. Explain why fetch-depth: 0 is mandatory for CI drift detection.', this)">Copy Agent Prompt</button>
+          </div>
+          <p>Explore automated garbage collection and CI pipeline configuration with your agent.</p>
+        </div>
+
+        <div class="quiz-box" data-quiz-mod="6">
+          <h3 class="box-title" style="margin-bottom:0.85rem;">✅ Module 6 Knowledge Check</h3>
+          <div class="quiz-q" data-answer="1">
+            <div class="quiz-q-title">1. Why is <code>fetch-depth: 0</code> required in GitHub Actions when running <code>okf-lint --drift</code>?</div>
+            <div class="quiz-options">
+              <button class="quiz-opt-btn" onclick="answerQuiz(6, 0, 0, this)">A) To install Node.js faster</button>
+              <button class="quiz-opt-btn" onclick="answerQuiz(6, 0, 1, this)">B) Because shallow clones (fetch-depth: 1) reset all file commit timestamps to the HEAD commit, masking historical code-concept drift</button>
+              <button class="quiz-opt-btn" onclick="answerQuiz(6, 0, 2, this)">C) Because YAML frontmatter requires it</button>
+            </div>
+            <div class="quiz-feedback">Correct! Full git history allows <code>git log -1 --format=%aI -- &lt;file&gt;</code> to return the true modification timestamp of each file.</div>
+          </div>
+        </div>
+
+        <div class="module-footer-nav">
+          <button class="nav-btn" onclick="selectModule(5)">← Previous: Module 5</button>
+          <button class="primary-cta" onclick="selectModule(7)">Next: Module 7 — Architect Capstone →</button>
+        </div>
+      </article>
+
+      <!-- ================= MODULE 7 ================= -->
+      <article class="module-panel" id="mod-panel-7">
+        <div class="module-header">
+          <div class="badge-row">
+            <span class="pill pill-architect">Module 7 • Architect Capstone</span>
+            <span class="pill pill-architect">⏱ 30 Minutes</span>
+            <a href="docs/course/07-capstone-self-documenting-repo.md" class="nav-btn">📄 Read Markdown Lesson</a>
+          </div>
+          <h1 class="module-title">Capstone — Bootstrapping a Self-Documenting Repository End-to-End</h1>
+          <p class="module-lead">Greenfield vs. Brownfield rollout playbooks, designing an organization-wide OKF v0.2 Trust Tier governance policy, and the final Capstone verification challenge.</p>
+        </div>
+
+        <h2 class="section-heading">1. Greenfield vs. Brownfield ("Touch-It, Map-It") Rollouts</h2>
+        <div class="concept-grid">
+          <div class="info-card">
+            <h3>🌱 Greenfield Strategy</h3>
+            <p>Bootstrap <code>/docs/okf/index.md</code> (<code>okf_version: 0.2</code>), add <code>AGENTS.md</code> gates from Day 1, and let the bundle grow organically with every feature PR.</p>
+          </div>
+          <div class="info-card">
+            <h3>🏭 Brownfield Strategy</h3>
+            <p>Never freeze feature work to document 500 legacy files at once. Map the frontier with <code>okf-maintain</code>, interview the top 3–5 critical modules with <code>okf-wayfinder</code>, and document remaining files incrementally as agents touch them.</p>
+          </div>
+          <div class="info-card">
+            <h3>🛡️ Risk-Based Trust Governance</h3>
+            <p>Require <code>human-reviewed</code> + 90-day <code>stale_after</code> on Auth/Billing &amp; <code>Attested Computation</code> metrics; use <code>machine-confirmed</code> for standard internal services.</p>
+          </div>
+        </div>
+
+        <div class="lab-box">
+          <div class="box-header">
+            <span class="box-title">🏆 Capstone Lab: Run the Full Repository &amp; Course Verification Suite</span>
+            <button class="copy-btn" onclick="copyText('npm test && npm run okf:lint:drift', this)">Copy Command</button>
+          </div>
+          <p>Verify the entire OKF lifecycle, parser unit tests, course sandbox, and repository drift gate in one command:</p>
+          <pre class="code-block"><code>npm test &amp;&amp; npm run okf:lint:drift</code></pre>
+        </div>
+
+        <div class="tutor-box">
+          <div class="box-header">
+            <span class="box-title">🤖 Practice with Your AI Agent (Module 7 Capstone Examiner Prompt)</span>
+            <button class="copy-btn" onclick="copyText('Act as my OKF Academy Capstone Examiner (Module 7). Present me with a brownfield architecture scenario involving an undocumented tax engine, a legacy v0.1 concept, an expired auth flow, and a CFO asking how to prevent inconsistent SQL queries for Net MRR. Grade my answers!', this)">Copy Agent Prompt</button>
+          </div>
+          <p>Take the live interactive Capstone oral exam with your AI coding agent!</p>
+        </div>
+
+        <div class="quiz-box" data-quiz-mod="7">
+          <h3 class="box-title" style="margin-bottom:0.85rem;">✅ Final Capstone Knowledge Check</h3>
+          <div class="quiz-q" data-answer="1">
+            <div class="quiz-q-title">1. What is the recommended strategy when rolling out OKF to a large legacy ("brownfield") codebase?</div>
+            <div class="quiz-options">
+              <button class="quiz-opt-btn" onclick="answerQuiz(7, 0, 0, this)">A) Pause all feature engineering for a month to write 500 concept files manually</button>
+              <button class="quiz-opt-btn" onclick="answerQuiz(7, 0, 1, this)">B) Map the frontier in index.md, use okf-wayfinder on the top 3–5 high-risk modules, and apply the "Touch-It, Map-It" rule via AGENTS.md</button>
+              <button class="quiz-opt-btn" onclick="answerQuiz(7, 0, 2, this)">C) Only use OKF v0.1 timestamps</button>
+            </div>
+            <div class="quiz-feedback">Congratulations! You have mastered the pragmatic, high-ROI brownfield rollout strategy and completed the OKF Academy curriculum! 🎉</div>
+          </div>
+        </div>
+
+        <div class="module-footer-nav">
+          <button class="nav-btn" onclick="selectModule(6)">← Previous: Module 6</button>
+          <button class="primary-cta" onclick="markModuleComplete(7)">🏆 Complete Course &amp; Claim Badge</button>
+        </div>
+      </article>
+
+    </section>
+  </main>
+
+  <script>
+    const STORAGE_KEY = 'okf_academy_completed_modules_v02';
+    const TOTAL_MODULES = 7;
+
+    function getCompletedModules() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveCompletedModules(list) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      } catch (e) {}
+      renderProgress();
+    }
+
+    function markModuleComplete(modNum) {
+      const current = getCompletedModules();
+      if (!current.includes(modNum)) {
+        current.push(modNum);
+        saveCompletedModules(current);
+      } else {
+        renderProgress();
+      }
+    }
+
+    function resetCourseProgress() {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (e) {}
+      renderProgress();
+    }
+
+    function renderProgress() {
+      const completed = getCompletedModules();
+      const pct = Math.round((completed.length / TOTAL_MODULES) * 100);
+      document.getElementById('progress-label').textContent = `${completed.length} / ${TOTAL_MODULES} Completed (${pct}%)`;
+      document.getElementById('progress-fill').style.width = `${pct}%`;
+
+      document.querySelectorAll('.module-nav-btn').forEach(btn => {
+        const m = Number(btn.getAttribute('data-mod'));
+        const dot = document.getElementById(`dot-${m}`);
+        if (completed.includes(m)) {
+          btn.classList.add('completed');
+          dot.textContent = '✓';
+        } else {
+          btn.classList.remove('completed');
+          dot.textContent = String(m);
+        }
+      });
+    }
+
+    function selectModule(modNum) {
+      document.querySelectorAll('.module-nav-btn').forEach(btn => {
+        btn.classList.toggle('active', Number(btn.getAttribute('data-mod')) === modNum);
+      });
+      document.querySelectorAll('.module-panel').forEach(panel => {
+        panel.classList.toggle('active', panel.id === `mod-panel-${modNum}`);
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function selectDiffTab(tabId, btnEl) {
+      document.querySelectorAll('.diff-tab-btn').forEach(b => b.classList.remove('active'));
+      btnEl.classList.add('active');
+      document.querySelectorAll('.diff-tab-panel').forEach(p => {
+        p.style.display = p.id === `diff-content-${tabId}` ? 'block' : 'none';
+      });
+    }
+
+    function updateTrustSim() {
+      const hasMachine = document.getElementById('sim-chk-machine').checked;
+      const hasHuman = document.getElementById('sim-chk-human').checked;
+      const hasLaterRegen = document.getElementById('sim-chk-regen').checked;
+
+      const genAt = hasLaterRegen ? '2026-10-21T16:00:00Z' : '2026-10-15T09:00:00Z';
+      const lines = [
+        '---',
+        'type: Attested Computation',
+        'title: Monthly Recurring Revenue (MRR)',
+        'generated:',
+        '  by: Antigravity/4.0',
+        `  at: ${genAt}`
+      ];
+
+      if (hasMachine || hasHuman) {
+        lines.push('verified:');
+        if (hasMachine) {
+          lines.push('  - by: okf-lint/1.6.0');
+          lines.push('    at: 2026-10-15T09:05:00Z');
+        }
+        if (hasHuman) {
+          lines.push('  - by: human:finance-lead');
+          lines.push('    at: 2026-10-16T14:20:00Z');
+        }
+      }
+      lines.push('---');
+      document.getElementById('sim-yaml-preview').textContent = lines.join('\n');
+
+      const badge = document.getElementById('sim-tier-badge');
+      const lintStatus = document.getElementById('sim-lint-status');
+
+      if (!hasMachine && !hasHuman) {
+        badge.className = 'trust-badge-output tier-unverified';
+        badge.textContent = '⚪ unverified';
+        lintStatus.style.color = 'var(--accent-emerald)';
+        lintStatus.textContent = '✔ okf-lint: 0 warnings (Valid unverified concept)';
+      } else if (hasLaterRegen) {
+        badge.className = 'trust-badge-output tier-unverified';
+        badge.textContent = '⚠️ Stale Verification (Re-Verify Needed)';
+        lintStatus.style.color = 'var(--accent-amber)';
+        lintStatus.textContent = '⚠ okf-lint warning: verified.at precedes generated.at!';
+      } else if (hasHuman) {
+        badge.className = 'trust-badge-output tier-human';
+        badge.textContent = '🟢 human-reviewed';
+        lintStatus.style.color = 'var(--accent-emerald)';
+        lintStatus.textContent = '✔ okf-lint: 0 warnings (Highest Trust Tier active)';
+      } else {
+        badge.className = 'trust-badge-output tier-machine';
+        badge.textContent = '🔵 machine-confirmed';
+        lintStatus.style.color = 'var(--accent-emerald)';
+        lintStatus.textContent = '✔ okf-lint: 0 warnings (Machine-confirmed tier)';
+      }
+    }
+
+    function answerQuiz(modNum, qIdx, chosenIdx, btnEl) {
+      const qBox = btnEl.closest('.quiz-q');
+      const correctIdx = Number(qBox.getAttribute('data-answer'));
+      const buttons = qBox.querySelectorAll('.quiz-opt-btn');
+      buttons.forEach((b, i) => {
+        b.classList.remove('correct', 'wrong');
+        if (i === correctIdx) b.classList.add('correct');
+        else if (i === chosenIdx) b.classList.add('wrong');
+      });
+      const fb = qBox.querySelector('.quiz-feedback');
+      if (fb) fb.style.display = 'block';
+      if (chosenIdx === correctIdx) {
+        markModuleComplete(modNum);
+      }
+    }
+
+    function copyText(text, btnEl) {
+      navigator.clipboard.writeText(text).then(() => {
+        const orig = btnEl.textContent;
+        btnEl.textContent = '✓ Copied!';
+        setTimeout(() => { btnEl.textContent = orig; }, 1600);
+      });
+    }
+
+    // Initialize on load
+    renderProgress();
+    updateTrustSim();
+  </script>
+</body>
+</html>
