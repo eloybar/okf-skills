@@ -58,8 +58,8 @@ assert.ok(fs.existsSync(path.join(sandboxDir, 'okf', 'concepts', 'expired-auth-f
 
 console.log('✓ Sandbox fixtures and CLI lab targets verified.');
 
-// 5. Verify Syllabus & Modules 1-3 exist and contain key educational content
-const modules1To3 = [
+// 5. Verify Syllabus & All 7 Modules exist and contain key educational content
+const allCourseModules = [
   {
     file: 'README.md',
     keywords: ['Syllabus', 'Module 1', 'Module 3', 'OKF v0.2', 'sandbox']
@@ -75,10 +75,26 @@ const modules1To3 = [
   {
     file: '03-okf-v02-trust-provenance-and-attestation.md',
     keywords: ['sources', 'generated', 'verified', 'machine-confirmed', 'human-reviewed', 'stale_after', 'Attested Computation', 'okf-upgrade', 'Hands-On Lab', 'Agent Tutor Prompt', 'Knowledge Check']
+  },
+  {
+    file: '04-steering-gates-and-context-injection.md',
+    keywords: ['AGENTS.md', 'Pre-Work Grounding Gate', 'Grounding Citation', 'okf-query', 'OKF CONTEXT BLOCK', 'Hands-On Lab', 'Agent Tutor Prompt', 'Knowledge Check']
+  },
+  {
+    file: '05-autonomous-upkeep-drift-and-visualization.md',
+    keywords: ['Pre-Completion Verification Gate', 'okf-maintain', 'okf-lint', '--drift', 'okf-visualize', 'viz.html', 'Hands-On Lab', 'Agent Tutor Prompt', 'Knowledge Check']
+  },
+  {
+    file: '06-pruning-hygiene-and-ci-gates.md',
+    keywords: ['okf-prune', '--dry-run', 'archive', 'GitHub Actions', 'okf-test.yml', 'Hands-On Lab', 'Agent Tutor Prompt', 'Knowledge Check']
+  },
+  {
+    file: '07-capstone-self-documenting-repo.md',
+    keywords: ['Greenfield', 'Brownfield', 'Governance', 'human-reviewed', 'Capstone', 'Agent Tutor Prompt', 'Knowledge Check']
   }
 ];
 
-for (const mod of modules1To3) {
+for (const mod of allCourseModules) {
   const fullPath = path.join(courseDir, mod.file);
   assert.ok(fs.existsSync(fullPath), `Missing course file: docs/course/${mod.file}`);
   const content = fs.readFileSync(fullPath, 'utf8');
@@ -87,4 +103,4 @@ for (const mod of modules1To3) {
   }
 }
 
-console.log('✓ Course Syllabus and Modules 1–3 verified.');
+console.log('✓ Course Syllabus and all 7 Markdown Modules verified.');
