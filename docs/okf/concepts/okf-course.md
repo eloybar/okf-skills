@@ -15,10 +15,13 @@ verified:
 sources:
   - id: course-web-app
     title: Interactive OKF Academy Web Application
-    path: course.html
+    resource: course.html
   - id: course-syllabus
     title: OKF Academy 7-Module Markdown Syllabus
-    path: docs/course/README.md
+    resource: docs/course/README.md
+  - id: course-test
+    title: OKF Course Verification Test Suite
+    resource: scripts/test-course.js
 ---
 
 # Overview

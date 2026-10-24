@@ -4,6 +4,18 @@ Newest changes recorded chronologically.
 
 
 
+## 2026-10-24
+- Synchronized timestamp for 10 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-prune-skill.md, concepts/okf-query-skill.md, concepts/okf-skill.md, concepts/okf-upgrade-skill.md, concepts/okf-visualize-skill.md, concepts/okf-wayfinder-skill.md.
+- Synchronized timestamp for 1 drifted concept(s): concepts/interactive-simulator.md.
+- Synchronized workspace frontier mapping in `index.md` (0 undocumented files mapped).
+- Implemented OKF Skills v1.7.0 Pre-Completion Drift & Upkeep improvements across `okf-maintain`, `okf-lint`, `okf-query`, `okf-wayfinder`, `okf-visualize`, `okf-prune`, and `okf-upgrade`.
+- Updated `getGitLastModifiedISO` in `maintain.js` and `lint.js` to check `git status --porcelain` and filesystem `mtime` so uncommitted working-tree and staged modifications trigger pre-commit drift detection.
+- Added normalization for both shorthand string lists (`sources: ["path/to/file"]`) and structured object lists (`sources: [{ type, resource }]`) across `maintain.js`, `lint.js`, `query.js`, `wayfinder_taxonomy.js`, and `visualize.js`, and hardened `parseFrontmatter` across all 7 skill scripts for unquoted URI list items.
+- Added `[Drift Warning]` in `okf-lint/scripts/lint.js` (`--drift`) when modified or newly created workspace code files (`FRONTIER_EXTENSIONS`) are not bound to any concept's `resource` or `sources` frontmatter.
+- Updated `maintain.js` to resolve sibling `okf-visualize` (`--no-open`) and `okf-lint` (`--drift`) scripts relative to `__dirname` before falling back to `workspaceRoot`.
+- Bumped `TARGET_STEERING_VERSION`, `INSTALLED_VERSION`, and `package.json` to `1.7.0`, adding Step 1 (**Semantic Concept & Source Binding Upkeep**) to the `## ⚡ Pre-Completion Verification Gate (MANDATORY)` block in `AGENTS.md`, `okf/SKILL.md`, `okf-maintain/SKILL.md`, and `index.html`.
+- Bound all skill implementation scripts and test suites in the `sources` frontmatter of their respective concepts under `/docs/okf/concepts/`, graduating all 16 codebase files out of `## Not yet specified` in `docs/okf/index.md`.
+
 ## 2026-10-21
 - Synchronized timestamp for 4 drifted concept(s): concepts/git-development-workflow.md, concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-course.md.
 - Synchronized workspace frontier mapping in `index.md` (16 undocumented files mapped).

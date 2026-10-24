@@ -6,8 +6,10 @@ resource: okf-upgrade/SKILL.md
 tags: [upgrade, migration, automation]
 status: stable
 generated:
-  by: human:eloybar
-  at: 2026-09-10T13:17:00Z
+  by: Antigravity/4.0
+  at: 2026-10-24T04:27:42.043Z
+sources:
+  - okf-upgrade/scripts/upgrade.js
 ---
 
 # Overview

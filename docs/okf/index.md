@@ -23,19 +23,3 @@ Welcome to the self-documenting knowledge bundle for the OKF Skills repository.
 - [Git Development Workflow](/concepts/git-development-workflow.md) — Core process specification for branch management, commit grouping, pull requests, and rebase-merging.
 
 ## Not yet specified
-- `.github/workflows/okf-test.yml` — Automated CI GitHub Actions workflow for OKF bundle tests.
-- `AGENTS.md` — Root agent steering guidelines.
-- `install.sh` — Bash shell script installer.
-- `okf-lint/scripts/lint.js` — Core linter verification and drift tracking script.
-- `okf-maintain/scripts/maintain.js` — Automated maintenance, drift sync, and frontier management script.
-- `okf-prune/scripts/prune.js` — Undocumented codebase file.
-- `okf-query/scripts/query.js` — Core context-aware querying and prompt injection script.
-- `okf-upgrade/scripts/upgrade.js` — Core automated migration script.
-- `okf-visualize/scripts/visualize.js` — Cytoscape graph visualizer script.
-- `okf-visualize/static/viz.css` — Visualizer styling and Cytoscape canvas stylesheet.
-- `okf-visualize/static/viz.js` — Interactive client-side visualizer behavior and sidebar logic.
-- `okf-wayfinder/scripts/wayfinder_taxonomy.js` — Taxonomy registry and frontier tracker script.
-- `package.json` — Zero-dependency project manifest and npm script runner aliases.
-- `scripts/test-course.js` — Undocumented codebase file.
-- `scripts/test-lifecycle.js` — Integration test suite for the OKF bundle lifecycle.
-- `scripts/test-parser.js` — Unit test suite verifying frontmatter parsing across all OKF skill scripts.
