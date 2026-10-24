@@ -6,8 +6,10 @@ resource: file:///D:/projects/okf-skills/okf-prune/SKILL.md
 tags: [pruning, cleanup, lifecycle, archiving, automation]
 status: stable
 generated:
-  by: Antigravity/3.5-Flash
-  at: 2026-09-22T17:45:38.071Z
+  by: Antigravity/4.0
+  at: 2026-10-24T04:27:42.043Z
+sources:
+  - okf-prune/scripts/prune.js
 ---
 
 # Overview

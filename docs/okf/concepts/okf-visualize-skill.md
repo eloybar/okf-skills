@@ -5,8 +5,12 @@ description: Generates an interactive Cytoscape.js HTML graph visualization show
 resource: file:///D:/projects/okf-skills/okf-visualize/SKILL.md
 tags: [visualization, graph, network]
 generated:
-  by: human:blub0x
-  at: 2026-08-03T23:18:00Z
+  by: Antigravity/4.0
+  at: 2026-10-24T04:27:42.043Z
+sources:
+  - okf-visualize/scripts/visualize.js
+  - okf-visualize/static/viz.css
+  - okf-visualize/static/viz.js
 ---
 
 # Overview
