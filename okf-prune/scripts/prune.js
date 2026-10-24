@@ -87,7 +87,7 @@ function parseFrontmatter(content) {
         fm[currentKey].push(parseInlineValue(rest));
       } else {
         const colonIdx = rest.indexOf(':');
-        if (colonIdx !== -1) {
+        if (colonIdx !== -1 && !/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(rest)) {
           const k = rest.slice(0, colonIdx).trim();
           const v = parseInlineValue(rest.slice(colonIdx + 1).trim());
           const obj = {};

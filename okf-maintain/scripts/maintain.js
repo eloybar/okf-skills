@@ -87,7 +87,7 @@ function parseFrontmatter(content) {
         fm[currentKey].push(parseInlineValue(rest));
       } else {
         const colonIdx = rest.indexOf(':');
-        if (colonIdx !== -1) {
+        if (colonIdx !== -1 && !/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(rest)) {
           const k = rest.slice(0, colonIdx).trim();
           const v = parseInlineValue(rest.slice(colonIdx + 1).trim());
           const obj = {};
@@ -130,7 +130,7 @@ function parseFrontmatter(content) {
 }
 
 function resolveResourceLocalPath(resourceUri, workspaceRoot) {
-  if (!resourceUri) return null;
+  if (!resourceUri || /^https?:\/\//i.test(resourceUri)) return null;
   let localPath = resourceUri.replace(/^file:\/\/\/?/, '');
   if (path.isAbsolute(localPath)) {
     return path.normalize(localPath);
@@ -138,14 +138,39 @@ function resolveResourceLocalPath(resourceUri, workspaceRoot) {
   return path.normalize(path.join(workspaceRoot, localPath));
 }
 
-function getGitLastModifiedISO(filePath) {
+function getGitLastModifiedISO(filePath, cwd) {
+  const cleanPath = filePath.replace(/\\/g, '/');
+  const execCwd = cwd || path.dirname(filePath);
+  let gitIso = null;
   try {
-    const cleanPath = filePath.replace(/\\/g, '/');
-    const stdout = execFileSync('git', ['log', '-1', '--format=%aI', '--', cleanPath], { stdio: ['pipe', 'pipe', 'ignore'] });
-    return stdout.toString().trim();
+    const stdout = execFileSync('git', ['log', '-1', '--format=%aI', '--', cleanPath], {
+      cwd: execCwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+    if (stdout) gitIso = stdout;
   } catch (e) {
-    return null;
+    // Ignore git log errors
   }
+
+  try {
+    const statusOut = execFileSync('git', ['status', '--porcelain', '--', cleanPath], {
+      cwd: execCwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+
+    if (statusOut && fs.existsSync(filePath)) {
+      const mtimeIso = fs.statSync(filePath).mtime.toISOString();
+      if (!gitIso || new Date(mtimeIso) > new Date(gitIso)) {
+        return mtimeIso;
+      }
+    }
+  } catch (e) {
+    // Fallback if git status fails
+  }
+
+  return gitIso;
 }
 
 function loadGitignorePatterns(workspaceRoot) {
@@ -364,7 +389,7 @@ function appendLogEntry(logPath, entries, dateStr) {
   return true;
 }
 
-const TARGET_STEERING_VERSION = '1.6.0';
+const TARGET_STEERING_VERSION = '1.7.0';
 
 function compareVersions(v1, v2) {
   const parts1 = v1.split('.').map(Number);
@@ -387,8 +412,9 @@ Before inspecting code, planning architecture, answering system questions, or mo
 
 ## ⚡ Pre-Completion Verification Gate (MANDATORY)
 Before claiming any user request is complete or ending your turn after modifying workspace code:
-1. **Maintenance Sync:** Run \`node okf-maintain/scripts/maintain.js\` (or \`npm run okf:maintain\`) to auto-sync concept timestamps, unindexed frontier files in \`index.md\`, changelog entries in \`log.md\`, and rebuild \`viz.html\`.
-2. **Lint & Drift Gate:** Run \`node okf-lint/scripts/lint.js --drift\` (or \`npm run okf:lint:drift\`) to guarantee 0 errors and 0 warnings.
+1. **Semantic Concept & Source Binding Upkeep:** Update the prose of any affected OKF concept files (or create a new concept) to reflect architectural, behavioral, or operational changes; bind all newly created or modified source files in the concept's \`resource:\` or \`sources:\` frontmatter so they graduate out of \`## Not yet specified\` in \`index.md\`; and record a descriptive summary in \`log.md\`.
+2. **Maintenance Sync:** Run \`node okf-maintain/scripts/maintain.js\` (or \`npm run okf:maintain\`) to auto-sync concept timestamps, unindexed frontier files in \`index.md\`, changelog entries in \`log.md\`, and rebuild \`viz.html\`.
+3. **Lint & Drift Gate:** Run \`node okf-lint/scripts/lint.js --drift\` (or \`npm run okf:lint:drift\`) to guarantee 0 errors, 0 warnings, and no unmapped modified files.
 
 ## 📂 Knowledge Bundle / OKF
 An OKF knowledge bundle is located in the \`${bundleRelPath}\` directory. This bundle describes the core concepts, skills, and architecture of the OKF system implemented here.
@@ -537,15 +563,38 @@ async function main() {
     }
     if (Array.isArray(fm.sources)) {
       fm.sources.forEach(src => {
-        if (src && src.resource) {
-          const local = resolveResourceLocalPath(src.resource, workspaceRoot);
+        const rawResource = typeof src === 'string' ? src : (src && src.resource);
+        if (rawResource && !/^https?:\/\//i.test(rawResource)) {
+          const local = resolveResourceLocalPath(rawResource, workspaceRoot);
           if (local) {
             documentedResources.add(path.relative(workspaceRoot, local).replace(/\\/g, '/').toLowerCase());
             documentedResources.add(path.resolve(local).toLowerCase());
-            resourcesToCheck.push({ path: local, label: src.title || path.basename(local) });
+            const label = (src && typeof src === 'object' && src.title) ? src.title : path.basename(local);
+            resourcesToCheck.push({ path: local, label });
           }
         }
       });
+    }
+    if (fm.computation) {
+      const local = resolveResourceLocalPath(fm.computation, workspaceRoot);
+      if (local) {
+        documentedResources.add(path.relative(workspaceRoot, local).replace(/\\/g, '/').toLowerCase());
+        documentedResources.add(path.resolve(local).toLowerCase());
+      }
+    }
+    if (fm.executor && fm.executor.resource) {
+      const local = resolveResourceLocalPath(fm.executor.resource, workspaceRoot);
+      if (local) {
+        documentedResources.add(path.relative(workspaceRoot, local).replace(/\\/g, '/').toLowerCase());
+        documentedResources.add(path.resolve(local).toLowerCase());
+      }
+    }
+    if (fm.attester && fm.attester.resource) {
+      const local = resolveResourceLocalPath(fm.attester.resource, workspaceRoot);
+      if (local) {
+        documentedResources.add(path.relative(workspaceRoot, local).replace(/\\/g, '/').toLowerCase());
+        documentedResources.add(path.resolve(local).toLowerCase());
+      }
     }
 
     const lastModified = fm.timestamp || (fm.generated && fm.generated.at);
@@ -553,7 +602,7 @@ async function main() {
       const conceptTime = new Date(lastModified);
       for (const res of resourcesToCheck) {
         if (fs.existsSync(res.path)) {
-          const gitTimeStr = getGitLastModifiedISO(res.path);
+          const gitTimeStr = getGitLastModifiedISO(res.path, workspaceRoot);
           if (gitTimeStr) {
             const gitTime = new Date(gitTimeStr);
             if (gitTime > conceptTime) {
@@ -680,22 +729,32 @@ async function main() {
     logUpdated = appendLogEntry(logPath, logEntries, dateStr);
   }
 
-  // 3e. Regenerate visualizer if available
+  // 3e. Regenerate visualizer if available (check sibling skill dir first, then workspaceRoot)
   let vizGenerated = false;
-  const vizScript = path.join(workspaceRoot, 'okf-visualize', 'scripts', 'visualize.js');
+  const siblingVizScript = path.resolve(__dirname, '..', '..', 'okf-visualize', 'scripts', 'visualize.js');
+  const workspaceVizScript = path.join(workspaceRoot, 'okf-visualize', 'scripts', 'visualize.js');
+  const vizScript = fs.existsSync(siblingVizScript) ? siblingVizScript : workspaceVizScript;
   if (fs.existsSync(vizScript)) {
     try {
-      execFileSync('node', [vizScript, '--bundle', bundleRoot], { stdio: 'ignore' });
+      execFileSync(process.execPath, [vizScript, '--bundle', bundleRoot, '--no-open'], {
+        cwd: workspaceRoot,
+        stdio: 'ignore'
+      });
       vizGenerated = true;
     } catch (e) {}
   }
 
-  // 3f. Verify with okf-lint if available
+  // 3f. Verify with okf-lint if available (check sibling skill dir first, then workspaceRoot)
   let lintPassed = true;
-  const lintScript = path.join(workspaceRoot, 'okf-lint', 'scripts', 'lint.js');
+  const siblingLintScript = path.resolve(__dirname, '..', '..', 'okf-lint', 'scripts', 'lint.js');
+  const workspaceLintScript = path.join(workspaceRoot, 'okf-lint', 'scripts', 'lint.js');
+  const lintScript = fs.existsSync(siblingLintScript) ? siblingLintScript : workspaceLintScript;
   if (fs.existsSync(lintScript)) {
     try {
-      execFileSync('node', [lintScript, '--drift'], { stdio: 'ignore' });
+      execFileSync(process.execPath, [lintScript, '--bundle', bundleRoot, '--drift'], {
+        cwd: workspaceRoot,
+        stdio: 'ignore'
+      });
       lintPassed = true;
     } catch (e) {
       lintPassed = false;

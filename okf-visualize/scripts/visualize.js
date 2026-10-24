@@ -103,7 +103,7 @@ function parseFrontmatter(content) {
         fm[currentKey].push(parseInlineValue(rest));
       } else {
         const colonIdx = rest.indexOf(':');
-        if (colonIdx !== -1) {
+        if (colonIdx !== -1 && !/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(rest)) {
           const k = rest.slice(0, colonIdx).trim();
           const v = parseInlineValue(rest.slice(colonIdx + 1).trim());
           const obj = {};
@@ -318,8 +318,9 @@ function main() {
 
     const links = extractLinks(body || '', path.dirname(mdPath), bundleRoot);
     for (const src of sources) {
-      if (src && src.resource && (src.resource.startsWith('/') || src.resource.startsWith('./') || src.resource.startsWith('../'))) {
-        let cleanTarget = src.resource;
+      const rawResource = typeof src === 'string' ? src : (src && src.resource);
+      if (rawResource && (rawResource.startsWith('/') || rawResource.startsWith('./') || rawResource.startsWith('../'))) {
+        let cleanTarget = rawResource;
         if (cleanTarget.startsWith('/')) {
           cleanTarget = cleanTarget.slice(1);
         } else {

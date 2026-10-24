@@ -86,7 +86,7 @@ function parseFrontmatter(content) {
         fm[currentKey].push(parseInlineValue(rest));
       } else {
         const colonIdx = rest.indexOf(':');
-        if (colonIdx !== -1) {
+        if (colonIdx !== -1 && !/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(rest)) {
           const k = rest.slice(0, colonIdx).trim();
           const v = parseInlineValue(rest.slice(colonIdx + 1).trim());
           const obj = {};
@@ -133,7 +133,7 @@ function getConceptBody(content) {
 }
 
 function resolveResourceLocalPath(resourceUri, workspaceRoot) {
-  if (!resourceUri) return null;
+  if (!resourceUri || /^https?:\/\//i.test(resourceUri)) return null;
   let localPath = resourceUri.replace(/^file:\/\/\/?/, '');
   if (path.isAbsolute(localPath)) {
     return path.normalize(localPath);
@@ -180,7 +180,10 @@ function main() {
   }
 
   const workspaceRoot = process.cwd();
-  let bundleRoot = path.join(workspaceRoot, 'docs', 'okf');
+  const bundleIdx = args.indexOf('--bundle');
+  let bundleRoot = (bundleIdx !== -1 && args[bundleIdx + 1])
+    ? path.resolve(workspaceRoot, args[bundleIdx + 1])
+    : path.join(workspaceRoot, 'docs', 'okf');
   if (!fs.existsSync(bundleRoot)) {
     bundleRoot = path.join(workspaceRoot, 'okf');
   }
@@ -205,8 +208,9 @@ function main() {
       }
       if (Array.isArray(c.frontmatter.sources)) {
         for (const src of c.frontmatter.sources) {
-          if (src.resource) {
-            resourceUris.push(src.resource);
+          const rawResource = typeof src === 'string' ? src : (src && src.resource);
+          if (rawResource && !/^https?:\/\//i.test(rawResource)) {
+            resourceUris.push(rawResource);
           }
         }
       }
@@ -258,12 +262,31 @@ function main() {
       const type = (c.frontmatter.type || '').toLowerCase();
       const tags = (c.frontmatter.tags || []).map(t => t.toLowerCase());
       const body = c.body.toLowerCase();
+      let sourcesText = '';
+      if (c.frontmatter.resource) {
+        sourcesText += ' ' + String(c.frontmatter.resource).toLowerCase();
+      }
+      if (Array.isArray(c.frontmatter.sources)) {
+        for (const src of c.frontmatter.sources) {
+          const rawResource = typeof src === 'string' ? src : (src && src.resource);
+          if (rawResource) {
+            sourcesText += ' ' + String(rawResource).toLowerCase();
+          }
+          if (src && typeof src === 'object' && src.title) {
+            sourcesText += ' ' + String(src.title).toLowerCase();
+          }
+          if (src && typeof src === 'object' && src.description) {
+            sourcesText += ' ' + String(src.description).toLowerCase();
+          }
+        }
+      }
 
       if (
         title.includes(keyword) ||
         desc.includes(keyword) ||
         type.includes(keyword) ||
         tags.some(t => t.includes(keyword)) ||
+        sourcesText.includes(keyword) ||
         body.includes(keyword)
       ) {
         matched.push(c);

@@ -133,12 +133,14 @@ Authentication uses JWT tokens...
   // maintain --sync should auto-heal both files
   execSync(`node "${scripts.maintain}"`, { cwd: tempDir, stdio: 'ignore' });
   const patchedClaudeContent = fs.readFileSync(mockClaudeFile, 'utf8');
-  assert.ok(patchedClaudeContent.includes('<!-- okf-steering-version: 1.6.0 -->'), 'maintain.js should bump CLAUDE.md steering tag to 1.6.0');
+  assert.ok(patchedClaudeContent.includes('<!-- okf-steering-version: 1.7.0 -->'), 'maintain.js should bump CLAUDE.md steering tag to 1.7.0');
+  assert.ok(patchedClaudeContent.includes('Semantic Concept & Source Binding Upkeep'), 'maintain.js should inject Step 1 Semantic Concept & Source Binding Upkeep in CLAUDE.md');
   assert.ok(patchedClaudeContent.includes('Pre-Work Grounding Gate'), 'maintain.js should inject Pre-Work Gate in CLAUDE.md');
   assert.ok(patchedClaudeContent.includes('Pre-Completion Verification Gate'), 'maintain.js should inject Pre-Completion Gate in CLAUDE.md');
 
   const patchedCursorContent = fs.readFileSync(mockCursorFile, 'utf8');
-  assert.ok(patchedCursorContent.includes('<!-- okf-steering-version: 1.6.0 -->'), 'maintain.js should bump .cursorrules steering tag to 1.6.0');
+  assert.ok(patchedCursorContent.includes('<!-- okf-steering-version: 1.7.0 -->'), 'maintain.js should bump .cursorrules steering tag to 1.7.0');
+  assert.ok(patchedCursorContent.includes('Semantic Concept & Source Binding Upkeep'), 'maintain.js should inject Step 1 Semantic Concept & Source Binding Upkeep in .cursorrules');
   assert.ok(patchedCursorContent.includes('Pre-Work Grounding Gate'), 'maintain.js should inject Pre-Work Gate in .cursorrules');
   assert.ok(patchedCursorContent.includes('Pre-Completion Verification Gate'), 'maintain.js should inject Pre-Completion Gate in .cursorrules');
 
@@ -536,6 +538,115 @@ Should be deleted.
   assert.equal(delOutput.code, 0, 'Delete execution should succeed');
   assert.ok(!fs.existsSync(deleteTestFile), 'Target file should be deleted');
   console.log('✓ okf-prune --delete successfully removed target file.');
+
+  // === STEP 13: TEST v1.7.0 PRE-COMPLETION DRIFT, SHORTHAND SOURCES & UNMAPPED DIRTY FILE GATE ===
+  console.log('Step 13: Testing v1.7.0 working-tree drift, shorthand sources[], and unmapped dirty file gate...');
+
+  // 13a. Create code file and concept using shorthand string array in sources:
+  const shorthandCodeFile = path.join(tempDir, 'src', 'shorthand_sync.ts');
+  fs.writeFileSync(shorthandCodeFile, 'export function syncCloud() { return true; }\n');
+
+  // First run maintain so shorthand_sync.ts is in ## Not yet specified before concept binds it
+  execSync(`node "${scripts.maintain}"`, { cwd: tempDir, stdio: 'ignore' });
+  assert.ok(
+    fs.readFileSync(path.join(bundleRoot, 'index.md'), 'utf8').includes('src/shorthand_sync.ts'),
+    'shorthand_sync.ts should initially appear in ## Not yet specified'
+  );
+
+  const shorthandConceptFile = path.join(bundleRoot, 'concepts', 'shorthand_concept.md');
+  const shorthandInitISO = new Date().toISOString();
+  fs.writeFileSync(shorthandConceptFile, `---
+type: Subsystem
+title: Cloud Sync Service
+description: Synchronizes local hub state with cloud storage.
+generated:
+  by: Antigravity/4.0
+  at: ${shorthandInitISO}
+sources:
+  - src/shorthand_sync.ts
+  - https://example.com/cloud-sync-spec
+---
+
+Handles cloud synchronization.
+`);
+  const idxBefore13 = fs.readFileSync(path.join(bundleRoot, 'index.md'), 'utf8');
+  fs.writeFileSync(
+    path.join(bundleRoot, 'index.md'),
+    idxBefore13.replace('## Concepts and Skills\n', '## Concepts and Skills\n- [Cloud Sync Service](/concepts/shorthand_concept.md)\n')
+  );
+
+  // Run maintain to graduate src/shorthand_sync.ts out of ## Not yet specified
+  execSync(`node "${scripts.maintain}"`, { cwd: tempDir, stdio: 'ignore' });
+  const idxAfterGraduation = fs.readFileSync(path.join(bundleRoot, 'index.md'), 'utf8');
+  const notYetSection = idxAfterGraduation.split('## Not yet specified')[1] || '';
+  assert.ok(!notYetSection.includes('src/shorthand_sync.ts'), 'Shorthand sources entry should graduate file out of ## Not yet specified');
+  console.log('✓ Shorthand string entry in sources[] graduated file out of ## Not yet specified.');
+
+  // Query by --file and --search should both match via shorthand sources[]
+  const queryShorthandFile = execSync(`node "${scripts.query}" --file "src/shorthand_sync.ts"`, { cwd: tempDir }).toString();
+  assert.ok(queryShorthandFile.includes('Cloud Sync Service'), 'okf-query --file should match shorthand string entry in sources[]');
+  const queryShorthandSearch = execSync(`node "${scripts.query}" --search "shorthand_sync.ts"`, { cwd: tempDir }).toString();
+  assert.ok(queryShorthandSearch.includes('Cloud Sync Service'), 'okf-query --search should index shorthand string entry in sources[]');
+  console.log('✓ okf-query --file and --search matched shorthand string entry in sources[].');
+
+  // Commit clean state
+  execSync('git add . && git commit -m "feat: add shorthand sync concept"', { cwd: tempDir, stdio: 'ignore' });
+
+  // 13b. Modify src/shorthand_sync.ts in working tree WITHOUT git commit
+  execSync('node -e "setTimeout(() => {}, 1100)"');
+  fs.writeFileSync(shorthandCodeFile, 'export function syncCloud() { return false; } // uncommitted edit\n');
+
+  // lint --drift MUST detect uncommitted working-tree drift
+  const uncommittedDriftLint = execSync(`node "${scripts.lint}" --drift`, { cwd: tempDir }).toString();
+  assert.ok(uncommittedDriftLint.includes('Warning: Concept drift detected'), 'okf-lint --drift should detect uncommitted working-tree edits');
+  console.log('✓ okf-lint --drift detected uncommitted working-tree edit before git commit.');
+
+  // maintain --check MUST also detect uncommitted working-tree drift
+  let maintainCheckFailed = false;
+  try {
+    execSync(`node "${scripts.maintain}" --check`, { cwd: tempDir, stdio: 'pipe' });
+  } catch (e) {
+    maintainCheckFailed = true;
+  }
+  assert.ok(maintainCheckFailed, 'okf-maintain --check should fail when uncommitted working-tree drift exists');
+
+  // maintain should sync the concept timestamp from working-tree mtime
+  execSync(`node "${scripts.maintain}"`, { cwd: tempDir, stdio: 'ignore' });
+  const postMaintainLint = JSON.parse(execSync(`node "${scripts.lint}" --drift --json`, { cwd: tempDir }).toString());
+  assert.equal(postMaintainLint.driftCount, 0, 'okf-lint --drift should report 0 concept drift after maintain syncs working-tree mtime');
+  console.log('✓ okf-maintain synced concept timestamp against uncommitted working-tree mtime.');
+
+  // 13c. Create a new unmapped code file in a new subdirectory (and a non-code image asset)
+  const unmappedCodeFile = path.join(tempDir, 'src', 'new_feature', 'unmapped_worker.ts');
+  fs.mkdirSync(path.dirname(unmappedCodeFile), { recursive: true });
+  fs.writeFileSync(unmappedCodeFile, 'export const worker = true;\n');
+  const untrackedImageFile = path.join(tempDir, 'mobile_preview.jpeg');
+  fs.writeFileSync(untrackedImageFile, 'fake-image-bytes');
+
+  const unmappedLintJson = JSON.parse(execSync(`node "${scripts.lint}" --drift --json`, { cwd: tempDir }).toString());
+  assert.ok(
+    unmappedLintJson.warnings.some(w => w.includes("Modified workspace file 'src/new_feature/unmapped_worker.ts' is not bound to any OKF concept")),
+    'okf-lint --drift should warn when a modified/added code file is not bound to any concept'
+  );
+  assert.ok(
+    !unmappedLintJson.warnings.some(w => w.includes('mobile_preview.jpeg')),
+    'okf-lint --drift should not warn on non-code image assets'
+  );
+  console.log('✓ okf-lint --drift warned on unmapped dirty code file and ignored non-code image asset.');
+
+  // Bind src/new_feature/unmapped_worker.ts to shorthand_concept.md and verify warning clears
+  const updatedShorthandConcept = fs.readFileSync(shorthandConceptFile, 'utf8').replace(
+    '  - src/shorthand_sync.ts',
+    '  - src/shorthand_sync.ts\n  - src/new_feature/unmapped_worker.ts'
+  );
+  fs.writeFileSync(shorthandConceptFile, updatedShorthandConcept);
+  execSync(`node "${scripts.maintain}"`, { cwd: tempDir, stdio: 'ignore' });
+
+  const finalLintJson = JSON.parse(execSync(`node "${scripts.lint}" --drift --json`, { cwd: tempDir }).toString());
+  assert.equal(finalLintJson.errors.length, 0, 'Final lint should have 0 errors');
+  assert.equal(finalLintJson.driftCount, 0, 'Final lint should have 0 drift warnings once dirty code file is bound');
+  assert.ok(!finalLintJson.warnings.some(w => w.includes('unmapped_worker.ts')), 'Warning for unmapped_worker.ts should be cleared');
+  console.log('✓ Unmapped dirty code file warning cleared once bound to concept sources[].');
 
   console.log('\n======================================');
   console.log('🎉 ALL LIFE CYCLE TEST CASES PASSED SUCCESSFULLY!');

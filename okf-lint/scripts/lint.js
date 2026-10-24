@@ -89,7 +89,7 @@ function parseFrontmatter(content) {
         fm[currentKey].push(parseInlineValue(rest));
       } else {
         const colonIdx = rest.indexOf(':');
-        if (colonIdx !== -1) {
+        if (colonIdx !== -1 && !/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(rest)) {
           const k = rest.slice(0, colonIdx).trim();
           const v = parseInlineValue(rest.slice(colonIdx + 1).trim());
           const obj = {};
@@ -149,18 +149,43 @@ function extractLinks(content) {
   return links;
 }
 
-function getGitLastModifiedISO(filePath) {
+function getGitLastModifiedISO(filePath, cwd) {
+  const cleanPath = filePath.replace(/\\/g, '/');
+  const execCwd = cwd || path.dirname(filePath);
+  let gitIso = null;
   try {
-    const cleanPath = filePath.replace(/\\/g, '/');
-    const stdout = execFileSync('git', ['log', '-1', '--format=%aI', '--', cleanPath], { stdio: ['pipe', 'pipe', 'ignore'] });
-    return stdout.toString().trim();
+    const stdout = execFileSync('git', ['log', '-1', '--format=%aI', '--', cleanPath], {
+      cwd: execCwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+    if (stdout) gitIso = stdout;
   } catch (e) {
-    return null;
+    // Ignore git log errors
   }
+
+  try {
+    const statusOut = execFileSync('git', ['status', '--porcelain', '--', cleanPath], {
+      cwd: execCwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+
+    if (statusOut && fs.existsSync(filePath)) {
+      const mtimeIso = fs.statSync(filePath).mtime.toISOString();
+      if (!gitIso || new Date(mtimeIso) > new Date(gitIso)) {
+        return mtimeIso;
+      }
+    }
+  } catch (e) {
+    // Fallback if git status fails
+  }
+
+  return gitIso;
 }
 
 function resolveResourceLocalPath(resourceUri, workspaceRoot) {
-  if (!resourceUri) return null;
+  if (!resourceUri || /^https?:\/\//i.test(resourceUri)) return null;
   // Convert file:///D:/path/to/file to local D:/path/to/file
   let localPath = resourceUri.replace(/^file:\/\/\/?/, '');
   if (path.isAbsolute(localPath)) {
@@ -170,7 +195,18 @@ function resolveResourceLocalPath(resourceUri, workspaceRoot) {
   return path.normalize(path.join(workspaceRoot, localPath));
 }
 
-function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = false, results = { errors: [], warnings: [], filesChecked: 0 }) {
+const FRONTIER_EXTENSIONS = new Set([
+  '.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs',
+  '.py', '.go', '.rs', '.java', '.kt', '.swift',
+  '.c', '.cpp', '.h', '.hpp', '.cs', '.rb', '.php',
+  '.sql', '.graphql', '.gql', '.proto', '.sh', '.ps1',
+  '.vue', '.svelte'
+]);
+
+function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = false, results = { errors: [], warnings: [], filesChecked: 0, documentedResources: new Set() }) {
+  if (!results.documentedResources) {
+    results.documentedResources = new Set();
+  }
   if (!fs.existsSync(dir)) return results;
   const files = fs.readdirSync(dir);
   for (const file of files) {
@@ -276,27 +312,41 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
         }
       }
 
-      // 3. Concept Drift check
+      // 3. Concept Drift check & Documented Resource tracking
       const isDeprecated = fm.status === 'deprecated' || relativePath.startsWith('archive/');
       const lastModified = fm.timestamp || (fm.generated && fm.generated.at);
-      if (checkDrift && lastModified && !isDeprecated) {
-        const resourcesToCheck = [];
-        if (fm.resource) {
-          resourcesToCheck.push({ path: fm.resource, label: `Resource file '${path.basename(resolveResourceLocalPath(fm.resource, workspaceRoot) || fm.resource)}'` });
-        }
-        if (Array.isArray(fm.sources)) {
-          fm.sources.forEach((src, idx) => {
-            if (src && src.resource) {
-              const label = src.title ? `Source '${src.title}'` : `Source resource [${idx}]`;
-              resourcesToCheck.push({ path: src.resource, label });
-            }
-          });
-        }
+      const resourcesToCheck = [];
+      if (fm.resource && !/^https?:\/\//i.test(fm.resource)) {
+        resourcesToCheck.push({ path: fm.resource, label: `Resource file '${path.basename(resolveResourceLocalPath(fm.resource, workspaceRoot) || fm.resource)}'` });
+      }
+      if (Array.isArray(fm.sources)) {
+        fm.sources.forEach((src, idx) => {
+          const rawResource = typeof src === 'string' ? src : (src && src.resource);
+          if (rawResource && !/^https?:\/\//i.test(rawResource)) {
+            const label = (src && typeof src === 'object' && src.title) ? `Source '${src.title}'` : `Source resource [${idx}]`;
+            resourcesToCheck.push({ path: rawResource, label });
+          }
+        });
+      }
 
+      const allBoundPaths = resourcesToCheck.map(r => r.path);
+      if (fm.computation) allBoundPaths.push(fm.computation);
+      if (fm.executor && fm.executor.resource) allBoundPaths.push(fm.executor.resource);
+      if (fm.attester && fm.attester.resource) allBoundPaths.push(fm.attester.resource);
+
+      for (const rawBound of allBoundPaths) {
+        const resolvedBound = resolveResourceLocalPath(rawBound, workspaceRoot);
+        if (resolvedBound) {
+          results.documentedResources.add(path.relative(workspaceRoot, resolvedBound).replace(/\\/g, '/').toLowerCase());
+          results.documentedResources.add(path.resolve(resolvedBound).toLowerCase());
+        }
+      }
+
+      if (checkDrift && lastModified && !isDeprecated) {
         for (const res of resourcesToCheck) {
           const resolvedPath = resolveResourceLocalPath(res.path, workspaceRoot);
           if (resolvedPath && fs.existsSync(resolvedPath)) {
-            const gitTimeStr = getGitLastModifiedISO(resolvedPath);
+            const gitTimeStr = getGitLastModifiedISO(resolvedPath, workspaceRoot);
             if (gitTimeStr) {
               const gitTime = new Date(gitTimeStr);
               const conceptTime = new Date(lastModified);
@@ -342,10 +392,70 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
       }
     }
   }
+
+  // Root-level check for modified/added unmapped frontier code files when --drift is enabled
+  if (checkDrift && path.resolve(dir) === path.resolve(bundleRoot)) {
+    try {
+      const statusOut = execFileSync('git', ['status', '--porcelain', '-uall'], {
+        cwd: workspaceRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore']
+      });
+      const ignoredTopDirs = new Set(['.git', 'node_modules', '.agents', '.claude', 'agent', 'docs', 'tmp', 'temp', '.idea', '.vscode', '.superpowers']);
+      const bundleRelNorm = path.relative(workspaceRoot, bundleRoot).replace(/\\/g, '/').toLowerCase();
+
+      const lines = statusOut.split(/\r?\n/);
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const m = line.match(/^\s*([MADRCU?!]{1,2})\s+(.*)$/);
+        if (!m) continue;
+        const statusCode = m[1];
+        if (statusCode.includes('D') || statusCode.includes('!')) continue;
+
+        let rawPath = m[2].trim();
+        if (rawPath.includes(' -> ')) {
+          rawPath = rawPath.split(' -> ').pop().trim();
+        }
+        rawPath = rawPath.replace(/^"|"$/g, '');
+        const relDirtyPath = rawPath.replace(/\\/g, '/');
+        const relDirtyLower = relDirtyPath.toLowerCase();
+
+        const topSeg = relDirtyPath.split('/')[0];
+        if (ignoredTopDirs.has(topSeg)) continue;
+        if (bundleRelNorm && (relDirtyLower === bundleRelNorm || relDirtyLower.startsWith(bundleRelNorm + '/'))) continue;
+
+        const ext = path.extname(relDirtyPath).toLowerCase();
+        if (!FRONTIER_EXTENSIONS.has(ext)) continue;
+
+        const absDirty = path.resolve(workspaceRoot, relDirtyPath);
+        if (!fs.existsSync(absDirty) || !fs.statSync(absDirty).isFile()) continue;
+
+        const absDirtyLower = absDirty.toLowerCase();
+        let isBound = results.documentedResources.has(relDirtyLower) || results.documentedResources.has(absDirtyLower);
+        if (!isBound) {
+          for (const docEntry of results.documentedResources) {
+            if (relDirtyLower.startsWith(docEntry + '/') || absDirtyLower.startsWith(docEntry + path.sep)) {
+              isBound = true;
+              break;
+            }
+          }
+        }
+
+        if (!isBound) {
+          results.warnings.push(
+            `[Drift Warning] Modified workspace file '${relDirtyPath}' is not bound to any OKF concept's 'resource' or 'sources' frontmatter (currently in '## Not yet specified'). Update or create a concept to document this change.`
+          );
+        }
+      }
+    } catch (e) {
+      // Ignore git status errors in non-git workspaces
+    }
+  }
+
   return results;
 }
 
-const INSTALLED_VERSION = '1.6.0';
+const INSTALLED_VERSION = '1.7.0';
 
 function compareVersions(v1, v2) {
   const parts1 = v1.split('.').map(Number);
@@ -439,7 +549,10 @@ async function main() {
   const strictLinks = args.includes('--strict-links') || args.includes('--strict');
   
   const workspaceRoot = process.cwd();
-  let bundleRoot = path.join(workspaceRoot, 'docs', 'okf');
+  const bundleIdx = args.indexOf('--bundle');
+  let bundleRoot = (bundleIdx !== -1 && args[bundleIdx + 1])
+    ? path.resolve(workspaceRoot, args[bundleIdx + 1])
+    : path.join(workspaceRoot, 'docs', 'okf');
   if (!fs.existsSync(bundleRoot)) {
     bundleRoot = path.join(workspaceRoot, 'okf');
   }
@@ -466,7 +579,7 @@ async function main() {
 
   const results = scanAndLint(bundleRoot, bundleRoot, workspaceRoot, checkDrift, strictLinks);
 
-  const TARGET_STEERING_VERSION = '1.6.0';
+  const TARGET_STEERING_VERSION = '1.7.0';
   // Check steering notice files for outdated templates across all supported agents
   const steeringFilesToCheck = ['AGENTS.md', 'CLAUDE.md', '.cursorrules', '.windsurfrules', '.clinerules', 'GEMINI.md'];
   for (const sName of steeringFilesToCheck) {
@@ -511,7 +624,7 @@ async function main() {
       filesChecked: results.filesChecked,
       errors: results.errors,
       warnings: results.warnings,
-      driftCount: results.warnings.filter(w => w.includes('Concept drift detected')).length,
+      driftCount: results.warnings.filter(w => w.includes('Concept drift detected') || w.includes('[Drift Warning]')).length,
       staleCount: results.warnings.filter(w => w.includes('Concept is stale')).length
     };
     console.log(JSON.stringify(jsonOutput, null, 2));
