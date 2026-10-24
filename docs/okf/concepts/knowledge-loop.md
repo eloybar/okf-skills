@@ -5,8 +5,13 @@ description: The closed-loop process of bootstrapping, steering, maintaining, an
 resource: file:///D:/projects/okf-skills/README.md
 tags: [architecture, loop, feedback]
 generated:
-  by: Antigravity/3.8-Flash
-  at: 2026-10-21T17:34:56.287Z
+  by: Antigravity/4.0
+  at: 2026-10-24T04:27:42.043Z
+sources:
+  - scripts/test-lifecycle.js
+  - scripts/test-parser.js
+  - package.json
+  - .github/workflows/okf-test.yml
 ---
 
 # Overview

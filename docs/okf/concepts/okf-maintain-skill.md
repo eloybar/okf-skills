@@ -5,8 +5,10 @@ description: Automatically validates OKF concept bundles and ensures code change
 resource: file:///D:/projects/okf-skills/okf-maintain/SKILL.md
 tags: [maintenance, automation, sync]
 generated:
-  by: Antigravity/3.5-Flash
-  at: 2026-09-22T15:45:31.360Z
+  by: Antigravity/4.0
+  at: 2026-10-24T04:27:42.043Z
+sources:
+  - okf-maintain/scripts/maintain.js
 ---
 
 # Overview
@@ -15,8 +17,8 @@ The `okf-maintain` skill runs post-edit to verify that codebase modifications ma
 # Architecture & CLI Automation
 - **Script**: Located at [`okf-maintain/scripts/maintain.js`](/okf-maintain/scripts/maintain.js).
 - **Execution Modes**:
-  - `node okf-maintain/scripts/maintain.js` (or `npm run okf:maintain`): Automatically detects concept-resource drift via Git timestamps and refreshes `generated.at`, auto-heals outdated agent steering notices (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `GEMINI.md`) to the current version template without user prompting, scans for unindexed frontier files and updates `## Not yet specified` in `index.md`, appends entries to `log.md`, regenerates `viz.html`, and verifies with `okf-lint`.
-  - `node okf-maintain/scripts/maintain.js --check`: Non-destructive audit mode that exits with code 1 if drift, unindexed frontier files, or outdated steering notices are found.
+  - `node okf-maintain/scripts/maintain.js` (or `npm run okf:maintain`): Automatically detects concept-resource drift via both committed Git history (`git log -1`) and uncommitted working-tree/staged changes (`git status --porcelain` + filesystem `mtime`), normalizes both string and object entries in `sources:`, refreshes `generated.at`, auto-heals outdated agent steering notices (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `GEMINI.md`) to the v1.7.0 template without user prompting, scans for unindexed frontier files and graduates bound files out of `## Not yet specified` in `index.md`, appends entries to `log.md`, regenerates `viz.html` (`--no-open` via sibling skill resolution), and verifies with `okf-lint --drift`.
+  - `node okf-maintain/scripts/maintain.js --check`: Non-destructive audit mode that exits with code 1 if committed or working-tree drift, unindexed frontier files, or outdated steering notices are found.
   - `node okf-maintain/scripts/maintain.js --json`: Outputs structured JSON for CI and subagent tooling.
 
 # Workflow

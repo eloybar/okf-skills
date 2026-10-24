@@ -5,8 +5,10 @@ description: Automated scripts to install, update, and remove agent skills acros
 resource: file:///D:/projects/okf-skills/install.ps1
 tags: [installation, deployment, powershell, bash]
 generated:
-  by: human:blub0x
-  at: 2026-09-22T17:45:38.071Z
+  by: Antigravity/4.0
+  at: 2026-10-24T04:22:00.000Z
+sources:
+  - install.sh
 ---
 
 # Overview
