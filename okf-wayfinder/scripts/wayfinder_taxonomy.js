@@ -89,7 +89,7 @@ function parseFrontmatter(content) {
         fm[currentKey].push(parseInlineValue(rest));
       } else {
         const colonIdx = rest.indexOf(':');
-        if (colonIdx !== -1) {
+        if (colonIdx !== -1 && !/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(rest)) {
           const k = rest.slice(0, colonIdx).trim();
           const v = parseInlineValue(rest.slice(colonIdx + 1).trim());
           const obj = {};
@@ -173,8 +173,9 @@ function scanBundleTaxonomy(dir, bundleRoot, workspaceRoot, taxonomy = { types: 
           }
           if (Array.isArray(fm.sources)) {
             fm.sources.forEach(src => {
-              if (src.resource) {
-                resources.push(src.resource);
+              const rawResource = typeof src === 'string' ? src : (src && src.resource);
+              if (rawResource && !/^https?:\/\//i.test(rawResource)) {
+                resources.push(rawResource);
               }
             });
           }

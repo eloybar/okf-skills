@@ -10,8 +10,9 @@ Before inspecting code, planning architecture, answering system questions, or mo
 
 ## ⚡ Pre-Completion Verification Gate (MANDATORY)
 Before claiming any user request is complete or ending your turn after modifying workspace code:
-1. **Maintenance Sync:** Run `node okf-maintain/scripts/maintain.js` (or `npm run okf:maintain`) to auto-sync concept timestamps, unindexed frontier files in `index.md`, changelog entries in `log.md`, and rebuild `viz.html`.
-2. **Lint & Drift Gate:** Run `node okf-lint/scripts/lint.js --drift` (or `npm run okf:lint:drift`) to guarantee 0 errors and 0 warnings.
+1. **Semantic Concept & Source Binding Upkeep:** Update the prose of any affected OKF concept files (or create a new concept) to reflect architectural, behavioral, or operational changes; bind all newly created or modified source files in the concept's `resource:` or `sources:` frontmatter so they graduate out of `## Not yet specified` in `index.md`; and record a descriptive summary in `log.md`.
+2. **Maintenance Sync:** Run `node okf-maintain/scripts/maintain.js` (or `npm run okf:maintain`) to auto-sync concept timestamps, unindexed frontier files in `index.md`, changelog entries in `log.md`, and rebuild `viz.html`.
+3. **Lint & Drift Gate:** Run `node okf-lint/scripts/lint.js --drift` (or `npm run okf:lint:drift`) to guarantee 0 errors, 0 warnings, and no unmapped modified files.
 
 ## 📂 Knowledge Bundle / OKF
 An OKF knowledge bundle is located in the `/docs/okf` directory. This bundle describes the core concepts, skills, and architecture of the OKF system implemented here.
@@ -38,5 +39,5 @@ On startup, before making any modifications to the codebase:
 - Run the `okf-lint` skill to guarantee that all markdown links are intact and all concept structures conform before completing the task.
 - **Interactive Simulator Sync:** If you modify `AGENTS.md`, the `okf` skill (`okf/SKILL.md`), or any other skill definition or implementation script in the repository, you **MUST** also update and synchronize the corresponding copy or snippet inside [index.html](file:///D:/projects/okf-skills/index.html) to prevent documentation drift in the interactive playbook and simulator.
 
-<!-- okf-steering-version: 1.6.0 -->
+<!-- okf-steering-version: 1.7.0 -->
 
