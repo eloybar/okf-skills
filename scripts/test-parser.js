@@ -162,7 +162,22 @@ title: Comments Inside
   assert.strictEqual(test12.type, 'Concept');
   assert.strictEqual(test12.title, 'Comments Inside');
 
-  console.log(`✓ All 12 test cases passed for [${parserName}].`);
+  // Test 13: Multiline list of shorthand strings in sources (including unquoted file:// and https:// URIs)
+  const test13 = parseFm(`---
+type: Concept
+sources:
+  - local-hub/src/sync/cloud-sync.ts
+  - file:///D:/projects/okf-skills/src/index.js
+  - https://example.com/spec.md
+---
+`);
+  assert.ok(Array.isArray(test13.sources));
+  assert.strictEqual(test13.sources.length, 3);
+  assert.strictEqual(test13.sources[0], 'local-hub/src/sync/cloud-sync.ts');
+  assert.strictEqual(test13.sources[1], 'file:///D:/projects/okf-skills/src/index.js');
+  assert.strictEqual(test13.sources[2], 'https://example.com/spec.md');
+
+  console.log(`✓ All 13 test cases passed for [${parserName}].`);
 }
 
 console.log('\n======================================');
