@@ -4,6 +4,11 @@ Newest changes recorded chronologically.
 
 
 
+## 2026-10-29
+- Synchronized timestamp for 6 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-skill.md, concepts/okf-wayfinder-skill.md.
+- Bumped `TARGET_STEERING_VERSION`, `INSTALLED_VERSION`, and `package.json` to `1.8.0`, adding **Model-Tier Routing** (Step 4 in `## ⚡ Pre-Work Grounding Gate` and Medium-tier upkeep guidance in `## ⚡ Pre-Completion Verification Gate`) across `okf/SKILL.md`, `okf-wayfinder/SKILL.md`, `okf-maintain/SKILL.md`, `okf-maintain/scripts/maintain.js`, `okf-lint/scripts/lint.js`, `AGENTS.md`, and `index.html`.
+- Updated `scripts/test-lifecycle.js` to verify `v1.8.0` steering auto-healing and `Model-Tier Routing` injection across agent steering files.
+
 ## 2026-10-24
 - Synchronized timestamp for 10 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-prune-skill.md, concepts/okf-query-skill.md, concepts/okf-skill.md, concepts/okf-upgrade-skill.md, concepts/okf-visualize-skill.md, concepts/okf-wayfinder-skill.md.
 - Synchronized timestamp for 1 drifted concept(s): concepts/interactive-simulator.md.
