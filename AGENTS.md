@@ -7,9 +7,10 @@ Before inspecting code, planning architecture, answering system questions, or mo
 1. **Initial Search & Discovery:** Query the OKF bundle using `node okf-query/scripts/query.js --search <keywords>` (or `npm run okf:query -- --search <keywords>`) or inspect `/docs/okf/index.md` to ground domain understanding.
 2. **Target File Retrieval:** Before modifying or analyzing any specific file, run `node okf-query/scripts/query.js --file <file-path>` (or `npm run okf:query -- --file <file-path>`) to inject relevant design contracts, constraints, and dependencies. If no direct concept is found, fall back to searching keywords for the enclosing directory/module.
 3. **Grounding Citation:** You MUST explicitly cite the consulted OKF concept(s) (or state *"OKF Check: no matching concept found for <topic>"*) in your plan, explanation, or response before modifying code.
+4. **Model-Tier Routing:** Use the **High** reasoning setting of the active model during initial bundle bootstrapping (`okf`, `okf-wayfinder`), domain/architecture discovery, and implementation planning. Once the implementation plan is laid out and approved, switch back to the **Medium** setting of the same model before executing implementation tasks.
 
 ## ⚡ Pre-Completion Verification Gate (MANDATORY)
-Before claiming any user request is complete or ending your turn after modifying workspace code:
+Before claiming any user request is complete or ending your turn after modifying workspace code (keeping the active model on its **Medium** setting for post-implementation upkeep):
 1. **Semantic Concept & Source Binding Upkeep:** Update the prose of any affected OKF concept files (or create a new concept) to reflect architectural, behavioral, or operational changes; bind all newly created or modified source files in the concept's `resource:` or `sources:` frontmatter so they graduate out of `## Not yet specified` in `index.md`; and record a descriptive summary in `log.md`.
 2. **Maintenance Sync:** Run `node okf-maintain/scripts/maintain.js` (or `npm run okf:maintain`) to auto-sync concept timestamps, unindexed frontier files in `index.md`, changelog entries in `log.md`, and rebuild `viz.html`.
 3. **Lint & Drift Gate:** Run `node okf-lint/scripts/lint.js --drift` (or `npm run okf:lint:drift`) to guarantee 0 errors, 0 warnings, and no unmapped modified files.
@@ -39,5 +40,5 @@ On startup, before making any modifications to the codebase:
 - Run the `okf-lint` skill to guarantee that all markdown links are intact and all concept structures conform before completing the task.
 - **Interactive Simulator Sync:** If you modify `AGENTS.md`, the `okf` skill (`okf/SKILL.md`), or any other skill definition or implementation script in the repository, you **MUST** also update and synchronize the corresponding copy or snippet inside [index.html](file:///D:/projects/okf-skills/index.html) to prevent documentation drift in the interactive playbook and simulator.
 
-<!-- okf-steering-version: 1.7.0 -->
+<!-- okf-steering-version: 1.8.0 -->
 
