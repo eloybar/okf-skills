@@ -6,7 +6,7 @@ resource: file:///D:/projects/okf-skills/okf/SKILL.md
 tags: [core, okf, documentation]
 generated:
   by: Antigravity/4.0
-  at: 2026-10-24T04:27:42.043Z
+  at: 2026-10-29T13:38:35.471Z
 sources:
   - AGENTS.md
 ---
@@ -19,4 +19,4 @@ The `okf` skill defines the Open Knowledge Format (OKF) rules for writing self-d
 - **Bundle Directory**: In this repository, it is located at `/docs/okf`.
 - **Cross-linking**: Uses bundle-relative absolute paths to form an untyped concept dependency graph.
 - **Directory Organization**: Outlines how to transition from a flat layout to a nested directory structure as the concept count scales (>= 10 concepts).
-- **Steering Notice (v1.7.0)**: Sets up agent steering files (e.g. `AGENTS.md`, `CLAUDE.md`, `.cursorrules`) with mandatory Pre-Work Grounding Gates and 3-step Pre-Completion Verification Gates (Step 1: Semantic Concept & Source Binding Upkeep, Step 2: Maintenance Sync, Step 3: Lint & Drift Gate).
+- **Steering Notice (v1.8.0)**: Sets up agent steering files (e.g. `AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `GEMINI.md`) with mandatory Pre-Work Grounding Gates (including Step 4: Model-Tier Routing, directing agents to use the **High** reasoning setting during bundle bootstrapping, domain discovery, and planning, then switch back to **Medium** for implementation) and 3-step Pre-Completion Verification Gates on the **Medium** setting (Step 1: Semantic Concept & Source Binding Upkeep, Step 2: Maintenance Sync, Step 3: Lint & Drift Gate).

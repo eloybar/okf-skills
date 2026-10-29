@@ -107,7 +107,7 @@ Authentication uses JWT tokens...
   const mockCursorFile = path.join(tempDir, '.cursorrules');
   const mockWindsurfFile = path.join(tempDir, '.windsurfrules');
 
-  fs.writeFileSync(mockClaudeFile, '# Claude Project\n\n## Knowledge Bundle / OKF\nOld steering notice.\n\n<!-- okf-steering-version: 1.4.0 -->\n');
+  fs.writeFileSync(mockClaudeFile, '# Claude Project\n\n## Knowledge Bundle / OKF\nOld steering notice.\n\n<!-- okf-steering-version: 1.7.0 -->\n');
   fs.writeFileSync(mockCursorFile, '# Cursor Rules\n\n## Knowledge Bundle / OKF\nOld cursor steering notice.\n\n<!-- okf-steering-version: 1.3.0 -->\n');
   fs.writeFileSync(mockWindsurfFile, '# Windsurf Rules\nNon-OKF rules content here.\n');
 
@@ -133,14 +133,16 @@ Authentication uses JWT tokens...
   // maintain --sync should auto-heal both files
   execSync(`node "${scripts.maintain}"`, { cwd: tempDir, stdio: 'ignore' });
   const patchedClaudeContent = fs.readFileSync(mockClaudeFile, 'utf8');
-  assert.ok(patchedClaudeContent.includes('<!-- okf-steering-version: 1.7.0 -->'), 'maintain.js should bump CLAUDE.md steering tag to 1.7.0');
+  assert.ok(patchedClaudeContent.includes('<!-- okf-steering-version: 1.8.0 -->'), 'maintain.js should bump CLAUDE.md steering tag to 1.8.0');
   assert.ok(patchedClaudeContent.includes('Semantic Concept & Source Binding Upkeep'), 'maintain.js should inject Step 1 Semantic Concept & Source Binding Upkeep in CLAUDE.md');
+  assert.ok(patchedClaudeContent.includes('Model-Tier Routing'), 'maintain.js should inject Model-Tier Routing in CLAUDE.md');
   assert.ok(patchedClaudeContent.includes('Pre-Work Grounding Gate'), 'maintain.js should inject Pre-Work Gate in CLAUDE.md');
   assert.ok(patchedClaudeContent.includes('Pre-Completion Verification Gate'), 'maintain.js should inject Pre-Completion Gate in CLAUDE.md');
 
   const patchedCursorContent = fs.readFileSync(mockCursorFile, 'utf8');
-  assert.ok(patchedCursorContent.includes('<!-- okf-steering-version: 1.7.0 -->'), 'maintain.js should bump .cursorrules steering tag to 1.7.0');
+  assert.ok(patchedCursorContent.includes('<!-- okf-steering-version: 1.8.0 -->'), 'maintain.js should bump .cursorrules steering tag to 1.8.0');
   assert.ok(patchedCursorContent.includes('Semantic Concept & Source Binding Upkeep'), 'maintain.js should inject Step 1 Semantic Concept & Source Binding Upkeep in .cursorrules');
+  assert.ok(patchedCursorContent.includes('Model-Tier Routing'), 'maintain.js should inject Model-Tier Routing in .cursorrules');
   assert.ok(patchedCursorContent.includes('Pre-Work Grounding Gate'), 'maintain.js should inject Pre-Work Gate in .cursorrules');
   assert.ok(patchedCursorContent.includes('Pre-Completion Verification Gate'), 'maintain.js should inject Pre-Completion Gate in .cursorrules');
 

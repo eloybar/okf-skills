@@ -1,12 +1,14 @@
 ---
 name: okf-wayfinder
 description: Guide users in establishing and documenting new concepts in their OKF bundle through interactive, context-aware interviews.
-version: 1.3.0
+version: 1.8.0
 ---
 
 # `okf-wayfinder` Workflow
 
 Guide the developer through creating a brand new, fully conforming OKF concept file using a mix of codebase telemetry and brief interactive questions.
+
+> **Model-Tier Steering:** Use the **High** reasoning setting of the active model during initial bundle bootstrapping and interactive concept discovery interviews. Once the architecture and implementation plan are laid out, switch back to the **Medium** setting of the same model for implementation and routine upkeep.
 
 ## Steps
 
