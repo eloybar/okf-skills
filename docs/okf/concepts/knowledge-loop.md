@@ -6,7 +6,7 @@ resource: file:///D:/projects/okf-skills/README.md
 tags: [architecture, loop, feedback]
 generated:
   by: Antigravity/4.0
-  at: 2026-10-29T13:38:35.471Z
+  at: 2026-10-29T13:41:01.624Z
 sources:
   - scripts/test-lifecycle.js
   - scripts/test-parser.js
