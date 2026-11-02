@@ -1,7 +1,7 @@
 ---
 name: okf-wayfinder
 description: Guide users in establishing and documenting new concepts in their OKF bundle through interactive, context-aware interviews.
-version: 1.8.1
+version: 1.8.2
 ---
 
 # `okf-wayfinder` Workflow
@@ -59,7 +59,7 @@ Guide the developer through creating a brand new, fully conforming OKF v0.2 conc
      - If `type: Attested Computation`, include `runtime` (required), `parameters`, `computation` (or an inline `# Computation` section), `executor`, and `attester`.
      - If time-sensitive (e.g., `Playbook`, `Decision`, SLA contract), set `stale_after` to an ISO 8601 UTC expiration timestamp.
    - Add the concept to `index.md` and record a summary in `log.md` under a `## YYYY-MM-DD` date heading.
-   - **Automated Post-Authoring Verification:** Run `okf-maintain` and `okf-lint --drift` to graduate bound files out of `## Not yet specified` in `index.md`, rebuild `viz.html`, and verify 0 errors and 0 warnings:
+   - **Automated Post-Authoring Verification:** Run `okf-maintain` and `okf-lint --drift` to graduate bound files out of `## Not yet specified` in `index.md` and verify 0 errors and 0 warnings:
      ```bash
      node okf-maintain/scripts/maintain.js
      node okf-lint/scripts/lint.js --drift

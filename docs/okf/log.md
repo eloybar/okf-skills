@@ -5,6 +5,9 @@ Newest changes recorded chronologically.
 
 
 ## 2026-11-02
+- Synchronized steering notice in `AGENTS.md` to v1.8.2.
+- Synchronized timestamp for 10 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-prune-skill.md, concepts/okf-query-skill.md, concepts/okf-skill.md, concepts/okf-upgrade-skill.md, concepts/okf-visualize-skill.md, concepts/okf-wayfinder-skill.md.
+- Made `viz.html` generation strictly on-demand (`okf-visualize` or explicit `--viz` flag) in `okf-maintain/scripts/maintain.js` and `okf-prune/scripts/prune.js`, removed `and viz.html` from the steering template, and bumped suite/steering version to `1.8.2`.
 - Synchronized timestamp for 10 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-prune-skill.md, concepts/okf-query-skill.md, concepts/okf-skill.md, concepts/okf-upgrade-skill.md, concepts/okf-visualize-skill.md, concepts/okf-wayfinder-skill.md.
 - Synchronized timestamp for 2 drifted concept(s): concepts/okf-maintain-skill.md, concepts/okf-skill.md.
 - Synchronized timestamp for 10 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-prune-skill.md, concepts/okf-query-skill.md, concepts/okf-skill.md, concepts/okf-upgrade-skill.md, concepts/okf-visualize-skill.md, concepts/okf-wayfinder-skill.md.

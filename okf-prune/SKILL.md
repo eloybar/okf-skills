@@ -1,7 +1,7 @@
 ---
 name: okf-prune
 description: Use when an OKF bundle contains stale, expired, deprecated, orphaned, or dangling concepts that need pruning, archiving, or cleanup.
-version: 1.8.1
+version: 1.8.2
 ---
 
 # `okf-prune` Workflow
@@ -16,7 +16,7 @@ Over the lifecycle of a codebase, concepts change:
 - Underlying source code or computation files are deleted, leaving ghost concepts with missing local `resource`, `sources`, `computation`, `executor.resource`, or `attester.resource` files (§6.2, §10.2).
 - Concepts become disconnected and orphaned with 0 inbound links (across `index.md`, body cross-links, and `sources` concept lineage links).
 
-`okf-prune` systematically audits the bundle, identifies candidates for removal or archiving, moves them safely to `archive/` (or permanently deletes them), updates `index.md`, logs the changes in `log.md`, and refreshes `viz.html`.
+`okf-prune` systematically audits the bundle, identifies candidates for removal or archiving, moves them safely to `archive/` (or permanently deletes them), updates `index.md`, and logs the changes in `log.md` (pass `--viz` to also refresh `viz.html`).
 
 ## Usage
 
@@ -28,7 +28,7 @@ node okf-prune/scripts/prune.js --dry-run
 npm run okf:prune:check
 
 # 2. Archive Mode (Default Safe Action)
-# Moves matching concepts to archive/, marks status: deprecated, updates index.md, log.md, and viz.html.
+# Moves matching concepts to archive/, marks status: deprecated, and updates index.md and log.md.
 node okf-prune/scripts/prune.js
 npm run okf:prune
 
@@ -52,7 +52,7 @@ node okf-prune/scripts/prune.js --check --json
 | Command / Flag | Action | Modifies Files? | Exit Code |
 |---|---|---|---|
 | `--check` / `--dry-run` | Audits bundle for prunable concepts | No | 0 if clean, 1 if candidates found |
-| `--archive` (default) | Moves concepts to `archive/`, sets `status: deprecated`, updates `index.md`, `log.md`, `viz.html` | Yes | 0 |
+| `--archive` (default) | Moves concepts to `archive/`, sets `status: deprecated`, updates `index.md` and `log.md` | Yes | 0 |
 | `--delete` | Permanently deletes files, cleans `index.md` & `log.md` | Yes | 0 |
 | `--stale` | Targets only concepts where `now >= stale_after` | Condition-dependent | 0 / 1 |
 | `--deprecated` | Targets only concepts with `status: deprecated` | Condition-dependent | 0 / 1 |

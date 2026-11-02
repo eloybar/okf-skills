@@ -7,7 +7,7 @@ tags: [wizard, onboarding, creation, documentation]
 status: stable
 generated:
   by: Antigravity/4.0
-  at: 2026-11-02T11:15:33.095Z
+  at: 2026-11-02T17:38:10.583Z
 verified:
   - by: human:luciano-barrios
     at: 2026-11-01T23:59:00Z
@@ -23,5 +23,5 @@ The `okf-wayfinder` skill serves as an interactive knowledge cartographer for th
 - **Clustered Frontier Proposals (`frontierGroups`)**: Groups undocumented workspace files by directory/module with a suggested `type`, primary `resource` candidate (`primaryCandidate`), and companion `sources` (`companionFiles`) so an entire module graduates out of `## Not yet specified` in `index.md` in a single interview.
 - **Automated File Telemetry (`--inspect <file>`)**: Extracts exported symbols, local relative imports/requires, auto-resolved `relatedConcepts` cross-links, `git log -1` timestamps (`lastModified`), and primary Git contributors (`suggestedVerifierActor`) to pre-fill draft concepts.
 - **Type-Aware Focus Interview**: Limits user fatigue to at most three targeted questions tailored to the concept type (`Concept`, `Skill`, `Utility`, `Playbook`, `Decision`, or `Attested Computation`), utilizing native structured question tools (`ask_question` / `AskUserQuestion`) when available.
-- **Human-Reviewed Trust Attestation & Post-Authoring Sync**: Records developer approval in `verified: [{ by: human:<id>, at: <ISO-8601> }]` to immediately establish the `human-reviewed` trust tier, and finishes by invoking [OKF Maintain Skill](/concepts/okf-maintain-skill.md) and [OKF Lint Skill](/concepts/okf-lint-skill.md) (`--drift`) to update `index.md`, `log.md`, and `viz.html`.
+- **Human-Reviewed Trust Attestation & Post-Authoring Sync**: Records developer approval in `verified: [{ by: human:<id>, at: <ISO-8601> }]` to immediately establish the `human-reviewed` trust tier, and finishes by invoking [OKF Maintain Skill](/concepts/okf-maintain-skill.md) and [OKF Lint Skill](/concepts/okf-lint-skill.md) (`--drift`) to update `index.md` and `log.md`.
 - **Model-Tier Steering**: Recommends running on the **High** reasoning setting of the active model during initial bundle bootstrapping and interactive concept discovery interviews, then switching back to **Medium** for implementation and routine upkeep.

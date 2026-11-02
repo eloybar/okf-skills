@@ -599,11 +599,11 @@ async function main() {
     appendLogEntry(logPath, logEntries, dateStr);
   }
 
-  // Regenerate visualizer if present (check sibling skill dir first, then workspaceRoot)
+  // Regenerate visualizer only when explicitly requested via --viz
   const siblingVizScript = path.resolve(__dirname, '..', '..', 'okf-visualize', 'scripts', 'visualize.js');
   const workspaceVizScript = path.join(workspaceRoot, 'okf-visualize', 'scripts', 'visualize.js');
   const vizScript = fs.existsSync(siblingVizScript) ? siblingVizScript : workspaceVizScript;
-  if (fs.existsSync(vizScript)) {
+  if (withViz && fs.existsSync(vizScript)) {
     try {
       execFileSync(process.execPath, [vizScript, '--bundle', bundleRoot, '--no-open'], {
         cwd: workspaceRoot,
