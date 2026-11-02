@@ -5,6 +5,7 @@ Newest changes recorded chronologically.
 
 
 ## 2026-11-02
+- Synchronized timestamp for 9 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-prune-skill.md, concepts/okf-query-skill.md, concepts/okf-upgrade-skill.md, concepts/okf-visualize-skill.md, concepts/okf-wayfinder-skill.md.
 - Synchronized timestamp for 3 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-maintain-skill.md.
 - Added canonical shared OKF core module (`scripts/lib/okf-core.js`) and automated skill & `index.html` synchronizer (`scripts/sync-skills.js`, `npm run okf:sync`, `npm run okf:sync:check`), integrated directly into `okf-maintain/scripts/maintain.js` and `scripts/test-parser.js`.
 - Synchronized timestamp for 2 drifted concept(s): concepts/knowledge-loop.md, concepts/okf-lint-skill.md.
