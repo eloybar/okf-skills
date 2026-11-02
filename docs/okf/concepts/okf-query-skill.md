@@ -6,7 +6,7 @@ resource: okf-query/SKILL.md
 tags: [retrieval, search, RAG, prompt-injection]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-02T00:26:24.197Z
+  at: 2026-11-02T00:40:12.219Z
 sources:
   - okf-query/scripts/query.js
 ---
