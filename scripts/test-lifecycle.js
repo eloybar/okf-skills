@@ -650,6 +650,118 @@ Handles cloud synchronization.
   assert.ok(!finalLintJson.warnings.some(w => w.includes('unmapped_worker.ts')), 'Warning for unmapped_worker.ts should be cleared');
   console.log('✓ Unmapped dirty code file warning cleared once bound to concept sources[].');
 
+  // === STEP 14: TEST OKF WAYFINDER v0.2 TELEMETRY, ATTESTED RESOURCE EXCLUSION & CLUSTERING ===
+  console.log('Step 14: Testing okf-wayfinder v0.2 resource tracking, frontier clustering, and --inspect telemetry...');
+
+  // 14a. Add an active Attested Computation concept and a multi-file undocumented module
+  const activeAttestedFile = path.join(bundleRoot, 'concepts', 'active_attested.md');
+  fs.writeFileSync(activeAttestedFile, `---
+type: Attested Computation
+title: Active Revenue Calculation
+runtime: bigquery
+computation: file:///src/attested_comp.sql
+executor:
+  resource: file:///src/run-executor.js
+  receipt: [job_id]
+attester:
+  resource: file:///src/run-attester.js
+---
+Active attested computation.
+`);
+
+  const paymentsDir = path.join(tempDir, 'payments');
+  fs.mkdirSync(paymentsDir, { recursive: true });
+  fs.writeFileSync(path.join(paymentsDir, 'index.js'), "const sync = require('../src/shorthand_sync.ts');\nfunction chargeCard() { return true; }\nmodule.exports = { chargeCard };\n");
+  fs.writeFileSync(path.join(paymentsDir, 'helper.js'), 'export function formatCents(c) { return c / 100; }\n');
+
+  const wfOut = JSON.parse(execSync(`node "${scripts.taxonomy}" --bundle "${bundleRoot}"`, { cwd: tempDir }).toString());
+  assert.equal(wfOut.layoutMode, 'nested', 'wayfinder should detect nested layout mode');
+  assert.ok(wfOut.subdirectories.includes('/concepts'), 'wayfinder should list /concepts subdirectory');
+  assert.ok(Array.isArray(wfOut.concepts) && wfOut.concepts.some(c => c.title === 'Cloud Sync Service'), 'wayfinder should list active concepts');
+  assert.ok(!wfOut.concepts.some(c => c.title === 'Stale Concept'), 'wayfinder should ignore archived concepts in archive/');
+  assert.ok(!wfOut.frontier.some(f => f.path === 'src/attested_comp.sql'), 'wayfinder should exclude Attested Computation computation file from frontier');
+  assert.ok(!wfOut.frontier.some(f => f.path === 'src/run-executor.js'), 'wayfinder should exclude Attested Computation executor.resource from frontier');
+  assert.ok(!wfOut.frontier.some(f => f.path === 'src/run-attester.js'), 'wayfinder should exclude Attested Computation attester.resource from frontier');
+
+  const paymentsGroup = wfOut.frontierGroups.find(g => g.directory === 'payments');
+  assert.ok(paymentsGroup, 'wayfinder should cluster payments/ files into frontierGroups');
+  assert.equal(paymentsGroup.primaryCandidate, 'payments/index.js', 'wayfinder should rank index.js as primaryCandidate');
+  assert.ok(paymentsGroup.companionFiles.includes('payments/helper.js'), 'wayfinder should include helper.js in companionFiles');
+  console.log('✓ wayfinder_taxonomy.js tracked Attested Computation resources, skipped archive/, and clustered frontierGroups.');
+
+  // 14b. Test --inspect telemetry on payments/index.js
+  const inspectOut = JSON.parse(execSync(`node "${scripts.taxonomy}" --bundle "${bundleRoot}" --inspect "payments/index.js"`, { cwd: tempDir }).toString());
+  assert.equal(inspectOut.success, true, '--inspect should return success: true');
+  assert.ok(inspectOut.exportedSymbols.includes('chargeCard'), '--inspect should extract exported symbol chargeCard');
+  assert.ok(inspectOut.localImports.includes('src/shorthand_sync.ts'), '--inspect should resolve local relative import src/shorthand_sync.ts');
+  assert.ok(inspectOut.relatedConcepts.some(c => c.markdownLink === '[Cloud Sync Service](/concepts/shorthand_concept.md)'), '--inspect should resolve imported file to existing OKF concept link');
+  console.log('✓ wayfinder_taxonomy.js --inspect extracted exported symbols, local imports, and related OKF concept links.');
+
+  // === STEP 15: TEST FULL-SUITE OKF v0.2 ALIGNMENT (QUERY, UPGRADE, PRUNE, LINT) ===
+  console.log('Step 15: Testing full-suite OKF v0.2 alignment across okf-query, okf-upgrade, okf-prune, and okf-lint...');
+
+  // 15a. okf-query --file on Attested Computation computation & attester.resource, and --search on runtime
+  const queryCompOut = execSync(`node "${scripts.query}" --file src/attested_comp.sql`, { cwd: tempDir }).toString();
+  assert.ok(queryCompOut.includes('Active Revenue Calculation'), 'okf-query --file should match Attested Computation computation URI');
+  assert.ok(/Runtime:\s+bigquery/.test(queryCompOut), 'okf-query output should include Runtime metadata');
+  const queryAttesterOut = execSync(`node "${scripts.query}" --file src/run-attester.js`, { cwd: tempDir }).toString();
+  assert.ok(queryAttesterOut.includes('Active Revenue Calculation'), 'okf-query --file should match Attested Computation attester.resource URI');
+  const queryRuntimeOut = execSync(`node "${scripts.query}" --search bigquery`, { cwd: tempDir }).toString();
+  assert.ok(queryRuntimeOut.includes('Active Revenue Calculation'), 'okf-query --search should index runtime field');
+  console.log('✓ okf-query matched Attested Computation computation, attester.resource, and runtime.');
+
+  // 15b. okf-upgrade preserves shorthand string sources & id-less object sources and normalizes sources[].author
+  const mixedSourcesFile = path.join(bundleRoot, 'concepts', 'mixed_sources.md');
+  fs.writeFileSync(mixedSourcesFile, `---
+type: Reference
+title: Mixed Sources Reference
+resource: bigquery://analytics-prod.core.events
+timestamp: 2026-09-01T00:00:00Z
+sources:
+  - src/shorthand_sync.ts
+  - id: doc-1
+    resource: https://example.com/architecture
+    title: Architecture Doc
+    author: agent:Claude/3.5
+    usage_count: 42
+---
+This reference cites the architecture doc[^doc-1] and links to [Cloud Sync Service](/concepts/shorthand_concept.md).
+`);
+  // Link mixed_sources.md from shorthand_concept.md so it is not an orphan
+  fs.appendFileSync(shorthandConceptFile, '\nSee also [Mixed Sources Reference](/concepts/mixed_sources.md).\n');
+  execSync(`node "${scripts.upgrade}"`, { cwd: tempDir, stdio: 'ignore' });
+  const upgradedMixed = fs.readFileSync(mixedSourcesFile, 'utf8');
+  assert.ok(upgradedMixed.includes('- src/shorthand_sync.ts'), 'okf-upgrade must preserve shorthand string sources');
+  assert.ok(!upgradedMixed.includes('undefined'), 'okf-upgrade must never emit undefined in sources serialization');
+  assert.ok(upgradedMixed.includes('author: Claude/3.5'), 'okf-upgrade must strip agent: prefix from sources[].author');
+  assert.ok(upgradedMixed.includes('usage_count: 42'), 'okf-upgrade must preserve sources[].usage_count');
+  console.log('✓ okf-upgrade preserved shorthand and structured sources and normalized sources[].author.');
+
+  // 15c. okf-prune --check --ghosts ignores non-file:// URIs (e.g. bigquery://)
+  const pruneGhostsJson = JSON.parse(execSync(`node "${scripts.prune}" --check --ghosts --json`, { cwd: tempDir }).toString());
+  assert.ok(!pruneGhostsJson.candidates.some(c => c.relId.includes('mixed_sources')), 'okf-prune --ghosts must not flag bigquery:// URIs as missing local files');
+  console.log('✓ okf-prune --ghosts ignored non-file:// URI schemes.');
+
+  // 15d. okf-lint checks [^id] footnote attribution and lifecycle status
+  const badFootnoteFile = path.join(bundleRoot, 'concepts', 'bad_footnote.md');
+  fs.writeFileSync(badFootnoteFile, `---
+type: Concept
+title: Footnote Check Concept
+status: stable
+generated:
+  by: human:tester
+  at: 2026-09-01T00:00:00Z
+sources:
+  - id: unused-src
+    resource: src/shorthand_sync.ts
+---
+Body cites an undefined footnote[^missing-src] and forgets unused-src.
+`);
+  const footnoteLintJson = JSON.parse(execSync(`node "${scripts.lint}" --json`, { cwd: tempDir }).toString());
+  assert.ok(footnoteLintJson.warnings.some(w => w.includes("Body references footnote '[^missing-src]' which is not defined")), 'okf-lint should warn on undefined [^id] footnote in body');
+  fs.unlinkSync(badFootnoteFile);
+  console.log('✓ okf-lint verified [^id] footnote attribution against sources[].id.');
+
   console.log('\n======================================');
   console.log('🎉 ALL LIFE CYCLE TEST CASES PASSED SUCCESSFULLY!');
   console.log('======================================');

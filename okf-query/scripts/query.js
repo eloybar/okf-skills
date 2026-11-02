@@ -132,13 +132,51 @@ function getConceptBody(content) {
   return content.replace(/^---[\s\S]*?---\r?\n/, '');
 }
 
-function resolveResourceLocalPath(resourceUri, workspaceRoot) {
-  if (!resourceUri || /^https?:\/\//i.test(resourceUri)) return null;
-  let localPath = resourceUri.replace(/^file:\/\/\/?/, '');
+function resolveResourceLocalPath(resourceUri, workspaceRoot, bundleRoot = null) {
+  if (!resourceUri || typeof resourceUri !== 'string') return null;
+  const trimmed = resourceUri.trim();
+  if (/^(?!file:\/\/)[a-zA-Z][a-zA-Z0-9+.-]*:\/\//i.test(trimmed)) return null;
+  if (!/^file:\/\//i.test(trimmed) && /\s/.test(trimmed) && !/[\/\\]/.test(trimmed)) return null;
+
+  const isFileUri = /^file:\/\//i.test(trimmed);
+  let localPath = trimmed.replace(/^file:\/\/\/?/, '');
+  if (!isFileUri && trimmed.startsWith('/') && bundleRoot) {
+    const bundleCandidate = path.normalize(path.join(bundleRoot, trimmed.slice(1)));
+    if (fs.existsSync(bundleCandidate)) return bundleCandidate;
+    const workspaceCandidate = path.normalize(path.join(workspaceRoot, trimmed.slice(1)));
+    if (fs.existsSync(workspaceCandidate)) return workspaceCandidate;
+  }
   if (path.isAbsolute(localPath)) {
-    return path.normalize(localPath);
+    const absNorm = path.normalize(localPath);
+    if (fs.existsSync(absNorm)) return absNorm;
+    const stripped = localPath.replace(/^[\/\\]+/, '');
+    const relCandidate = path.normalize(path.join(workspaceRoot, stripped));
+    if (fs.existsSync(relCandidate)) return relCandidate;
+    return absNorm;
+  }
+  if (bundleRoot) {
+    const bundleRelCandidate = path.normalize(path.join(bundleRoot, localPath));
+    if (fs.existsSync(bundleRelCandidate) && !fs.existsSync(path.join(workspaceRoot, localPath))) {
+      return bundleRelCandidate;
+    }
   }
   return path.normalize(path.join(workspaceRoot, localPath));
+}
+
+function collectConceptResourceUris(fm) {
+  const uris = [];
+  if (!fm) return uris;
+  if (fm.resource) uris.push(fm.resource);
+  if (Array.isArray(fm.sources)) {
+    for (const src of fm.sources) {
+      const rawResource = typeof src === 'string' ? src : (src && src.resource);
+      if (rawResource) uris.push(rawResource);
+    }
+  }
+  if (fm.computation) uris.push(fm.computation);
+  if (fm.executor && fm.executor.resource) uris.push(fm.executor.resource);
+  if (fm.attester && fm.attester.resource) uris.push(fm.attester.resource);
+  return uris;
 }
 
 function scanConcepts(dir, bundleRoot, workspaceRoot, matches = []) {
@@ -148,6 +186,7 @@ function scanConcepts(dir, bundleRoot, workspaceRoot, matches = []) {
     const fullPath = path.join(dir, file);
     const stat = fs.statSync(fullPath);
     if (stat.isDirectory()) {
+      if (file.toLowerCase() === 'archive') continue;
       scanConcepts(fullPath, bundleRoot, workspaceRoot, matches);
     } else if (stat.isFile() && file.endsWith('.md')) {
       if (file === 'index.md' || file === 'log.md') continue;
@@ -198,27 +237,16 @@ function main() {
 
   if (fileIndex !== -1) {
     const targetFile = path.resolve(workspaceRoot, args[fileIndex + 1]);
-    const normalizedTarget = path.normalize(targetFile);
+    const normalizedTarget = path.normalize(targetFile).toLowerCase();
 
     // Tier 1: Exact file match or resource is a directory enclosing target
     for (const c of allConcepts) {
-      const resourceUris = [];
-      if (c.frontmatter.resource) {
-        resourceUris.push(c.frontmatter.resource);
-      }
-      if (Array.isArray(c.frontmatter.sources)) {
-        for (const src of c.frontmatter.sources) {
-          const rawResource = typeof src === 'string' ? src : (src && src.resource);
-          if (rawResource && !/^https?:\/\//i.test(rawResource)) {
-            resourceUris.push(rawResource);
-          }
-        }
-      }
+      const resourceUris = collectConceptResourceUris(c.frontmatter);
 
       for (const uri of resourceUris) {
-        const resPath = resolveResourceLocalPath(uri, workspaceRoot);
+        const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
         if (resPath) {
-          const normalizedRes = path.normalize(resPath);
+          const normalizedRes = path.normalize(resPath).toLowerCase();
           if (normalizedTarget === normalizedRes || normalizedTarget.startsWith(normalizedRes + path.sep)) {
             matched.push(c);
             break;
@@ -230,23 +258,14 @@ function main() {
     // Tier 2: Directory / Subsystem match (target resides in the same directory as a documented resource)
     if (matched.length === 0) {
       for (const c of allConcepts) {
-        const resourceUris = [];
-        if (c.frontmatter.resource) {
-          resourceUris.push(c.frontmatter.resource);
-        }
-        if (Array.isArray(c.frontmatter.sources)) {
-          for (const src of c.frontmatter.sources) {
-            if (src.resource) {
-              resourceUris.push(src.resource);
-            }
-          }
-        }
+        const resourceUris = collectConceptResourceUris(c.frontmatter);
 
         for (const uri of resourceUris) {
-          const resPath = resolveResourceLocalPath(uri, workspaceRoot);
+          const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
           if (resPath) {
-            const resDir = path.dirname(path.normalize(resPath));
-            if (resDir !== workspaceRoot && (normalizedTarget === resDir || normalizedTarget.startsWith(resDir + path.sep))) {
+            const resDir = path.dirname(path.normalize(resPath)).toLowerCase();
+            const wsNorm = path.normalize(workspaceRoot).toLowerCase();
+            if (resDir !== wsNorm && (normalizedTarget === resDir || normalizedTarget.startsWith(resDir + path.sep))) {
               matched.push(c);
               break;
             }
@@ -260,23 +279,20 @@ function main() {
       const title = (c.frontmatter.title || '').toLowerCase();
       const desc = (c.frontmatter.description || '').toLowerCase();
       const type = (c.frontmatter.type || '').toLowerCase();
-      const tags = (c.frontmatter.tags || []).map(t => t.toLowerCase());
+      const runtime = (c.frontmatter.runtime || '').toLowerCase();
+      const tags = (c.frontmatter.tags || []).map(t => String(t).toLowerCase());
       const body = c.body.toLowerCase();
       let sourcesText = '';
-      if (c.frontmatter.resource) {
-        sourcesText += ' ' + String(c.frontmatter.resource).toLowerCase();
+      for (const uri of collectConceptResourceUris(c.frontmatter)) {
+        sourcesText += ' ' + String(uri).toLowerCase();
       }
       if (Array.isArray(c.frontmatter.sources)) {
         for (const src of c.frontmatter.sources) {
-          const rawResource = typeof src === 'string' ? src : (src && src.resource);
-          if (rawResource) {
-            sourcesText += ' ' + String(rawResource).toLowerCase();
-          }
-          if (src && typeof src === 'object' && src.title) {
-            sourcesText += ' ' + String(src.title).toLowerCase();
-          }
-          if (src && typeof src === 'object' && src.description) {
-            sourcesText += ' ' + String(src.description).toLowerCase();
+          if (src && typeof src === 'object') {
+            if (src.title) sourcesText += ' ' + String(src.title).toLowerCase();
+            if (src.description) sourcesText += ' ' + String(src.description).toLowerCase();
+            if (src.author) sourcesText += ' ' + String(src.author).toLowerCase();
+            if (src.id) sourcesText += ' ' + String(src.id).toLowerCase();
           }
         }
       }
@@ -285,6 +301,7 @@ function main() {
         title.includes(keyword) ||
         desc.includes(keyword) ||
         type.includes(keyword) ||
+        runtime.includes(keyword) ||
         tags.some(t => t.includes(keyword)) ||
         sourcesText.includes(keyword) ||
         body.includes(keyword)
@@ -313,6 +330,8 @@ function main() {
     console.log(`Type:        ${c.frontmatter.type}`);
     if (c.frontmatter.description) console.log(`Description: ${c.frontmatter.description}`);
     if (c.frontmatter.resource)    console.log(`Resource:    ${c.frontmatter.resource}`);
+    if (c.frontmatter.runtime)     console.log(`Runtime:     ${c.frontmatter.runtime}`);
+    if (c.frontmatter.computation) console.log(`Computation: ${c.frontmatter.computation}`);
     if (c.frontmatter.tags)        console.log(`Tags:        ${c.frontmatter.tags.join(', ')}`);
     if (c.frontmatter.status)      console.log(`Status:      ${c.frontmatter.status}`);
     if (c.frontmatter.stale_after) console.log(`Stale After: ${c.frontmatter.stale_after}`);
@@ -337,5 +356,6 @@ if (require.main === module) {
 
 module.exports = {
   parseFrontmatter,
-  scanConcepts
+  scanConcepts,
+  collectConceptResourceUris
 };
