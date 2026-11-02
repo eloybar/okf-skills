@@ -133,14 +133,14 @@ Authentication uses JWT tokens...
   // maintain --sync should auto-heal both files
   execSync(`node "${scripts.maintain}"`, { cwd: tempDir, stdio: 'ignore' });
   const patchedClaudeContent = fs.readFileSync(mockClaudeFile, 'utf8');
-  assert.ok(patchedClaudeContent.includes('<!-- okf-steering-version: 1.8.1 -->'), 'maintain.js should bump CLAUDE.md steering tag to 1.8.1');
+  assert.ok(patchedClaudeContent.includes('<!-- okf-steering-version: 1.8.2 -->'), 'maintain.js should bump CLAUDE.md steering tag to 1.8.2');
   assert.ok(patchedClaudeContent.includes('Semantic Concept & Source Binding Upkeep'), 'maintain.js should inject Step 1 Semantic Concept & Source Binding Upkeep in CLAUDE.md');
   assert.ok(patchedClaudeContent.includes('Model-Tier Routing'), 'maintain.js should inject Model-Tier Routing in CLAUDE.md');
   assert.ok(patchedClaudeContent.includes('Pre-Work Grounding Gate'), 'maintain.js should inject Pre-Work Gate in CLAUDE.md');
   assert.ok(patchedClaudeContent.includes('Pre-Completion Verification Gate'), 'maintain.js should inject Pre-Completion Gate in CLAUDE.md');
 
   const patchedCursorContent = fs.readFileSync(mockCursorFile, 'utf8');
-  assert.ok(patchedCursorContent.includes('<!-- okf-steering-version: 1.8.1 -->'), 'maintain.js should bump .cursorrules steering tag to 1.8.1');
+  assert.ok(patchedCursorContent.includes('<!-- okf-steering-version: 1.8.2 -->'), 'maintain.js should bump .cursorrules steering tag to 1.8.2');
   assert.ok(patchedCursorContent.includes('Semantic Concept & Source Binding Upkeep'), 'maintain.js should inject Step 1 Semantic Concept & Source Binding Upkeep in .cursorrules');
   assert.ok(patchedCursorContent.includes('Model-Tier Routing'), 'maintain.js should inject Model-Tier Routing in .cursorrules');
   assert.ok(patchedCursorContent.includes('Pre-Work Grounding Gate'), 'maintain.js should inject Pre-Work Gate in .cursorrules');
@@ -163,6 +163,7 @@ Authentication uses JWT tokens...
 
   // === STEP 8: VISUALIZATION ===
   console.log('Step 8: Generating visualization...');
+  assert.ok(!fs.existsSync(path.join(bundleRoot, 'viz.html')), 'okf-maintain should NOT create viz.html unless --viz or okf-visualize is called');
   execSync(`node "${scripts.visualize}" --bundle "${bundleRoot}"`, { cwd: tempDir });
   assert.ok(fs.existsSync(path.join(bundleRoot, 'viz.html')), 'viz.html should be created');
   console.log('✓ Visualization HTML generated successfully.');

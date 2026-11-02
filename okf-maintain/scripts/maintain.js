@@ -414,7 +414,7 @@ function appendLogEntry(logPath, entries, dateStr) {
   return true;
 }
 
-const TARGET_STEERING_VERSION = '1.8.1';
+const TARGET_STEERING_VERSION = '1.8.2';
 
 function compareVersions(v1, v2) {
   const parts1 = v1.split('.').map(Number);
@@ -533,6 +533,7 @@ async function main() {
   const args = process.argv.slice(2);
   const isCheckMode = args.includes('--check');
   const isJson = args.includes('--json');
+  const withViz = args.includes('--viz');
   
   let bundleArg = null;
   const bundleIdx = args.indexOf('--bundle');
@@ -772,12 +773,12 @@ async function main() {
     logUpdated = appendLogEntry(logPath, logEntries, dateStr);
   }
 
-  // 3e. Regenerate visualizer if available (check sibling skill dir first, then workspaceRoot)
+  // 3e. Regenerate visualizer only when explicitly requested via --viz
   let vizGenerated = false;
   const siblingVizScript = path.resolve(__dirname, '..', '..', 'okf-visualize', 'scripts', 'visualize.js');
   const workspaceVizScript = path.join(workspaceRoot, 'okf-visualize', 'scripts', 'visualize.js');
   const vizScript = fs.existsSync(siblingVizScript) ? siblingVizScript : workspaceVizScript;
-  if (fs.existsSync(vizScript)) {
+  if (withViz && fs.existsSync(vizScript)) {
     try {
       execFileSync(process.execPath, [vizScript, '--bundle', bundleRoot, '--no-open'], {
         cwd: workspaceRoot,
@@ -822,7 +823,7 @@ async function main() {
     console.log(`Frontier updated:       ${indexUpdated ? 'Yes' : 'Up to date'}`);
     console.log(`Steering updated:       ${updatedSteering.length > 0 ? updatedSteering.join(', ') : 'Up to date'}`);
     console.log(`Log recorded:           ${logUpdated ? 'Yes' : 'Up to date'}`);
-    console.log(`Visualization updated:  ${vizGenerated ? 'Yes' : 'N/A'}`);
+    if (withViz) console.log(`Visualization updated:  ${vizGenerated ? 'Yes' : 'N/A'}`);
     console.log(`Lint verification:      ${lintPassed ? 'Passed' : 'Failed'}`);
     console.log(`----------------------------------------`);
   }

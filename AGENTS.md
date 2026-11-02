@@ -18,5 +18,5 @@ Before reporting work complete after changing code:
 2. **Maintain:** `node okf-maintain/scripts/maintain.js` (refreshes timestamps, the `## Not yet specified` frontier, `log.md` and `viz.html`).
 3. **Lint:** `node okf-lint/scripts/lint.js --drift`. It must report 0 errors and 0 warnings.
 
-<!-- okf-steering-version: 1.8.1 -->
+<!-- okf-steering-version: 1.8.2 -->
 
