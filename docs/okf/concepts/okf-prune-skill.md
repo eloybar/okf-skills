@@ -7,7 +7,7 @@ tags: [pruning, cleanup, lifecycle, archiving, automation]
 status: stable
 generated:
   by: Antigravity/4.0
-  at: 2026-11-02T17:38:56.619Z
+  at: 2026-11-02T17:42:44.862Z
 sources:
   - okf-prune/scripts/prune.js
 ---

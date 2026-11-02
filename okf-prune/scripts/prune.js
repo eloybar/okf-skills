@@ -382,6 +382,7 @@ async function main() {
   const isCheck = args.includes('--check') || args.includes('--dry-run');
   const isDelete = args.includes('--delete');
   const outputJson = args.includes('--json');
+  const withViz = args.includes('--viz');
 
   let filterStale = args.includes('--stale');
   let filterDeprecated = args.includes('--deprecated');
