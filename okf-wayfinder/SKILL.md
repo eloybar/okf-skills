@@ -1,7 +1,7 @@
 ---
 name: okf-wayfinder
 description: Guide users in establishing and documenting new concepts in their OKF bundle through interactive, context-aware interviews.
-version: 1.8.0
+version: 1.8.1
 ---
 
 # `okf-wayfinder` Workflow

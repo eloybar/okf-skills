@@ -1,7 +1,7 @@
 ---
 name: okf-prune
 description: Use when an OKF bundle contains stale, expired, deprecated, orphaned, or dangling concepts that need pruning, archiving, or cleanup.
-version: 1.8.0
+version: 1.8.1
 ---
 
 # `okf-prune` Workflow

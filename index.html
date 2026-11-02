@@ -1044,7 +1044,7 @@
 name: okf
 description: Author and maintain Open Knowledge Format (OKF) bundles — directories of typed markdown concept files.
 disable-model-invocation: true
-version: 1.8.0
+version: 1.8.1
 ---
 
 Capture knowledge as an **OKF bundle**: a directory of markdown **concept** files, each carrying YAML **frontmatter** plus a free-form body. No SDK, no central authority — readable, diffable, portable. Spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md
@@ -1082,7 +1082,7 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
      * Instruct them to ground any initial user questions about the codebase by searching the OKF bundle first (e.g., running `okf-query --search &lt;keywords&gt;` or checking `index.md`) before answering or planning.
      * Instruct them to run `okf-query --file &lt;file-path&gt;` before analyzing/editing files to pull context.
      * Instruct them to maintain the bundle post-edit by running `okf-maintain` followed by `okf-lint` to update or create concepts if they modify schemas/components/APIs, discover platform/sandbox-specific constraints (e.g., mobile WebView quirks, CORS limits, CDN blockages), improve developer utility/test pages, or learn new codebase behaviors/patterns that warrant a permanent guideline.
-     * Include the steering version tracking tag at the bottom of the section: `&lt;!-- okf-steering-version: 1.8.0 --&gt;`.
+     * Include the steering version tracking tag at the bottom of the section: `&lt;!-- okf-steering-version: 1.8.1 --&gt;`.
    - Done when the target root-level agent steering file (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, etc.) exists and contains the tailored OKF steering directives with the version tag.
 
 
@@ -1223,28 +1223,82 @@ Everything else is soft guidance. When reading a bundle, degrade gracefully: tol
 ---
 name: okf-wayfinder
 description: Guide users in establishing and documenting new concepts in their OKF bundle through interactive, context-aware interviews.
-version: 1.8.0
+version: 1.8.1
 ---
+
+# `okf-wayfinder` Workflow
+
+Guide the developer through creating a brand new, fully conforming OKF v0.2 concept file using a mix of automated codebase telemetry and brief interactive questions.
 
 &gt; **Model-Tier Steering:** Use the **High** reasoning setting of the active model during initial bundle bootstrapping and interactive concept discovery interviews. Once the architecture and implementation plan are laid out, switch back to the **Medium** setting of the same model for implementation and routine upkeep.
 
+## Steps
+
 1. **Locate the Bundle &amp; Scan Registry**
-   - Check /docs/okf or /okf for the bundle root. If initializing, create root index.md (okf_version: 0.2), log.md, and the root agent steering file (AGENTS.md, CLAUDE.md, .cursorrules, .windsurfrules, .clinerules, or GEMINI.md).
-   - Scan existing concepts to extract types, tags, concepts, layoutMode, subdirectories, frontier, and frontierGroups:
+   - Check `/docs/okf` or `/okf` for the bundle root. If none exists, ask if you should initialize a new one. If initializing, create the root `index.md` containing `okf_version: 0.2` in its frontmatter, create `log.md`, and create or update the appropriate root-level agent steering file (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, or `GEMINI.md`) as detailed in Step 5 of the core `okf` skill to guide future agents.
+   - Scan existing concepts to extract defined `types`, `tags`, existing `concepts` (with their `markdownLink` paths), bundle `layoutMode` (`flat` vs `nested`) and `subdirectories`, and untracked workspace files (`frontier` and clustered `frontierGroups`). This prevents vocabulary fragmentation and surfaces undocumented modules.
+   - Run the utility script:
+     ```bash
      node &lt;path-to-skill-directory&gt;/scripts/wayfinder_taxonomy.js [--bundle &lt;path&gt;]
+     ```
 
 2. **Categorize the Concept &amp; Propose Clustered Frontier Candidates**
-   - Propose clustered undocumented modules from frontierGroups (primaryCandidate + companionFiles).
-   - Use native structured question tools (ask_question / AskUserQuestion) when available to select the concept type.
+   - Read the `frontierGroups` (clustered module candidates with a `primaryCandidate`, `companionFiles`, and `suggestedType`) and `frontier` returned by the taxonomy script.
+   - Propose undocumented module groups or files directly to the user (e.g., *"I see these undocumented modules/files in the workspace. Would you like to create a concept for one of them, or document a different concept?"*).
+   - Use the host environment's structured question tool when available (`ask_question` in Antigravity, `AskUserQuestion` in Claude Code) or fall back to a concise plain-text menu to select the concept `type` (highlighting existing bundle types alongside standard OKF types: `Concept`, `Skill`, `Utility`, `Playbook`, `Decision`, `Attested Computation`).
+   - Ensure that all links between concepts use descriptive name labels from `concepts[].markdownLink` (e.g., `[Label](/concepts/target.md)`) rather than bare filenames or URLs.
 
-3. **Autogenerate a Telemetry Draft**
-   - Run node &lt;path-to-skill-directory&gt;/scripts/wayfinder_taxonomy.js --inspect &lt;file-path&gt; to extract exportedSymbols, localImports, relatedConcepts links, and Git contributor history.
+3. **Autogenerate a Telemetry Draft (If Applicable)**
+   - If the concept maps to one or more workspace files (e.g., a controller, SQL migration, skill, or deploy script), inspect the primary file with the telemetry flag and read relevant source files:
+     ```bash
+     node &lt;path-to-skill-directory&gt;/scripts/wayfinder_taxonomy.js --inspect &lt;file-path&gt; [--bundle &lt;path&gt;]
+     ```
+   - Use the telemetry output (`exportedSymbols`, `localImports`, `relatedConcepts`, and `git.lastModified` / `git.primaryAuthors`) to pre-populate:
+     - Primary asset binding in `resource:` (`file:///...`) and companion module files in `sources:` so that all files in the module graduate out of `## Not yet specified` in `index.md`.
+     - Candidate inline cross-links using `relatedConcepts[].markdownLink`.
+     - Suggested failover/review owners from `git.primaryAuthors`.
 
 4. **Conduct the Focus Interview (Type-Aware)**
-   - Ask at most 3 targeted questions tailored to the chosen type (Service, Database, Playbook, Decision, or Attested Computation).
+   - Ask **at most 3 targeted questions** (using structured question tools where appropriate) to extract tribal knowledge that static code analysis cannot infer, tailored to the chosen `type`:
+     - **Service / Subsystem / Concept:** *"What are the SLA expectations, critical failure modes, or non-obvious architectural constraints?"*
+     - **Database / Data Model:** *"What is the data retention/partitioning policy, and who owns upstream ingestion?"*
+     - **Playbook / Operations:** *"What triggers this runbook, who is the escalation contact if it fails, and when should it be re-verified (`stale_after`, e.g., 90 or 180 days)?"*
+     - **Decision (ADR):** *"What problem context forced this decision, what alternatives were rejected, and what are the trade-offs?"*
+     - **Attested Computation:** *"What is the execution `runtime` (e.g., `bigquery`, `postgres`, `python`, `dbt`), what typed `parameters` are required, and which scripts act as `executor` and `attester`?"*
 
 5. **Draft, Attest Human Verification, and Sync Lifecycle**
-   - Compile frontmatter (generated, verified: [{ by: human:&lt;id&gt;, at }], resource, sources, stale_after) and run okf-maintain &amp; okf-lint --drift.</code></pre>
+   - Compile the inputs into a clean `.md` concept file placed according to `layoutMode` and existing `subdirectories` (see **Directory Organization &amp; Scaling**).
+   - Populate OKF v0.2 frontmatter:
+     - Required `type`, plus `title`, `description`, `resource`, `tags`, `status: stable`, and `sources` (binding all companion files).
+     - `generated: { by: &lt;producer&gt;/&lt;version&gt;, at: &lt;UTC-ISO-timestamp&gt; }`.
+     - **Human-Reviewed Trust Attestation (`verified`):** Present the draft to the developer for confirmation. Because `okf-wayfinder` is an interactive human-in-the-loop interview, once the developer approves the concept, record their sign-off in `verified:` (using `git.suggestedVerifierActor` or `human:&lt;id&gt;`):
+       ```yaml
+       verified:
+         - by: human:&lt;developer-id&gt;
+           at: &lt;UTC-ISO-timestamp&gt;
+       ```
+       This immediately graduates the concept from `unverified` to the **`human-reviewed`** trust tier.
+     - If `type: Attested Computation`, include `runtime` (required), `parameters`, `computation` (or an inline `# Computation` section), `executor`, and `attester`.
+     - If time-sensitive (e.g., `Playbook`, `Decision`, SLA contract), set `stale_after` to an ISO 8601 UTC expiration timestamp.
+   - Add the concept to `index.md` and record a summary in `log.md` under a `## YYYY-MM-DD` date heading.
+   - **Automated Post-Authoring Verification:** Run `okf-maintain` and `okf-lint --drift` to graduate bound files out of `## Not yet specified` in `index.md`, rebuild `viz.html`, and verify 0 errors and 0 warnings:
+     ```bash
+     node okf-maintain/scripts/maintain.js
+     node okf-lint/scripts/lint.js --drift
+     ```
+
+## Directory Organization &amp; Scaling
+
+To prevent catalog clutter as the number of concepts increases, adhere to the following organization guidelines:
+- **Preserve Existing Bundle Conventions:** First check `subdirectories` returned by `wayfinder_taxonomy.js` (such as `/concepts/` in skill/reference bundles) and follow the bundle's established folder structure.
+- **Flat Layout (&lt; 10 concepts and no subdirectories):** Keep concepts at the root (`/okf/*.md`) for simpler cross-linking.
+- **Nested Layout (&gt;= 10 concepts):** Organize concepts into standard logical subdirectories:
+  - `/concepts/` — General domain concepts, specifications, and skill/reference catalogs.
+  - `/subsystems/` — Core software modules, services, and API route logic.
+  - `/data/` — Database schemas, entity models, and cache configurations.
+  - `/operations/` — Deployment scripts, CI/CD, and quality assurance/testing setups.
+  - `/playbooks/` — Common procedures, runbooks, and recovery checklists.
+</code></pre>
               </div>
 
               <!-- Panel 2: wayfinder_taxonomy.js -->
@@ -1303,30 +1357,23 @@ function scanBundleTaxonomy(dir, bundleRoot, workspaceRoot, taxonomy) {
                 <button class="copy-btn" onclick="copyCode(this)">Copy</button>
               </div>
               <pre><code><span class="code-comment"># AGENTS.md / CLAUDE.md Content</span>
-<span class="code-keyword">## ⚡ Pre-Work Grounding Gate (MANDATORY)</span>
-Before inspecting code, planning architecture, answering system questions, or modifying files:
-<span class="code-keyword">1.</span> Run <span class="code-string">`node okf-query/scripts/query.js --search &lt;keywords&gt;`</span> (or <span class="code-variable">okf-query</span>) or inspect <span class="code-string">`docs/okf/index.md`</span>.
-<span class="code-keyword">2.</span> Run <span class="code-string">`node okf-query/scripts/query.js --file &lt;file-path&gt;`</span> to retrieve file/subsystem context and contracts.
-<span class="code-keyword">3.</span> Explicitly cite consulted OKF concepts (or state no concept found) before modifying code.
-<span class="code-keyword">4.</span> **Model-Tier Routing:** Use the **High** reasoning setting of the active model during initial bundle bootstrapping (<span class="code-string">`okf`</span>, <span class="code-string">`okf-wayfinder`</span>), domain/architecture discovery, and implementation planning. Once the plan is laid out and approved, switch back to the **Medium** setting of the same model before executing implementation tasks.
+## 📂 Knowledge Bundle / OKF
+Architecture, contracts and procedures for this repository are documented in the OKF bundle at `docs/okf/` (start at `docs/okf/index.md`). Run OKF tools from the repo root. If nested bundles exist, use the closest parent `okf/` of the file you are working on. At session start, run `node okf-lint/scripts/lint.js --drift`; if it reports drift, run `node okf-maintain/scripts/maintain.js`.
 
-<span class="code-keyword">## ⚡ Pre-Completion Verification Gate (MANDATORY)</span>
-Before claiming completion after modifying workspace code (keeping the active model on its **Medium** setting for post-implementation upkeep):
-<span class="code-keyword">1.</span> **Semantic Concept &amp; Source Binding Upkeep:** Update affected concept prose (or create a new concept), bind all newly created or modified source files in <span class="code-string">`resource:`</span> or <span class="code-string">`sources:`</span> so they graduate out of <span class="code-string">`## Not yet specified`</span> in <span class="code-string">`index.md`</span>, and record a summary in <span class="code-string">`log.md`</span>.
-<span class="code-keyword">2.</span> Run <span class="code-string">`node okf-maintain/scripts/maintain.js`</span> (or <span class="code-variable">okf-maintain</span>) to auto-sync concept timestamps, frontier, log, and viz.
-<span class="code-keyword">3.</span> Run <span class="code-string">`node okf-lint/scripts/lint.js --drift`</span> to ensure 0 errors, 0 warnings, and no unmapped modified files.
+## ⚡ Pre-Work Grounding Gate (MANDATORY)
+Before answering questions about the system, planning, or editing:
+1. **Search:** `node okf-query/scripts/query.js --search &lt;keywords&gt;` (or read `docs/okf/index.md`).
+2. **Per-file context:** `node okf-query/scripts/query.js --file &lt;path&gt;` before analyzing or editing a file; if nothing matches, search by module name.
+3. **Cite** the concept(s) you used, or state "OKF Check: no matching concept for &lt;topic&gt;".
+4. **Model-Tier Routing:** use the model's **High** setting for bootstrapping, architecture discovery and planning; switch to **Medium** once the plan is approved, for implementation and upkeep.
 
-<span class="code-keyword">## Knowledge Bundle / OKF</span>
- 
-This repository uses Open Knowledge Format (OKF) concept mapping.
-Before writing any code or analyzing subsystems:
-<span class="code-keyword">1.</span> Verify workspace synchronization on startup (checking <span class="code-string">`git status`</span> and recent commits for code files modified after the <span class="code-string">`timestamp`</span> in their corresponding concept files, and running the <span class="code-variable">okf-maintain</span> skill to sync any drift).
-<span class="code-keyword">2.</span> Locate and use the closest parent <span class="code-string">`okf/`</span> directory relative to the file you are editing (falling back to the root <span class="code-string">`okf/`</span> if no local folder exists).
-<span class="code-keyword">3.</span> Before answering any initial user questions about the codebase, system behavior, or design on session startup, ground your answer by running the <span class="code-variable">okf-query --search &lt;keywords&gt;</span> skill or checking <span class="code-string">`index.md`</span>.
-<span class="code-keyword">4.</span> Run the <span class="code-variable">okf-query --file &lt;file-path&gt;</span> skill to retrieve design guidelines, SLAs, and dependencies before analyzing/modifying a file.
-<span class="code-keyword">5.</span> Maintain the bundle: Update or create concepts (via <span class="code-variable">okf-maintain</span>) if you modify schemas/components/APIs, discover platform/sandbox constraints (e.g., mobile WebView quirks, CORS limits, CDN blockages), improve developer utilities (like testing environments), or learn new codebase behaviors/patterns.
+## ⚡ Pre-Completion Verification Gate (MANDATORY)
+Before reporting work complete after changing code:
+1. **Semantic Concept &amp; Source Binding Upkeep:** update affected concepts, or create one, when you change a schema, component, API, configuration or build/deploy step, or learn a durable constraint or pattern. Bind new or changed source files in the concept's `resource:`/`sources:` frontmatter, and add a dated line to `docs/okf/log.md`.
+2. **Maintain:** `node okf-maintain/scripts/maintain.js` (refreshes timestamps, the `## Not yet specified` frontier, `log.md` and `viz.html`).
+3. **Lint:** `node okf-lint/scripts/lint.js --drift`. It must report 0 errors and 0 warnings.
 
-&lt;!-- okf-steering-version: 1.8.0 --&gt;</code></pre>
+&lt;!-- okf-steering-version: 1.8.1 --&gt;</code></pre>
             </div>
           </div>
         </div>
@@ -1365,7 +1412,7 @@ Before writing any code or analyzing subsystems:
 ---
 name: okf-query
 description: Scan the OKF knowledge bundle to retrieve and inject relevant architectural and business context matching specific files or search queries.
-version: 1.8.0
+version: 1.8.1
 ---
 
 # `okf-query` Workflow
@@ -1796,7 +1843,7 @@ module.exports = {
 ---
 name: okf-maintain
 description: Use after changing or learning something about a codebase that has an okf/ knowledge bundle, so the bundle doesn't go stale. Fires when your edits touch code an existing OKF concept documents, or when you discover a fact a concept should record.
-version: 1.8.0
+version: 1.8.1
 ---
 
 Keep an existing **OKF bundle** current so it doesn't rot. This skill handles both reactive upkeep of existing files and the automatic authoring of new concept files when new significant components, schemas, or modules are introduced to the codebase. (For specific frontmatter/conformance rules, follow the `okf` skill, which is the single source of truth for how a concept is written).
@@ -1825,8 +1872,8 @@ This automatically updates timestamps for drifted concepts, updates `## Not yet 
 4. **Update reserved files.** Append a dated line to `log.md` under an ISO 8601 `## YYYY-MM-DD` date heading describing the changes and additions. If you added a new concept, add it to `index.md` (and remove it from `## Not yet specified` if it was there). If any new undocumented workspace files are identified, list them under the `## Not yet specified` section of `index.md` to map the known frontier.
    - Done when `log.md` records the change and `index.md` lists any new concept and updates the undocumented frontier list — for each reserved file the bundle uses.
 
-5. **Steering Notice Upkeep.** Check if any agent steering files in the workspace root (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, or `GEMINI.md`) contain OKF directives. If any contain the version comment `&lt;!-- okf-steering-version: 1.8.0 --&gt;` or mention OKF, verify they are at version `1.8.0` with both the Pre-Work Grounding Gate (including Step 4: Model-Tier Routing) and the Pre-Completion Verification Gate (including Step 1: Semantic Concept &amp; Source Binding Upkeep). If the comment is missing or references a version older than `1.8.0`, automatically update or overwrite the steering directives block without prompting for user confirmation (or run `node okf-maintain/scripts/maintain.js`), as this is a required conformance gate.
-   - Done when all present OKF steering notices contain the correct up-to-date directives and the `&lt;!-- okf-steering-version: 1.8.0 --&gt;` comment.
+5. **Steering Notice Upkeep.** Check if any agent steering files in the workspace root (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, or `GEMINI.md`) contain OKF directives. If any contain the version comment `&lt;!-- okf-steering-version: 1.8.1 --&gt;` or mention OKF, verify they are at version `1.8.1` with both the Pre-Work Grounding Gate (including Step 4: Model-Tier Routing) and the Pre-Completion Verification Gate (including Step 1: Semantic Concept &amp; Source Binding Upkeep). If the comment is missing or references a version older than `1.8.1`, automatically update or overwrite the steering directives block without prompting for user confirmation (or run `node okf-maintain/scripts/maintain.js`), as this is a required conformance gate.
+   - Done when all present OKF steering notices contain the correct up-to-date directives and the `&lt;!-- okf-steering-version: 1.8.1 --&gt;` comment.
 
 6. **Conformance gate.** Verify the bundle still conforms, per the `okf` skill.
    - Done when every non-reserved `.md` has parseable frontmatter with a non-empty `type`.
@@ -1875,7 +1922,7 @@ This automatically updates timestamps for drifted concepts, updates `## Not yet 
 ---
 name: okf-lint
 description: Statically analyze the OKF knowledge bundle to check conformance, link integrity, and concept drift.
-version: 1.8.0
+version: 1.8.1
 ---
 
 # `okf-lint` Workflow
@@ -1922,8 +1969,8 @@ node okf-lint/scripts/lint.js --drift --json
 4. **Verify Attested Computations (§10)**
    - For concepts with `type: Attested Computation`, ensure `runtime` is present, verify that either a `computation` file path or an inline `# Computation` body section is provided (§10.3), and confirm that referenced local files (`computation`, `executor.resource`, `attester.resource`) exist on disk.
 
-5. **Audit Steering Notices (v1.8.0)**
-   - Audit all present agent steering files (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `GEMINI.md`) in the workspace root for the current template version (`1.8.0`), confirming `Pre-Work Grounding Gate`, `Model-Tier Routing`, and `Pre-Completion Verification Gate` are present.
+5. **Audit Steering Notices (v1.8.1)**
+   - Audit all present agent steering files (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `GEMINI.md`) in the workspace root for the current template version (`1.8.1`), confirming `Pre-Work Grounding Gate`, `Model-Tier Routing`, and `Pre-Completion Verification Gate` are present.
 </code></pre>
               </div>
 
@@ -2000,7 +2047,7 @@ if (gitTimeStr) {
 ---
 name: okf-visualize
 description: Generate and display an interactive Cytoscape.js HTML graph visualization for an OKF knowledge bundle. Use when the user asks to visualize, graph, view, or render an OKF bundle.
-version: 1.8.0
+version: 1.8.1
 ---
 
 # Visualizing OKF Bundles
@@ -3143,7 +3190,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 14px 0; }
 name: okf-upgrade
 description: Automatically upgrade an OKF bundle from v0.1 to v0.2.
 disable-model-invocation: true
-version: 1.8.0
+version: 1.8.1
 ---
 
 Migrate an existing **OKF bundle** from Version 0.1 to Version 0.2 format. This skill automates the migration of legacy frontmatter, citations, actor conventions, log headings, and version compatibility flags.
@@ -3268,7 +3315,7 @@ node okf-upgrade/scripts/upgrade.js --user "ahormati"
 ---
 name: okf-prune
 description: Use when an OKF bundle contains stale, expired, deprecated, orphaned, or dangling concepts that need pruning, archiving, or cleanup.
-version: 1.8.0
+version: 1.8.1
 ---
 
 # `okf-prune` Workflow
