@@ -151,12 +151,28 @@ function serializeFrontmatter(fm) {
     } else if (key === 'sources' && Array.isArray(value)) {
       lines.push('sources:');
       value.forEach(src => {
-        lines.push(`  - id: ${src.id}`);
-        lines.push(`    resource: ${src.resource}`);
-        if (src.title) lines.push(`    title: "${src.title.replace(/"/g, '\\"')}"`);
-        if (src.author) lines.push(`    author: ${src.author}`);
-        if (src.usage_count) lines.push(`    usage_count: ${src.usage_count}`);
-        if (src.last_modified) lines.push(`    last_modified: ${src.last_modified}`);
+        if (typeof src === 'string') {
+          lines.push(`  - ${src}`);
+        } else if (src && typeof src === 'object') {
+          const orderedKeys = [];
+          if (src.id !== undefined) orderedKeys.push(['id', src.id]);
+          if (src.resource !== undefined) orderedKeys.push(['resource', src.resource]);
+          if (src.title !== undefined) orderedKeys.push(['title', `"${String(src.title).replace(/"/g, '\\"')}"`]);
+          if (src.author !== undefined) orderedKeys.push(['author', src.author]);
+          if (src.usage_count !== undefined) orderedKeys.push(['usage_count', src.usage_count]);
+          if (src.last_modified !== undefined) orderedKeys.push(['last_modified', src.last_modified]);
+          for (const [k, v] of Object.entries(src)) {
+            if (!['id', 'resource', 'title', 'author', 'usage_count', 'last_modified'].includes(k) && v !== undefined) {
+              orderedKeys.push([k, v]);
+            }
+          }
+          if (orderedKeys.length > 0) {
+            lines.push(`  - ${orderedKeys[0][0]}: ${orderedKeys[0][1]}`);
+            for (let i = 1; i < orderedKeys.length; i++) {
+              lines.push(`    ${orderedKeys[i][0]}: ${orderedKeys[i][1]}`);
+            }
+          }
+        }
       });
     } else if (Array.isArray(value)) {
       if (value.length > 0 && typeof value[0] === 'object' && value[0] !== null) {
@@ -198,6 +214,7 @@ function findLogFiles(dir, list = []) {
     const fullPath = path.join(dir, file);
     const stat = fs.statSync(fullPath);
     if (stat.isDirectory()) {
+      if (file.toLowerCase() === 'archive') continue;
       findLogFiles(fullPath, list);
     } else if (stat.isFile() && file.toLowerCase() === 'log.md') {
       list.push(fullPath);
@@ -284,6 +301,7 @@ function walkConcepts(dir, list = []) {
     const fullPath = path.join(dir, file);
     const stat = fs.statSync(fullPath);
     if (stat.isDirectory()) {
+      if (file.toLowerCase() === 'archive') continue;
       walkConcepts(fullPath, list);
     } else if (stat.isFile() && file.endsWith('.md')) {
       const lower = file.toLowerCase();
@@ -359,7 +377,10 @@ function main() {
   }
 
   const workspaceRoot = process.cwd();
-  let bundleRoot = path.join(workspaceRoot, 'docs', 'okf');
+  const bundleIdx = args.indexOf('--bundle');
+  let bundleRoot = (bundleIdx !== -1 && args[bundleIdx + 1])
+    ? path.resolve(workspaceRoot, args[bundleIdx + 1])
+    : path.join(workspaceRoot, 'docs', 'okf');
   if (!fs.existsSync(bundleRoot)) {
     bundleRoot = path.join(workspaceRoot, 'okf');
   }
@@ -500,6 +521,15 @@ function main() {
         }
       }
     }
+    if (Array.isArray(fm.sources)) {
+      fm.sources.forEach(src => {
+        if (src && typeof src === 'object' && typeof src.author === 'string' && src.author.startsWith('agent:')) {
+          src.author = src.author.slice(6);
+          modified = true;
+          console.log(`[+] ${relativePath}: Normalized sources[].author actor format (${src.author})`);
+        }
+      });
+    }
 
     if (modified) {
       const newFmText = serializeFrontmatter(fm);
@@ -527,11 +557,13 @@ function main() {
   console.log(`----------------------------------------`);
 
   // Run lint check post-upgrade
-  const linterScript = path.join(__dirname, '../../okf-lint/scripts/lint.js');
+  const siblingLinter = path.join(__dirname, '../../okf-lint/scripts/lint.js');
+  const workspaceLinter = path.join(workspaceRoot, 'okf-lint', 'scripts', 'lint.js');
+  const linterScript = fs.existsSync(siblingLinter) ? siblingLinter : workspaceLinter;
   if (fs.existsSync(linterScript)) {
     console.log(`Running lint verification post-upgrade...`);
     try {
-      execFileSync('node', [linterScript], { stdio: 'inherit' });
+      execFileSync(process.execPath, [linterScript, '--bundle', bundleRoot], { stdio: 'inherit' });
     } catch (e) {
       console.error(`Post-upgrade lint check failed. Please resolve errors manually.`);
     }

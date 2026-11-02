@@ -10,6 +10,8 @@ function parseArgs() {
     } else if (process.argv[i] === '--out' && process.argv[i + 1]) {
       args.out = path.resolve(process.argv[i + 1]);
       i++;
+    } else if (process.argv[i] === '--no-open') {
+      args.noOpen = true;
     }
   }
   return args;
@@ -191,6 +193,7 @@ function walkConcepts(dir, bundleRoot, list = []) {
     const fullPath = path.join(dir, file);
     const stat = fs.statSync(fullPath);
     if (stat.isDirectory()) {
+      if (file.toLowerCase() === 'archive') continue;
       walkConcepts(fullPath, bundleRoot, list);
     } else if (stat.isFile() && file.endsWith('.md')) {
       const lowerFile = file.toLowerCase();
@@ -209,7 +212,14 @@ function buildGraph(concepts) {
     "BigQuery Dataset": "#8b5cf6",
     "BigQuery Table": "#3b82f6",
     "Reference": "#10b981",
-    "Attested Computation": "#f59e0b"
+    "Attested Computation": "#f59e0b",
+    "Concept": "#0ea5e9",
+    "Skill": "#6366f1",
+    "Playbook": "#ec4899",
+    "Utility": "#14b8a6",
+    "Decision": "#f97316",
+    "Metric": "#eab308",
+    "Subsystem": "#2563eb"
   };
   const DEFAULT_NODE_COLOR = "#94a3b8";
 
@@ -230,7 +240,13 @@ function buildGraph(concepts) {
         stale_after: c.stale_after,
         verified: c.verified,
         generated: c.generated,
-        sources: c.sources
+        sources: c.sources,
+        usage_window: c.usage_window,
+        runtime: c.runtime,
+        parameters: c.parameters,
+        computation: c.computation,
+        executor: c.executor,
+        attester: c.attester
       }
     };
   });
@@ -277,8 +293,15 @@ function buildGraph(concepts) {
 function main() {
   const args = parseArgs();
   if (!args.bundle) {
-    console.error('Error: Missing required argument --bundle');
-    process.exit(1);
+    const defaultBundle = fs.existsSync(path.resolve('docs/okf'))
+      ? path.resolve('docs/okf')
+      : (fs.existsSync(path.resolve('okf')) ? path.resolve('okf') : null);
+    if (defaultBundle) {
+      args.bundle = defaultBundle;
+    } else {
+      console.error('Error: Missing required argument --bundle');
+      process.exit(1);
+    }
   }
   
   const bundleRoot = args.bundle;
@@ -317,25 +340,35 @@ function main() {
     }
 
     const links = extractLinks(body || '', path.dirname(mdPath), bundleRoot);
+    const candidatePathFields = [];
     for (const src of sources) {
       const rawResource = typeof src === 'string' ? src : (src && src.resource);
-      if (rawResource && (rawResource.startsWith('/') || rawResource.startsWith('./') || rawResource.startsWith('../'))) {
-        let cleanTarget = rawResource;
-        if (cleanTarget.startsWith('/')) {
-          cleanTarget = cleanTarget.slice(1);
-        } else {
-          try {
-            const docDir = path.dirname(mdPath);
-            const resolved = path.resolve(docDir, cleanTarget);
-            cleanTarget = path.relative(bundleRoot, resolved);
-          } catch(e) {}
-        }
-        let rel = cleanTarget.split(path.sep).join('/');
-        if (rel.endsWith('.md')) {
-          rel = rel.slice(0, -3);
-        }
-        if (rel && !links.includes(rel)) {
-          links.push(rel);
+      if (rawResource) candidatePathFields.push(rawResource);
+    }
+    if (frontmatter.computation) candidatePathFields.push(frontmatter.computation);
+    if (frontmatter.executor && frontmatter.executor.resource) candidatePathFields.push(frontmatter.executor.resource);
+    if (frontmatter.attester && frontmatter.attester.resource) candidatePathFields.push(frontmatter.attester.resource);
+
+    for (const rawResource of candidatePathFields) {
+      if (typeof rawResource === 'string' && !/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//i.test(rawResource)) {
+        if (rawResource.startsWith('/') || rawResource.startsWith('./') || rawResource.startsWith('../') || rawResource.endsWith('.md')) {
+          let cleanTarget = rawResource;
+          if (cleanTarget.startsWith('/')) {
+            cleanTarget = cleanTarget.slice(1);
+          } else {
+            try {
+              const docDir = path.dirname(mdPath);
+              const resolved = path.resolve(docDir, cleanTarget);
+              cleanTarget = path.relative(bundleRoot, resolved);
+            } catch (e) {}
+          }
+          let rel = cleanTarget.split(path.sep).join('/');
+          if (rel.endsWith('.md')) {
+            rel = rel.slice(0, -3);
+          }
+          if (rel && !links.includes(rel)) {
+            links.push(rel);
+          }
         }
       }
     }
@@ -353,7 +386,13 @@ function main() {
       stale_after: frontmatter.stale_after || '',
       verified: frontmatter.verified || [],
       generated: frontmatter.generated || {},
-      sources: sources
+      sources: sources,
+      usage_window: frontmatter.usage_window || null,
+      runtime: frontmatter.runtime || '',
+      parameters: frontmatter.parameters || [],
+      computation: frontmatter.computation || '',
+      executor: frontmatter.executor || null,
+      attester: frontmatter.attester || null
     });
   }
 

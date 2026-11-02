@@ -131,8 +131,14 @@ function parseFrontmatter(content) {
   return fm;
 }
 
+function stripCodeFromBody(content) {
+  return content
+    .replace(/^---[\s\S]*?---\r?\n?/, '')
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`[^`\r\n]+`/g, '');
+}
+
 function extractLinks(content) {
-  // Strip fenced code blocks and inline backticked code
   const stripped = content
     .replace(/```[\s\S]*?```/g, '')
     .replace(/`[^`\r\n]+`/g, '');
@@ -147,6 +153,17 @@ function extractLinks(content) {
     });
   }
   return links;
+}
+
+function extractFootnoteRefs(content) {
+  const stripped = stripCodeFromBody(content);
+  const refs = new Set();
+  const fnRe = /\[\^([A-Za-z0-9_-]+)\](?!:)/g;
+  let match;
+  while ((match = fnRe.exec(stripped)) !== null) {
+    refs.add(match[1]);
+  }
+  return Array.from(refs);
 }
 
 function getGitLastModifiedISO(filePath, cwd) {
@@ -184,14 +201,36 @@ function getGitLastModifiedISO(filePath, cwd) {
   return gitIso;
 }
 
-function resolveResourceLocalPath(resourceUri, workspaceRoot) {
-  if (!resourceUri || /^https?:\/\//i.test(resourceUri)) return null;
-  // Convert file:///D:/path/to/file to local D:/path/to/file
-  let localPath = resourceUri.replace(/^file:\/\/\/?/, '');
-  if (path.isAbsolute(localPath)) {
-    return path.normalize(localPath);
+function resolveResourceLocalPath(resourceUri, workspaceRoot, bundleRoot = null) {
+  if (!resourceUri || typeof resourceUri !== 'string') return null;
+  const trimmed = resourceUri.trim();
+  // Ignore non-file:// URI schemes (https://, bigquery://, gs://, etc.)
+  if (/^(?!file:\/\/)[a-zA-Z][a-zA-Z0-9+.-]*:\/\//i.test(trimmed)) return null;
+  // Ignore scope descriptors (§5.1, e.g. "all queries in BigQuery project X")
+  if (!/^file:\/\//i.test(trimmed) && /\s/.test(trimmed) && !/[\/\\]/.test(trimmed)) return null;
+
+  const isFileUri = /^file:\/\//i.test(trimmed);
+  let localPath = trimmed.replace(/^file:\/\/\/?/, '');
+  if (!isFileUri && trimmed.startsWith('/') && bundleRoot) {
+    const bundleCandidate = path.normalize(path.join(bundleRoot, trimmed.slice(1)));
+    if (fs.existsSync(bundleCandidate)) return bundleCandidate;
+    const workspaceCandidate = path.normalize(path.join(workspaceRoot, trimmed.slice(1)));
+    if (fs.existsSync(workspaceCandidate)) return workspaceCandidate;
   }
-  // Otherwise try resolving relative to workspaceRoot
+  if (path.isAbsolute(localPath)) {
+    const absNorm = path.normalize(localPath);
+    if (fs.existsSync(absNorm)) return absNorm;
+    const stripped = localPath.replace(/^[\/\\]+/, '');
+    const relCandidate = path.normalize(path.join(workspaceRoot, stripped));
+    if (fs.existsSync(relCandidate)) return relCandidate;
+    return absNorm;
+  }
+  if (bundleRoot) {
+    const bundleRelCandidate = path.normalize(path.join(bundleRoot, localPath));
+    if (fs.existsSync(bundleRelCandidate) && !fs.existsSync(path.join(workspaceRoot, localPath))) {
+      return bundleRelCandidate;
+    }
+  }
   return path.normalize(path.join(workspaceRoot, localPath));
 }
 
@@ -202,6 +241,8 @@ const FRONTIER_EXTENSIONS = new Set([
   '.sql', '.graphql', '.gql', '.proto', '.sh', '.ps1',
   '.vue', '.svelte'
 ]);
+
+const VALID_STATUSES = new Set(['draft', 'stable', 'deprecated']);
 
 function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = false, results = { errors: [], warnings: [], filesChecked: 0, documentedResources: new Set() }) {
   if (!results.documentedResources) {
@@ -256,7 +297,7 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
       const content = fs.readFileSync(fullPath, 'utf8');
       const fm = parseFrontmatter(content);
 
-      // 1. Conformance check
+      // 1. Conformance check (§11)
       if (!fm) {
         results.errors.push(`[${relativePath}] Error: Missing or unparseable YAML frontmatter block.`);
         continue;
@@ -265,7 +306,12 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
         results.errors.push(`[${relativePath}] Error: YAML frontmatter missing 'type' key.`);
       }
 
-      // Actor format checks (§7)
+      // 1b. Lifecycle status validation (§5.4)
+      if (fm.status && !VALID_STATUSES.has(String(fm.status).toLowerCase())) {
+        results.warnings.push(`[${relativePath}] Warning: Non-standard 'status: ${fm.status}' (§5.4 expects draft, stable, or deprecated).`);
+      }
+
+      // 1c. Actor format checks (§5.1, §7)
       if (fm.generated && fm.generated.by && typeof fm.generated.by === 'string') {
         if (fm.generated.by.startsWith('agent:')) {
           results.warnings.push(`[${relativePath}] Warning: 'generated.by' uses non-standard '${fm.generated.by}'. OKF v0.2 actor convention (§7) uses <producer>/<version> for agents (without 'agent:' prefix), human:<id>, or process:<id>. Run okf-upgrade to normalize.`);
@@ -280,7 +326,31 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
         });
       }
 
-      // 2. Link Integrity check
+      // 1d. Provenance sources & footnote attribution checks (§5.1)
+      const definedSourceIds = new Set();
+      if (Array.isArray(fm.sources)) {
+        fm.sources.forEach((src, idx) => {
+          if (src && typeof src === 'object') {
+            if (!src.resource) {
+              results.warnings.push(`[${relativePath}] Warning: 'sources[${idx}]' is missing required 'resource' field (§5.1).`);
+            }
+            if (src.id) {
+              definedSourceIds.add(String(src.id));
+            }
+            if (typeof src.author === 'string' && src.author.startsWith('agent:')) {
+              results.warnings.push(`[${relativePath}] Warning: 'sources[${idx}].author' uses non-standard '${src.author}'. OKF v0.2 actor convention (§7) uses <producer>/<version> without 'agent:' prefix. Run okf-upgrade to normalize.`);
+            }
+          }
+        });
+      }
+      const footnoteRefs = extractFootnoteRefs(content);
+      for (const fnId of footnoteRefs) {
+        if (!definedSourceIds.has(fnId)) {
+          results.warnings.push(`[${relativePath}] Warning: Body references footnote '[^${fnId}]' which is not defined in 'sources[].id' (§5.1).`);
+        }
+      }
+
+      // 2. Link Integrity check (§6.1)
       const links = extractLinks(content);
       for (const link of links) {
         let targetPath;
@@ -312,30 +382,47 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
         }
       }
 
-      // 3. Concept Drift check & Documented Resource tracking
+      // 3. Concept Drift check & Documented Resource tracking (§6.2 & §10.2)
       const isDeprecated = fm.status === 'deprecated' || relativePath.startsWith('archive/');
       const lastModified = fm.timestamp || (fm.generated && fm.generated.at);
       const resourcesToCheck = [];
-      if (fm.resource && !/^https?:\/\//i.test(fm.resource)) {
-        resourcesToCheck.push({ path: fm.resource, label: `Resource file '${path.basename(resolveResourceLocalPath(fm.resource, workspaceRoot) || fm.resource)}'` });
+      if (fm.resource) {
+        const localRes = resolveResourceLocalPath(fm.resource, workspaceRoot, bundleRoot);
+        if (localRes) {
+          resourcesToCheck.push({ path: fm.resource, label: `Resource file '${path.basename(localRes)}'` });
+        }
       }
       if (Array.isArray(fm.sources)) {
         fm.sources.forEach((src, idx) => {
           const rawResource = typeof src === 'string' ? src : (src && src.resource);
-          if (rawResource && !/^https?:\/\//i.test(rawResource)) {
+          const localSrc = resolveResourceLocalPath(rawResource, workspaceRoot, bundleRoot);
+          if (localSrc) {
             const label = (src && typeof src === 'object' && src.title) ? `Source '${src.title}'` : `Source resource [${idx}]`;
             resourcesToCheck.push({ path: rawResource, label });
           }
         });
       }
+      if (fm.computation) {
+        const localComp = resolveResourceLocalPath(fm.computation, workspaceRoot, bundleRoot);
+        if (localComp) {
+          resourcesToCheck.push({ path: fm.computation, label: `Computation file '${path.basename(localComp)}'` });
+        }
+      }
+      if (fm.executor && fm.executor.resource) {
+        const localExec = resolveResourceLocalPath(fm.executor.resource, workspaceRoot, bundleRoot);
+        if (localExec) {
+          resourcesToCheck.push({ path: fm.executor.resource, label: `Executor file '${path.basename(localExec)}'` });
+        }
+      }
+      if (fm.attester && fm.attester.resource) {
+        const localAtt = resolveResourceLocalPath(fm.attester.resource, workspaceRoot, bundleRoot);
+        if (localAtt) {
+          resourcesToCheck.push({ path: fm.attester.resource, label: `Attester file '${path.basename(localAtt)}'` });
+        }
+      }
 
-      const allBoundPaths = resourcesToCheck.map(r => r.path);
-      if (fm.computation) allBoundPaths.push(fm.computation);
-      if (fm.executor && fm.executor.resource) allBoundPaths.push(fm.executor.resource);
-      if (fm.attester && fm.attester.resource) allBoundPaths.push(fm.attester.resource);
-
-      for (const rawBound of allBoundPaths) {
-        const resolvedBound = resolveResourceLocalPath(rawBound, workspaceRoot);
+      for (const item of resourcesToCheck) {
+        const resolvedBound = resolveResourceLocalPath(item.path, workspaceRoot, bundleRoot);
         if (resolvedBound) {
           results.documentedResources.add(path.relative(workspaceRoot, resolvedBound).replace(/\\/g, '/').toLowerCase());
           results.documentedResources.add(path.resolve(resolvedBound).toLowerCase());
@@ -344,7 +431,7 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
 
       if (checkDrift && lastModified && !isDeprecated) {
         for (const res of resourcesToCheck) {
-          const resolvedPath = resolveResourceLocalPath(res.path, workspaceRoot);
+          const resolvedPath = resolveResourceLocalPath(res.path, workspaceRoot, bundleRoot);
           if (resolvedPath && fs.existsSync(resolvedPath)) {
             const gitTimeStr = getGitLastModifiedISO(resolvedPath, workspaceRoot);
             if (gitTimeStr) {
@@ -358,7 +445,7 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
         }
       }
 
-      // 3b. Freshness / Stale After check (OKF v0.2 §5.4)
+      // 3b. Freshness / Stale After check (OKF v0.2 §5.5)
       if (fm.stale_after && !isDeprecated) {
         const staleDate = new Date(fm.stale_after);
         if (!isNaN(staleDate.getTime()) && Date.now() >= staleDate.getTime()) {
@@ -366,25 +453,29 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
         }
       }
 
-      // 4. Attested Computation checks
+      // 4. Attested Computation checks (§10.2 & §10.3)
       if (fm.type === 'Attested Computation') {
         if (!fm.runtime) {
           results.errors.push(`[${relativePath}] Error: Attested Computation missing 'runtime' key.`);
         }
+        const hasBodyComputationHeading = /^#+\s+Computation\b/im.test(stripCodeFromBody(content));
+        if (!fm.computation && !hasBodyComputationHeading && !isDeprecated) {
+          results.warnings.push(`[${relativePath}] Warning: Attested Computation provides neither a frontmatter 'computation' file path nor a '# Computation' section in the body (§10.3).`);
+        }
         if (fm.computation) {
-          const compPath = resolveResourceLocalPath(fm.computation, workspaceRoot);
+          const compPath = resolveResourceLocalPath(fm.computation, workspaceRoot, bundleRoot);
           if (compPath && !fs.existsSync(compPath)) {
             results.errors.push(`[${relativePath}] Error: Attested Computation 'computation' resource file '${fm.computation}' not found.`);
           }
         }
         if (fm.executor && fm.executor.resource) {
-          const execPath = resolveResourceLocalPath(fm.executor.resource, workspaceRoot);
+          const execPath = resolveResourceLocalPath(fm.executor.resource, workspaceRoot, bundleRoot);
           if (execPath && !fs.existsSync(execPath)) {
             results.errors.push(`[${relativePath}] Error: Executor resource file '${fm.executor.resource}' not found.`);
           }
         }
         if (fm.attester && fm.attester.resource) {
-          const attestPath = resolveResourceLocalPath(fm.attester.resource, workspaceRoot);
+          const attestPath = resolveResourceLocalPath(fm.attester.resource, workspaceRoot, bundleRoot);
           if (attestPath && !fs.existsSync(attestPath)) {
             results.errors.push(`[${relativePath}] Error: Attester resource file '${fm.attester.resource}' not found.`);
           }
@@ -422,6 +513,7 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
 
         const topSeg = relDirtyPath.split('/')[0];
         if (ignoredTopDirs.has(topSeg)) continue;
+        if (fs.existsSync(path.join(workspaceRoot, topSeg, '.git'))) continue;
         if (bundleRelNorm && (relDirtyLower === bundleRelNorm || relDirtyLower.startsWith(bundleRelNorm + '/'))) continue;
 
         const ext = path.extname(relDirtyPath).toLowerCase();

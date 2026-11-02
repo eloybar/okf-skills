@@ -135,6 +135,22 @@
     document.getElementById("detail-content").hidden = true;
   }
 
+  function appendDynamicRow(dl, label, valueNodeOrText) {
+    const dt = document.createElement("dt");
+    dt.className = "dynamic-fm";
+    dt.textContent = label;
+    const dd = document.createElement("dd");
+    dd.className = "dynamic-fm";
+    if (typeof valueNodeOrText === "string") {
+      dd.textContent = valueNodeOrText;
+    } else {
+      dd.appendChild(valueNodeOrText);
+    }
+    dl.appendChild(dt);
+    dl.appendChild(dd);
+    return dd;
+  }
+
   function showDetail(conceptId) {
     const data = nodeIndex[conceptId];
     if (!data) return;
@@ -182,32 +198,18 @@
     }
 
     // Dynamic v0.2 metadata display
-    // Clean up any previously appended dynamic elements
     const dl = document.querySelector("dl.frontmatter");
     if (dl) {
       const existingDynamics = dl.querySelectorAll(".dynamic-fm");
       existingDynamics.forEach(el => el.remove());
 
       if (data.status) {
-        const dt = document.createElement("dt");
-        dt.className = "dynamic-fm";
-        dt.textContent = "Status";
-        const dd = document.createElement("dd");
-        dd.className = "dynamic-fm";
-        dd.textContent = data.status;
-        dl.appendChild(dt);
-        dl.appendChild(dd);
+        appendDynamicRow(dl, "Status", data.status);
       }
 
       if (data.stale_after) {
-        const dt = document.createElement("dt");
-        dt.className = "dynamic-fm";
-        dt.textContent = "Stale After";
-        const dd = document.createElement("dd");
-        dd.className = "dynamic-fm";
-        
+        const dd = appendDynamicRow(dl, "Stale After", data.stale_after);
         const isStale = new Date(data.stale_after) <= new Date();
-        dd.textContent = data.stale_after;
         if (isStale) {
           const warning = document.createElement("span");
           warning.style.color = "#dc2626";
@@ -216,69 +218,100 @@
           warning.textContent = "(Stale)";
           dd.appendChild(warning);
         }
-        dl.appendChild(dt);
-        dl.appendChild(dd);
       }
 
-      // Trust tier calculation
-      let trustTier = 'unverified';
+      // Trust tier calculation (§5.3)
+      let trustTier = "unverified";
       if (data.verified && (Array.isArray(data.verified) ? data.verified.length : Object.keys(data.verified).length)) {
         const verifications = Array.isArray(data.verified) ? data.verified : [data.verified];
-        const hasHuman = verifications.some(v => v && v.by && String(v.by).startsWith('human:'));
-        trustTier = hasHuman ? 'human-reviewed' : 'machine-confirmed';
+        const hasHuman = verifications.some(v => v && v.by && String(v.by).startsWith("human:"));
+        trustTier = hasHuman ? "human-reviewed" : "machine-confirmed";
       }
-      const dt = document.createElement("dt");
-      dt.className = "dynamic-fm";
-      dt.textContent = "Trust Tier";
-      const dd = document.createElement("dd");
-      dd.className = "dynamic-fm";
-      dd.textContent = trustTier;
-      
-      if (trustTier === 'human-reviewed') {
-        dd.style.color = '#16a34a';
-        dd.style.fontWeight = 'bold';
-      } else if (trustTier === 'machine-confirmed') {
-        dd.style.color = '#2563eb';
+      const trustDd = appendDynamicRow(dl, "Trust Tier", trustTier);
+      if (trustTier === "human-reviewed") {
+        trustDd.style.color = "#16a34a";
+        trustDd.style.fontWeight = "bold";
+      } else if (trustTier === "machine-confirmed") {
+        trustDd.style.color = "#2563eb";
       } else {
-        dd.style.color = '#64748b';
+        trustDd.style.color = "#64748b";
       }
-      dl.appendChild(dt);
-      dl.appendChild(dd);
 
-      // Sources list
+      // Generated metadata (§5.2)
+      if (data.generated && (data.generated.by || data.generated.at)) {
+        const parts = [];
+        if (data.generated.by) parts.push(data.generated.by);
+        if (data.generated.at) parts.push(`at ${data.generated.at}`);
+        appendDynamicRow(dl, "Generated", parts.join(" "));
+      }
+
+      // Attested Computation metadata (§10.2)
+      if (data.runtime) {
+        appendDynamicRow(dl, "Runtime", data.runtime);
+      }
+      if (data.computation) {
+        appendDynamicRow(dl, "Computation", data.computation);
+      }
+      if (Array.isArray(data.parameters) && data.parameters.length > 0) {
+        const paramText = data.parameters
+          .map(p => `${p.name}:${p.type || "any"}${p.required ? "*" : ""}`)
+          .join(", ");
+        appendDynamicRow(dl, "Parameters", paramText);
+      }
+      if (data.executor && data.executor.resource) {
+        const receiptInfo = Array.isArray(data.executor.receipt) ? ` (receipt: ${data.executor.receipt.join(", ")})` : "";
+        appendDynamicRow(dl, "Executor", `${data.executor.resource}${receiptInfo}`);
+      }
+      if (data.attester && data.attester.resource) {
+        appendDynamicRow(dl, "Attester", data.attester.resource);
+      }
+
+      // Sources list (§5.1: supports both shorthand strings and structured objects)
       if (data.sources && data.sources.length && data.sources[0]) {
-        const dtSrc = document.createElement("dt");
-        dtSrc.className = "dynamic-fm";
-        dtSrc.textContent = "Sources";
-        const ddSrc = document.createElement("dd");
-        ddSrc.className = "dynamic-fm";
-        
+        const srcContainer = document.createElement("div");
         data.sources.forEach(src => {
           if (!src) return;
           const div = document.createElement("div");
           div.style.marginBottom = "4px";
-          if (src.resource) {
+          if (typeof src === "string") {
             const a = document.createElement("a");
-            a.href = src.resource;
-            a.textContent = src.title || src.id || src.resource;
+            a.href = src;
+            a.textContent = src;
             a.target = "_blank";
             a.rel = "noopener";
             a.className = "external";
             div.appendChild(a);
           } else {
-            div.textContent = src.title || src.id || "Unnamed source";
+            if (src.resource) {
+              const a = document.createElement("a");
+              a.href = src.resource;
+              a.textContent = src.title || src.id || src.resource;
+              a.target = "_blank";
+              a.rel = "noopener";
+              a.className = "external";
+              div.appendChild(a);
+            } else {
+              div.textContent = src.title || src.id || "Unnamed source";
+            }
+            const metaParts = [];
+            if (src.author) metaParts.push(`by ${src.author}`);
+            if (src.usage_count !== undefined) metaParts.push(`usage: ${src.usage_count}`);
+            if (src.last_modified) metaParts.push(`modified: ${src.last_modified}`);
+            if (metaParts.length > 0) {
+              const metaSpan = document.createElement("span");
+              metaSpan.className = "muted";
+              metaSpan.style.marginLeft = "6px";
+              metaSpan.textContent = `(${metaParts.join(" · ")})`;
+              div.appendChild(metaSpan);
+            }
           }
-          if (src.author) {
-            const authorSpan = document.createElement("span");
-            authorSpan.className = "muted";
-            authorSpan.style.marginLeft = "6px";
-            authorSpan.textContent = `by ${src.author}`;
-            div.appendChild(authorSpan);
-          }
-          ddSrc.appendChild(div);
+          srcContainer.appendChild(div);
         });
-        dl.appendChild(dtSrc);
-        dl.appendChild(ddSrc);
+        appendDynamicRow(dl, "Sources", srcContainer);
+      }
+
+      if (data.usage_window && (data.usage_window.from || data.usage_window.to)) {
+        appendDynamicRow(dl, "Usage Window", `${data.usage_window.from || "?"} → ${data.usage_window.to || "?"}`);
       }
     }
 

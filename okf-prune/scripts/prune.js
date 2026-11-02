@@ -126,25 +126,50 @@ function parseFrontmatter(content) {
       }
     }
   }
-
   return fm;
 }
 
-function resolveResourceLocalPath(resourceUri, workspaceRoot) {
-  if (!resourceUri) return null;
-  if (resourceUri.startsWith('http://') || resourceUri.startsWith('https://')) return null;
-  let localPath = resourceUri.replace(/^file:\/\/\/?/, '');
+function resolveResourceLocalPath(resourceUri, workspaceRoot, bundleRoot = null) {
+  if (!resourceUri || typeof resourceUri !== 'string') return null;
+  const trimmed = resourceUri.trim();
+  // Ignore non-file:// URI schemes (https://, bigquery://, gs://, etc.)
+  if (/^(?!file:\/\/)[a-zA-Z][a-zA-Z0-9+.-]*:\/\//i.test(trimmed)) return null;
+  // Ignore scope descriptors (§5.1, e.g. "all queries in BigQuery project X")
+  if (!/^file:\/\//i.test(trimmed) && /\s/.test(trimmed) && !/[\/\\]/.test(trimmed)) return null;
+
+  const isFileUri = /^file:\/\//i.test(trimmed);
+  let localPath = trimmed.replace(/^file:\/\/\/?/, '');
+  if (!isFileUri && trimmed.startsWith('/') && bundleRoot) {
+    const bundleCandidate = path.normalize(path.join(bundleRoot, trimmed.slice(1)));
+    if (fs.existsSync(bundleCandidate)) return bundleCandidate;
+    const workspaceCandidate = path.normalize(path.join(workspaceRoot, trimmed.slice(1)));
+    if (fs.existsSync(workspaceCandidate)) return workspaceCandidate;
+  }
   if (path.isAbsolute(localPath)) {
-    return path.normalize(localPath);
+    const absNorm = path.normalize(localPath);
+    if (fs.existsSync(absNorm)) return absNorm;
+    const stripped = localPath.replace(/^[\/\\]+/, '');
+    const relCandidate = path.normalize(path.join(workspaceRoot, stripped));
+    if (fs.existsSync(relCandidate)) return relCandidate;
+    return absNorm;
+  }
+  if (bundleRoot) {
+    const bundleRelCandidate = path.normalize(path.join(bundleRoot, localPath));
+    if (fs.existsSync(bundleRelCandidate) && !fs.existsSync(path.join(workspaceRoot, localPath))) {
+      return bundleRelCandidate;
+    }
   }
   return path.normalize(path.join(workspaceRoot, localPath));
 }
 
 function extractLinks(markdown) {
+  const stripped = markdown
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`[^`\r\n]+`/g, '');
   const links = [];
   const linkRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
   let match;
-  while ((match = linkRegex.exec(markdown)) !== null) {
+  while ((match = linkRegex.exec(stripped)) !== null) {
     links.push({ label: match[1], target: match[2] });
   }
   return links;
@@ -167,13 +192,22 @@ function scanConcepts(dir, bundleRoot, list = []) {
       if (file === 'index.md' || file === 'log.md') continue;
       const relPath = path.relative(bundleRoot, fullPath).replace(/\\/g, '/');
       const content = fs.readFileSync(fullPath, 'utf8');
-      const fm = parseFrontmatter(content);
+      const fm = parseFrontmatter(content) || {};
+      const links = extractLinks(content);
+      if (Array.isArray(fm.sources)) {
+        for (const src of fm.sources) {
+          const rawResource = typeof src === 'string' ? src : (src && src.resource);
+          if (rawResource && typeof rawResource === 'string' && rawResource.endsWith('.md') && !/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//i.test(rawResource)) {
+            links.push({ label: (src && src.title) || rawResource, target: rawResource });
+          }
+        }
+      }
       list.push({
         fullPath,
         relPath,
         content,
-        fm: fm || {},
-        links: extractLinks(content)
+        fm,
+        links
       });
     }
   }
@@ -251,11 +285,8 @@ function updateIndexForArchived(indexPath, conceptRelPath, newRelPath, title, de
   const lines = content.split(/\r?\n/);
   const remainingLines = [];
 
-  let removedLine = null;
   for (const line of lines) {
-    if (line.includes(`(${targetPattern1})`) || line.includes(`(${targetPattern2})`)) {
-      removedLine = line;
-    } else {
+    if (!line.includes(`(${targetPattern1})`) && !line.includes(`(${targetPattern2})`)) {
       remainingLines.push(line);
     }
   }
@@ -330,7 +361,7 @@ Modes:
 Category Filters (default is all):
   --stale                Target concepts where 'stale_after' timestamp has passed.
   --deprecated           Target concepts with frontmatter 'status: deprecated'.
-  --ghosts               Target concepts whose local 'resource' file no longer exists.
+  --ghosts               Target concepts whose local 'resource', 'sources', or computation file no longer exists.
   --orphans              Target concepts with 0 inbound links (from index.md or other concepts).
   --all                  Target all prunable categories (Default).
 
@@ -404,23 +435,34 @@ async function main() {
       reasons.push('status is deprecated');
     }
 
-    // 3. Ghost / missing local resource check
+    // 3. Ghost / missing local resource check (§6.2 & §10.2)
     if (filterGhosts) {
-      if (c.fm.resource) {
-        const resolvedPath = resolveResourceLocalPath(c.fm.resource, workspaceRoot);
+      const checkLocalBound = (rawUri, kindLabel) => {
+        const resolvedPath = resolveResourceLocalPath(rawUri, workspaceRoot, bundleRoot);
         if (resolvedPath && !fs.existsSync(resolvedPath)) {
-          reasons.push(`missing local resource file '${path.relative(workspaceRoot, resolvedPath).replace(/\\/g, '/')}'`);
+          reasons.push(`missing local ${kindLabel} file '${path.relative(workspaceRoot, resolvedPath).replace(/\\/g, '/')}'`);
         }
+      };
+
+      if (c.fm.resource) {
+        checkLocalBound(c.fm.resource, 'resource');
       }
       if (Array.isArray(c.fm.sources)) {
         for (const src of c.fm.sources) {
-          if (src && src.resource) {
-            const resolvedPath = resolveResourceLocalPath(src.resource, workspaceRoot);
-            if (resolvedPath && !fs.existsSync(resolvedPath)) {
-              reasons.push(`missing local source file '${path.relative(workspaceRoot, resolvedPath).replace(/\\/g, '/')}'`);
-            }
+          const rawResource = typeof src === 'string' ? src : (src && src.resource);
+          if (rawResource) {
+            checkLocalBound(rawResource, 'source');
           }
         }
+      }
+      if (c.fm.computation) {
+        checkLocalBound(c.fm.computation, 'computation');
+      }
+      if (c.fm.executor && c.fm.executor.resource) {
+        checkLocalBound(c.fm.executor.resource, 'executor');
+      }
+      if (c.fm.attester && c.fm.attester.resource) {
+        checkLocalBound(c.fm.attester.resource, 'attester');
       }
     }
 
@@ -557,11 +599,16 @@ async function main() {
     appendLogEntry(logPath, logEntries, dateStr);
   }
 
-  // Regenerate visualizer if present
-  const vizScript = path.join(workspaceRoot, 'okf-visualize', 'scripts', 'visualize.js');
+  // Regenerate visualizer if present (check sibling skill dir first, then workspaceRoot)
+  const siblingVizScript = path.resolve(__dirname, '..', '..', 'okf-visualize', 'scripts', 'visualize.js');
+  const workspaceVizScript = path.join(workspaceRoot, 'okf-visualize', 'scripts', 'visualize.js');
+  const vizScript = fs.existsSync(siblingVizScript) ? siblingVizScript : workspaceVizScript;
   if (fs.existsSync(vizScript)) {
     try {
-      execFileSync('node', [vizScript, '--bundle', bundleRoot], { stdio: 'ignore' });
+      execFileSync(process.execPath, [vizScript, '--bundle', bundleRoot, '--no-open'], {
+        cwd: workspaceRoot,
+        stdio: 'ignore'
+      });
     } catch (e) {}
   }
 

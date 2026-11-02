@@ -4,6 +4,27 @@ Newest changes recorded chronologically.
 
 
 
+## 2026-11-02
+- Synchronized timestamp for 3 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-maintain-skill.md.
+- Added canonical shared OKF core module (`scripts/lib/okf-core.js`) and automated skill & `index.html` synchronizer (`scripts/sync-skills.js`, `npm run okf:sync`, `npm run okf:sync:check`), integrated directly into `okf-maintain/scripts/maintain.js` and `scripts/test-parser.js`.
+- Synchronized timestamp for 2 drifted concept(s): concepts/knowledge-loop.md, concepts/okf-lint-skill.md.
+- Synchronized timestamp for 1 drifted concept(s): concepts/okf-lint-skill.md.
+- Synchronized timestamp for 1 drifted concept(s): concepts/knowledge-loop.md.
+- Synchronized timestamp for 9 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-prune-skill.md, concepts/okf-query-skill.md, concepts/okf-upgrade-skill.md, concepts/okf-visualize-skill.md, concepts/okf-wayfinder-skill.md.
+- Completed full-suite OKF Specification v0.2 & v1.8.0 evolution across all 8 skills (`okf`, `okf-wayfinder`, `okf-upgrade`, `okf-query`, `okf-prune`, `okf-lint`, `okf-maintain`, `okf-visualize`):
+  - `okf-upgrade`: Fixed `serializeFrontmatter` to preserve both shorthand string `sources` and structured `sources` objects (`id`, `resource`, `title`, `author`, `usage_count`, `last_modified`), added `sources[].author` actor normalization, `--bundle <path>`, and `archive/` filtering.
+  - `okf-query`: Added `--file` and `--search` matching across `computation`, `executor.resource`, `attester.resource`, `runtime`, and Tier 1/Tier 2 shorthand & structured `sources`, plus `archive/` exclusion.
+  - `okf-prune`: Updated `--ghosts` to inspect shorthand & object `sources`, `computation`, `executor.resource`, and `attester.resource` while excluding non-`file://` URIs and scope descriptors, and updated `--orphans` to count `sources` concept lineage links.
+  - `okf-lint`: Added lifecycle `status` (`draft | stable | deprecated`) validation, `sources` object & `[^id]` footnote attribution checks, `# Computation` (§10.3) verification, and `--drift` checks on `computation`, `executor.resource`, and `attester.resource`.
+  - `okf-maintain`: Added drift detection & timestamp sync on `computation`, `executor.resource`, and `attester.resource`, plus non-`file://` URI and scope descriptor filtering.
+  - `okf-visualize`: Added `archive/` filtering, expanded `TYPE_PALETTE`, added `Attested Computation` lineage edges and sidebar metadata (`Generated`, `Runtime`, `Computation`, `Parameters`, `Executor`, `Attester`, `Usage Window`, and shorthand/structured `Sources`).
+  - Synchronized all `SKILL.md` versions to `1.8.0`, updated `/docs/okf/concepts/*.md`, `index.html`, and `scripts/test-lifecycle.js` (Step 15).
+- Synchronized timestamp for 4 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-maintain-skill.md, concepts/okf-wayfinder-skill.md.
+- Enhanced `okf-wayfinder/scripts/wayfinder_taxonomy.js` with OKF v0.2 Attested Computation resource tracking (`computation`, `executor.resource`, `attester.resource`), case-insensitive cross-platform resource matching, `archive/` and nested git repository filtering, `--bundle <path>` flag, active concept/layout metadata (`concepts`, `conceptCount`, `layoutMode`, `subdirectories`), module-level frontier clustering (`frontierGroups`), and `--inspect <file>` codebase & Git telemetry extraction.
+- Upgraded `okf-wayfinder/SKILL.md` with full 6-file multi-agent steering parity, clustered frontier proposals, structured question tool guidance (`ask_question` / `AskUserQuestion`), `--inspect` draft scaffolding, type-aware focus questions, `human-reviewed` trust tier attestation (`verified`), and post-authoring `okf-maintain` + `okf-lint --drift` verification.
+- Updated `okf-maintain/scripts/maintain.js` to skip nested git repositories in `scanWorkspaceFiles` and `archive/` folders in `walkConceptFiles`.
+- Synchronized `docs/okf/concepts/okf-wayfinder-skill.md`, `index.html` (Details Panel 3), `package.json` (`okf:wayfinder`), and `scripts/test-lifecycle.js` (Step 14).
+
 ## 2026-10-29
 - Synchronized timestamp for 6 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-skill.md, concepts/okf-wayfinder-skill.md.
 - Synchronized timestamp for 6 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-skill.md, concepts/okf-wayfinder-skill.md.

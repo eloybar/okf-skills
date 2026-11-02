@@ -3,7 +3,11 @@ const path = require('path');
 
 console.log('Starting OKF Frontmatter Parser Unit Tests...\n');
 
+const okfCore = require('./lib/okf-core.js');
+const { execFileSync } = require('child_process');
+
 const parsers = {
+  'okf-core': okfCore.parseFrontmatter,
   'okf-lint': require('../okf-lint/scripts/lint.js').parseFrontmatter,
   'okf-maintain': require('../okf-maintain/scripts/maintain.js').parseFrontmatter,
   'okf-query': require('../okf-query/scripts/query.js').parseFrontmatter,
@@ -179,6 +183,43 @@ sources:
 
   console.log(`✓ All 13 test cases passed for [${parserName}].`);
 }
+
+console.log('\nTesting shared core utilities in [scripts/lib/okf-core.js]...');
+const sampleFm = {
+  okf_version: '0.2',
+  type: 'Attested Computation',
+  title: 'Revenue, Refunds & Net Sales',
+  resource: 'bigquery://prod.finance.revenue',
+  tags: ['finance', 'core, billing'],
+  status: 'stable',
+  generated: { by: 'Antigravity/4.0', at: '2026-11-02T00:00:00Z' },
+  sources: [
+    'src/queries/revenue.sql',
+    { id: 'spec-1', resource: 'https://example.com/spec', title: 'Finance Spec', usage_count: '15' }
+  ],
+  runtime: 'bigquery',
+  computation: 'file:///src/queries/revenue.sql',
+  executor: { resource: 'file:///src/run-executor.js', receipt: ['job_id', 'bytes_billed'] },
+  attester: { resource: 'file:///src/run-attester.js' }
+};
+const serialized = okfCore.serializeFrontmatter(sampleFm);
+const reparsed = okfCore.parseFrontmatter(serialized + '\n\n# Body\n');
+assert.strictEqual(reparsed.type, sampleFm.type);
+assert.strictEqual(reparsed.title, sampleFm.title);
+assert.deepStrictEqual(reparsed.tags, sampleFm.tags);
+assert.strictEqual(reparsed.sources[0], 'src/queries/revenue.sql');
+assert.strictEqual(reparsed.sources[1].id, 'spec-1');
+assert.deepStrictEqual(reparsed.executor.receipt, ['job_id', 'bytes_billed']);
+assert.strictEqual(okfCore.normalizeActor('agent:Claude/3.5'), 'Claude/3.5');
+assert.strictEqual(okfCore.normalizeActor('human:alice'), 'human:alice');
+assert.strictEqual(okfCore.resolveResourceLocalPath('bigquery://prod.finance.revenue', process.cwd()), null);
+assert.strictEqual(okfCore.resolveResourceLocalPath('src/ (excluding tests/)', process.cwd()), null);
+const uris = okfCore.collectConceptResourceUris(reparsed);
+assert.strictEqual(uris.length, 6);
+console.log('✓ All shared core serialization, URI resolution, and actor normalization tests passed.');
+
+console.log('\nVerifying skill & index.html synchronization (scripts/sync-skills.js --check)...');
+execFileSync(process.execPath, [path.join(__dirname, 'sync-skills.js'), '--check'], { stdio: 'inherit' });
 
 console.log('\n======================================');
 console.log('🎉 ALL PARSER UNIT TESTS PASSED SUCCESSFULLY!');

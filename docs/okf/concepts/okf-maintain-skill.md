@@ -6,7 +6,7 @@ resource: file:///D:/projects/okf-skills/okf-maintain/SKILL.md
 tags: [maintenance, automation, sync]
 generated:
   by: Antigravity/4.0
-  at: 2026-10-29T13:41:01.624Z
+  at: 2026-11-02T00:37:39.718Z
 sources:
   - okf-maintain/scripts/maintain.js
 ---
@@ -17,13 +17,13 @@ The `okf-maintain` skill runs post-edit to verify that codebase modifications ma
 # Architecture & CLI Automation
 - **Script**: Located at [`okf-maintain/scripts/maintain.js`](/okf-maintain/scripts/maintain.js).
 - **Execution Modes**:
-  - `node okf-maintain/scripts/maintain.js` (or `npm run okf:maintain`): Automatically detects concept-resource drift via both committed Git history (`git log -1`) and uncommitted working-tree/staged changes (`git status --porcelain` + filesystem `mtime`), normalizes both string and object entries in `sources:`, refreshes `generated.at`, auto-heals outdated agent steering notices (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `GEMINI.md`) to the v1.8.0 template (including Model-Tier Routing) without user prompting, scans for unindexed frontier files and graduates bound files out of `## Not yet specified` in `index.md`, appends entries to `log.md`, regenerates `viz.html` (`--no-open` via sibling skill resolution), and verifies with `okf-lint --drift`.
+  - `node okf-maintain/scripts/maintain.js` (or `npm run okf:maintain`): Automatically detects concept-resource drift across `resource`, `sources` (string and object entries), `computation`, `executor.resource`, and `attester.resource` via both committed Git history (`git log -1`) and uncommitted working-tree/staged changes (`git status --porcelain` + filesystem `mtime`), normalizes both string and object entries in `sources:`, refreshes `generated.at`, auto-heals outdated agent steering notices (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `GEMINI.md`) to the v1.8.0 template (including Model-Tier Routing) without user prompting, scans for unindexed frontier files (skipping `archive/` and nested git repositories) and graduates bound files out of `## Not yet specified` in `index.md`, appends entries to `log.md`, regenerates `viz.html` (`--no-open` via sibling skill resolution), and verifies with `okf-lint --drift`.
   - `node okf-maintain/scripts/maintain.js --check`: Non-destructive audit mode that exits with code 1 if committed or working-tree drift, unindexed frontier files, or outdated steering notices are found.
   - `node okf-maintain/scripts/maintain.js --json`: Outputs structured JSON for CI and subagent tooling.
 
 # Workflow
 1. **Guard check**: Verifies the bundle directory exists (in this repo, `/docs/okf`).
-2. **Scan changes**: Maps modified or newly added code files, API routes, or database schemas to OKF concepts.
+2. **Scan changes**: Maps modified or newly added code files, API routes, computation scripts, or database schemas to OKF concepts.
 3. **Update concepts**: Updates frontmatter metadata (especially the `generated` block) and documents new facts/schemas.
 4. **Scale & Refactor Links**: Detects scale transitions (from flat to nested when concept count passes 10) and refactors all relative link references accordingly.
 5. **Update reserved files**: Appends to `log.md` and indexes new files/directories in `index.md`.

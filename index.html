@@ -1075,18 +1075,20 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
      * Otherwise (e.g. Codex, OpenHands, general agents), default to creating **`AGENTS.md`**.
    - **Content**: 
      * Include a **Pre-Work Grounding Gate** instructing agents before inspecting code, planning architecture, answering system questions, or modifying files to: (1) query the bundle (`node okf-query/scripts/query.js --search &lt;keywords&gt;` or inspect `index.md`), (2) retrieve file/module contracts (`node okf-query/scripts/query.js --file &lt;path&gt;`), (3) explicitly cite consulted concepts, and (4) follow **Model-Tier Routing** (use the **High** reasoning setting of the active model during initial bundle bootstrapping, domain/architecture discovery, and implementation planning, then switch back to the **Medium** setting of that same model once the plan is laid out and approved before executing implementation tasks).
-     * Include a **Pre-Completion Verification Gate** instructing agents before completing any work (keeping the active model on its **Medium** setting for post-implementation upkeep) to: (1) perform **Semantic Concept &amp; Source Binding Upkeep**, (2) run `okf-maintain` (or `node okf-maintain/scripts/maintain.js`), and (3) run `okf-lint --drift` (or `node okf-lint/scripts/lint.js --drift`).
+     * Include a **Pre-Completion Verification Gate** instructing agents before completing any work (keeping the active model on its **Medium** setting for post-implementation upkeep) to: (1) perform **Semantic Concept &amp; Source Binding Upkeep** (updating affected concept prose or creating a new concept, binding all newly created or modified source files in the concept's `resource:` or `sources:` frontmatter so they graduate out of `## Not yet specified` in `index.md`, and recording a summary in `log.md`), (2) run `okf-maintain` (or `node okf-maintain/scripts/maintain.js`), and (3) run `okf-lint --drift` (or `node okf-lint/scripts/lint.js --drift`).
      * Create or update the selected steering file with a dedicated **Knowledge Bundle / OKF** section.
      * Direct future agent sessions to first verify workspace synchronization on startup (running `okf-lint --drift` to detect drift, and `okf-maintain` to fix/sync any drift).
      * Instruct them to locate and use the **closest parent `okf/` directory** relative to the file they are editing (falling back to the root `okf/` if no local directory exists).
-     * Instruct them to ground any initial user questions about the codebase by searching the OKF bundle first (e.g., running `okf-query --search <keywords>` or checking `index.md`) before answering or planning.
-     * Instruct them to run `okf-query --file <file-path>` before analyzing/editing files to pull context.
+     * Instruct them to ground any initial user questions about the codebase by searching the OKF bundle first (e.g., running `okf-query --search &lt;keywords&gt;` or checking `index.md`) before answering or planning.
+     * Instruct them to run `okf-query --file &lt;file-path&gt;` before analyzing/editing files to pull context.
      * Instruct them to maintain the bundle post-edit by running `okf-maintain` followed by `okf-lint` to update or create concepts if they modify schemas/components/APIs, discover platform/sandbox-specific constraints (e.g., mobile WebView quirks, CORS limits, CDN blockages), improve developer utility/test pages, or learn new codebase behaviors/patterns that warrant a permanent guideline.
-     * Include the steering version tracking tag at the bottom of the section: `<!-- okf-steering-version: 1.8.0 -->`.
+     * Include the steering version tracking tag at the bottom of the section: `&lt;!-- okf-steering-version: 1.8.0 --&gt;`.
    - Done when the target root-level agent steering file (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, etc.) exists and contains the tailored OKF steering directives with the version tag.
+
 
 6. **Conformance gate.** Verify the bundle still conforms. See **Conformance**.
    - Done when every non-reserved `.md` has parseable frontmatter with a non-empty `type`, and each reserved file matches its structure.
+
 
 ## Frontmatter
 
@@ -1094,7 +1096,7 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
 
 - `type` — the kind of concept, non-empty (e.g. `BigQuery Table`, `Playbook`, `Service`, `Metric`, `Attested Computation`). Free-form; pick a consistent vocabulary within a bundle.
 
-**Recommended & Lifecycle / Trust Fields (OKF v0.2)** — add when they apply:
+**Recommended &amp; Lifecycle / Trust Fields (OKF v0.2)** — add when they apply:
 
 - `title` — display name
 - `description` — one-sentence summary
@@ -1152,9 +1154,9 @@ Free-form markdown. Use these conventional headings when they fit, so consumers 
 
 - `# Schema` — structured field/column descriptions
 - `# Examples` — usage demonstrations
-- `# Computation` — the sanctioned computation block of an `Attested Computation` (when not using external `computation: <file>`)
+- `# Computation` — the sanctioned computation block of an `Attested Computation` (when not using external `computation: &lt;file&gt;`)
 
-## Directory Organization & Scaling
+## Directory Organization &amp; Scaling
 
 To prevent catalog clutter as the number of concepts increases, adhere to the following organization guidelines:
 - **Flat Layout (&lt; 10 concepts):** Keep all concepts at the root (`/okf/*.md`) for simpler cross-linking.
@@ -1180,6 +1182,7 @@ Hard rules — a bundle conforms only if all hold:
 3. Reserved files (`index.md`, `log.md`) follow their structures above.
 
 Everything else is soft guidance. When reading a bundle, degrade gracefully: tolerate unknown `type` values, missing recommended fields, and broken links (which may represent not-yet-written knowledge per §6.1) rather than erroring.
+
 </code></pre>
             </div>
           </div>
@@ -1191,12 +1194,12 @@ Everything else is soft guidance. When reading a bundle, degrade gracefully: tol
         <div class="details-grid">
           <div class="details-info">
             <h3>Guided Wizard Onboarding</h3>
-            <p>The <code>/okf-wayfinder</code> skill guides the developer or agent through bootstrapping a new concept from scratch using interactive, context-aware focus questions combined with codebase analysis to prevent taxonomy drift.</p>
+            <p>The <code>/okf-wayfinder</code> skill guides the developer or agent through bootstrapping a new concept from scratch using interactive, context-aware focus questions combined with automated codebase telemetry to prevent taxonomy drift.</p>
             <ul>
-              <li>Locates parent OKF bundle roots automatically.</li>
-              <li>Runs the taxonomy scanner to fetch and suggest existing types/tags.</li>
-              <li>Scrapes codebase context (model parameters, endpoint paths) to draft concepts.</li>
-              <li>Limits human input fatigue to 2-3 targeted tribal knowledge questions.</li>
+              <li>Locates parent OKF bundle roots and returns existing concept links, layout mode, and clustered frontier modules (<code>frontierGroups</code>).</li>
+              <li>Runs <code>--inspect &lt;file&gt;</code> telemetry to extract exported symbols, local imports, auto-resolved concept links, and Git contributor history.</li>
+              <li>Limits human input fatigue to at most 3 type-aware tribal knowledge questions (using native question tools when available).</li>
+              <li>Records human sign-off in <code>verified:</code> (<code>human-reviewed</code> trust tier) and closes the loop with <code>okf-maintain</code> and <code>okf-lint --drift</code>.</li>
             </ul>
           </div>
           <div class="details-code-container">
@@ -1225,79 +1228,58 @@ version: 1.8.0
 
 &gt; **Model-Tier Steering:** Use the **High** reasoning setting of the active model during initial bundle bootstrapping and interactive concept discovery interviews. Once the architecture and implementation plan are laid out, switch back to the **Medium** setting of the same model for implementation and routine upkeep.
 
-1. **Locate the Bundle & Scan Registry**
-   - Check /docs/okf or /okf for the bundle root. If none exists, ask to initialize. If initializing, create root index.md containing okf_version: 0.2, log.md, and the appropriate agent steering/configuration file (AGENTS.md, CLAUDE.md, etc.).
-   - Scan existing concepts to extract the list of defined types and tags.
-   - You can run the utility script:
-     node &lt;path-to-skill-directory&gt;/scripts/wayfinder_taxonomy.js
+1. **Locate the Bundle &amp; Scan Registry**
+   - Check /docs/okf or /okf for the bundle root. If initializing, create root index.md (okf_version: 0.2), log.md, and the root agent steering file (AGENTS.md, CLAUDE.md, .cursorrules, .windsurfrules, .clinerules, or GEMINI.md).
+   - Scan existing concepts to extract types, tags, concepts, layoutMode, subdirectories, frontier, and frontierGroups:
+     node &lt;path-to-skill-directory&gt;/scripts/wayfinder_taxonomy.js [--bundle &lt;path&gt;]
 
-2. **Categorize the Concept**
-   - Ask the user what they want to document (e.g. table, service, playbook).
-   - Display existing types and ask for choice or custom input.
+2. **Categorize the Concept &amp; Propose Clustered Frontier Candidates**
+   - Propose clustered undocumented modules from frontierGroups (primaryCandidate + companionFiles).
+   - Use native structured question tools (ask_question / AskUserQuestion) when available to select the concept type.
 
 3. **Autogenerate a Telemetry Draft**
-   - Parse model, route, or configuration code to pre-populate schema properties.
+   - Run node &lt;path-to-skill-directory&gt;/scripts/wayfinder_taxonomy.js --inspect &lt;file-path&gt; to extract exportedSymbols, localImports, relatedConcepts links, and Git contributor history.
 
-4. **Conduct the Focus Interview**
-   - Ask 2-3 targeted questions to capture tribal domain context.
+4. **Conduct the Focus Interview (Type-Aware)**
+   - Ask at most 3 targeted questions tailored to the chosen type (Service, Database, Playbook, Decision, or Attested Computation).
 
-5. **Draft and Verify Conformance**
-   - Compile inputs, add generated metadata (by & at), update index.md and log.md.</code></pre>
+5. **Draft, Attest Human Verification, and Sync Lifecycle**
+   - Compile frontmatter (generated, verified: [{ by: human:&lt;id&gt;, at }], resource, sources, stale_after) and run okf-maintain &amp; okf-lint --drift.</code></pre>
               </div>
 
               <!-- Panel 2: wayfinder_taxonomy.js -->
               <div class="details-code tab-panel" id="s3-panel-2">
                 <div class="code-header">
-                  <span>wayfinder_taxonomy.js (Taxonomy Scanner)</span>
+                  <span>wayfinder_taxonomy.js (Taxonomy &amp; Telemetry Scanner)</span>
                   <button class="copy-btn" onclick="copyCode(this)">Copy</button>
                 </div>
                 <pre><code>const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
-function parseFrontmatter(content) {
-  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!match) return null;
-  const fmText = match[1];
-  const fm = {};
-  const lines = fmText.split(/\r?\n/);
-  for (const line of lines) {
-    const colonIndex = line.indexOf(':');
-    if (colonIndex === -1) continue;
-    const key = line.slice(0, colonIndex).trim();
-    let val = line.slice(colonIndex + 1).trim();
-    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-      val = val.slice(1, -1);
-    }
-    if (key === 'tags') {
-      fm[key] = val.startsWith('[') ? val.slice(1, -1).split(',').map(t => t.trim()) : [val];
-    } else {
-      fm[key] = val;
-    }
-  }
-  return fm;
-}
-
-function scanBundleTaxonomy(dir, bundleRoot, taxonomy = { types: new Set(), tags: new Set() }) {
+function scanBundleTaxonomy(dir, bundleRoot, workspaceRoot, taxonomy) {
   if (!fs.existsSync(dir)) return taxonomy;
-  const files = fs.readdirSync(dir);
-  for (const file of files) {
+  for (const file of fs.readdirSync(dir)) {
     const fullPath = path.join(dir, file);
     const stat = fs.statSync(fullPath);
     if (stat.isDirectory()) {
-      scanBundleTaxonomy(fullPath, bundleRoot, taxonomy);
-    } else if (stat.isFile() && file.endsWith('.md')) {
-      if (file === 'index.md' || file === 'log.md') continue;
-      try {
-        const fm = parseFrontmatter(fs.readFileSync(fullPath, 'utf8'));
-        if (fm && fm.type) {
-          taxonomy.types.add(fm.type);
-          if (fm.tags) fm.tags.forEach(t => taxonomy.tags.add(t));
-        }
-      } catch (e) {}
+      if (file.toLowerCase() === 'archive') continue;
+      scanBundleTaxonomy(fullPath, bundleRoot, workspaceRoot, taxonomy);
+    } else if (stat.isFile() &amp;&amp; file.endsWith('.md')) {
+      if (/^(index|log)\.md$/i.test(file)) continue;
+      const fm = parseFrontmatter(fs.readFileSync(fullPath, 'utf8'));
+      if (!fm) continue;
+      if (fm.type) taxonomy.types.add(fm.type);
+      if (Array.isArray(fm.tags)) fm.tags.forEach(t =&gt; taxonomy.tags.add(t));
+      // Tracks resource, sources, computation, executor.resource, and attester.resource
+      const relToBundle = '/' + path.relative(bundleRoot, fullPath).replace(/\\/g, '/');
+      const title = fm.title || path.basename(file, '.md');
+      taxonomy.concepts.push({ title, type: fm.type, bundlePath: relToBundle, markdownLink: `[${title}](${relToBundle})` });
     }
   }
   return taxonomy;
-}</code></pre>
+}
+// Supports --bundle &lt;path&gt;, clusterFrontier(), and --inspect &lt;file&gt; telemetry extraction</code></pre>
               </div>
             </div>
           </div>
@@ -1382,22 +1364,42 @@ Before writing any code or analyzing subsystems:
                 <pre><code><span class="code-comment"># okf-query/SKILL.md</span>
 ---
 name: okf-query
-description: Scan the OKF knowledge bundle to retrieve and inject relevant context matching specific files or search queries.
+description: Scan the OKF knowledge bundle to retrieve and inject relevant architectural and business context matching specific files or search queries.
+version: 1.8.0
 ---
 
+# `okf-query` Workflow
+
+Retrieve matching OKF v0.2 concepts to inject architectural contracts, provenance, and trust signals directly into agent prompts.
+
+## Usage
+
+```bash
+# Retrieve concept matching a specific codebase resource, source, or attested computation file
+node okf-query/scripts/query.js --file install.ps1 [--bundle &lt;path&gt;]
+
+# Search all concepts by tags, provenance metadata, runtime, or text keywords
+node okf-query/scripts/query.js --search "maintenance" [--bundle &lt;path&gt;]
+```
+
+## Steps
+
 1. **Locate the Bundle**
-   - Locate the OKF bundle root directory at /docs/okf or /okf.
+   - Locate the OKF bundle root directory at `/docs/okf` or `/okf` (or via `--bundle &lt;path&gt;`), skipping `archive/` directories so only active concepts are injected.
 
 2. **Match by File Path (`--file &lt;path&gt;`)**
    - Take a file path as input and resolve it relative to the workspace root.
-   - Scan all concepts and check their `resource` values.
-   - Select the concept if its target path matches the input file or a parent directory.
+   - Scan all active concept files and inspect all OKF v0.2 §6.2 path-valued fields: `resource`, `sources` (both shorthand string arrays and `{ id, resource, title, ... }` objects), `computation`, `executor.resource`, and `attester.resource`.
+   - **Tier 1 (Direct / Enclosing Match):** Select any concept whose bound path matches the queried file or an enclosing parent directory.
+   - **Tier 2 (Subsystem / Directory Match):** If no Tier 1 match exists, select concepts that document sibling files in the same module/directory.
+   - If no concept is found, output actionable guidance suggesting search keywords or the catalog index.
 
 3. **Match by Text Search (`--search &lt;query&gt;`)**
-   - Search concept titles, tags, descriptions, and body text for the keyword.
+   - Scan concept `title`, `description`, `type`, `runtime`, `tags`, `resource`, `sources` (`id`, `resource`, `title`, `author`), `computation`, `executor.resource`, `attester.resource`, and markdown body text.
 
 4. **Consolidated Output**
-   - Output selected concepts formatted as a single markdown context block.</code></pre>
+   - Output selected concepts formatted as an `=== OKF CONTEXT BLOCK ===` including `Type`, `Description`, `Resource`, `Runtime`/`Computation` (for `Attested Computation`), `Tags`, `Status`, `Stale After`, derived `Trust Tier` (`unverified`, `machine-confirmed`, or `human-reviewed` per §5.3), and body content.
+</code></pre>
               </div>
 
               <!-- Panel 2: query.js -->
@@ -1406,36 +1408,368 @@ description: Scan the OKF knowledge bundle to retrieve and inject relevant conte
                   <span>query.js (Retrieval Script)</span>
                   <button class="copy-btn" onclick="copyCode(this)">Copy</button>
                 </div>
-                <pre><code>// Scan concepts matching file resource path or search keywords
-const allConcepts = scanConcepts(bundleRoot, bundleRoot, workspaceRoot);
-const matched = [];
+                <pre><code>const fs = require('fs');
+const path = require('path');
 
-if (fileIndex !== -1) {
-  const targetFile = path.resolve(workspaceRoot, args[fileIndex + 1]);
-  const normalizedTarget = path.normalize(targetFile);
+function splitRespectingQuotes(str, delimiter = ',') {
+  const result = [];
+  let current = '';
+  let inDouble = false;
+  let inSingle = false;
+  for (let i = 0; i &lt; str.length; i++) {
+    const char = str[i];
+    if (char === '"' &amp;&amp; !inSingle) {
+      inDouble = !inDouble;
+      current += char;
+    } else if (char === "'" &amp;&amp; !inDouble) {
+      inSingle = !inSingle;
+      current += char;
+    } else if (char === delimiter &amp;&amp; !inDouble &amp;&amp; !inSingle) {
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current);
+  return result;
+}
 
-  for (const c of allConcepts) {
-    if (c.frontmatter.resource) {
-      const resPath = resolveResourceLocalPath(c.frontmatter.resource, workspaceRoot);
-      if (resPath) {
-        const normalizedRes = path.normalize(resPath);
-        if (normalizedTarget === normalizedRes || normalizedTarget.startsWith(normalizedRes + path.sep)) {
-          matched.push(c);
+function parseFrontmatter(content) {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!match) return null;
+  const fmText = match[1];
+  
+  function parseInlineValue(val) {
+    val = val.trim();
+    if (val.startsWith('{') &amp;&amp; val.endsWith('}')) {
+      const obj = {};
+      const pairs = splitRespectingQuotes(val.slice(1, -1), ',');
+      for (const pair of pairs) {
+        const colonIdx = pair.indexOf(':');
+        if (colonIdx === -1) continue;
+        const k = pair.slice(0, colonIdx).trim();
+        let v = pair.slice(colonIdx + 1).trim();
+        if ((v.startsWith('"') &amp;&amp; v.endsWith('"')) || (v.startsWith("'") &amp;&amp; v.endsWith("'"))) {
+          v = v.slice(1, -1);
         }
+        obj[k] = v;
+      }
+      return obj;
+    }
+    if (val.startsWith('[') &amp;&amp; val.endsWith(']')) {
+      return splitRespectingQuotes(val.slice(1, -1), ',').map(item =&gt; {
+        item = item.trim();
+        if ((item.startsWith('"') &amp;&amp; item.endsWith('"')) || (item.startsWith("'") &amp;&amp; item.endsWith("'"))) {
+          item = item.slice(1, -1);
+        }
+        return item;
+      });
+    }
+    if ((val.startsWith('"') &amp;&amp; val.endsWith('"')) || (val.startsWith("'") &amp;&amp; val.endsWith("'"))) {
+      return val.slice(1, -1);
+    }
+    return val;
+  }
+
+  const fm = {};
+  const lines = fmText.split(/\r?\n/);
+  let currentKey = null;
+  let inArray = false;
+
+  for (let i = 0; i &lt; lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim() || line.trim().startsWith('#')) continue;
+
+    const matchIndent = line.match(/^(\s*)/);
+    const indent = matchIndent ? matchIndent[1].length : 0;
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('-')) {
+      const rest = trimmed.slice(1).trim();
+      if (!currentKey) continue;
+      if (!Array.isArray(fm[currentKey])) {
+        fm[currentKey] = [];
+      }
+      
+      if (rest.startsWith('{') &amp;&amp; rest.endsWith('}')) {
+        fm[currentKey].push(parseInlineValue(rest));
+      } else {
+        const colonIdx = rest.indexOf(':');
+        if (colonIdx !== -1 &amp;&amp; !/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(rest)) {
+          const k = rest.slice(0, colonIdx).trim();
+          const v = parseInlineValue(rest.slice(colonIdx + 1).trim());
+          const obj = {};
+          obj[k] = v;
+          fm[currentKey].push(obj);
+        } else {
+          fm[currentKey].push(parseInlineValue(rest));
+        }
+      }
+      inArray = true;
+      continue;
+    }
+
+    const colonIdx = trimmed.indexOf(':');
+    if (colonIdx === -1) continue;
+
+    const key = trimmed.slice(0, colonIdx).trim();
+    const val = parseInlineValue(trimmed.slice(colonIdx + 1).trim());
+
+    if (indent === 0) {
+      currentKey = key;
+      inArray = false;
+      if (val === '') {
+        fm[key] = {};
+      } else {
+        fm[key] = val;
+      }
+    } else {
+      if (inArray &amp;&amp; currentKey &amp;&amp; Array.isArray(fm[currentKey])) {
+        const lastItem = fm[currentKey][fm[currentKey].length - 1];
+        if (lastItem &amp;&amp; typeof lastItem === 'object') {
+          lastItem[key] = val;
+        }
+      } else if (currentKey &amp;&amp; fm[currentKey] &amp;&amp; typeof fm[currentKey] === 'object') {
+        fm[currentKey][key] = val;
       }
     }
   }
-} else if (searchIndex !== -1) {
-  const keyword = args[searchIndex + 1].toLowerCase();
-  for (const c of allConcepts) {
-    const title = (c.frontmatter.title || '').toLowerCase();
-    const desc = (c.frontmatter.description || '').toLowerCase();
-    const body = c.body.toLowerCase();
-    if (title.includes(keyword) || desc.includes(keyword) || body.includes(keyword)) {
-      matched.push(c);
+  return fm;
+}
+
+function getConceptBody(content) {
+  return content.replace(/^---[\s\S]*?---\r?\n/, '');
+}
+
+function resolveResourceLocalPath(resourceUri, workspaceRoot, bundleRoot = null) {
+  if (!resourceUri || typeof resourceUri !== 'string') return null;
+  const trimmed = resourceUri.trim();
+  if (/^(?!file:\/\/)[a-zA-Z][a-zA-Z0-9+.-]*:\/\//i.test(trimmed)) return null;
+  if (!/^file:\/\//i.test(trimmed) &amp;&amp; /\s/.test(trimmed) &amp;&amp; !/[\/\\]/.test(trimmed)) return null;
+
+  const isFileUri = /^file:\/\//i.test(trimmed);
+  let localPath = trimmed.replace(/^file:\/\/\/?/, '');
+  if (!isFileUri &amp;&amp; trimmed.startsWith('/') &amp;&amp; bundleRoot) {
+    const bundleCandidate = path.normalize(path.join(bundleRoot, trimmed.slice(1)));
+    if (fs.existsSync(bundleCandidate)) return bundleCandidate;
+    const workspaceCandidate = path.normalize(path.join(workspaceRoot, trimmed.slice(1)));
+    if (fs.existsSync(workspaceCandidate)) return workspaceCandidate;
+  }
+  if (path.isAbsolute(localPath)) {
+    const absNorm = path.normalize(localPath);
+    if (fs.existsSync(absNorm)) return absNorm;
+    const stripped = localPath.replace(/^[\/\\]+/, '');
+    const relCandidate = path.normalize(path.join(workspaceRoot, stripped));
+    if (fs.existsSync(relCandidate)) return relCandidate;
+    return absNorm;
+  }
+  if (bundleRoot) {
+    const bundleRelCandidate = path.normalize(path.join(bundleRoot, localPath));
+    if (fs.existsSync(bundleRelCandidate) &amp;&amp; !fs.existsSync(path.join(workspaceRoot, localPath))) {
+      return bundleRelCandidate;
     }
   }
-}</code></pre>
+  return path.normalize(path.join(workspaceRoot, localPath));
+}
+
+function collectConceptResourceUris(fm) {
+  const uris = [];
+  if (!fm) return uris;
+  if (fm.resource) uris.push(fm.resource);
+  if (Array.isArray(fm.sources)) {
+    for (const src of fm.sources) {
+      const rawResource = typeof src === 'string' ? src : (src &amp;&amp; src.resource);
+      if (rawResource) uris.push(rawResource);
+    }
+  }
+  if (fm.computation) uris.push(fm.computation);
+  if (fm.executor &amp;&amp; fm.executor.resource) uris.push(fm.executor.resource);
+  if (fm.attester &amp;&amp; fm.attester.resource) uris.push(fm.attester.resource);
+  return uris;
+}
+
+function scanConcepts(dir, bundleRoot, workspaceRoot, matches = []) {
+  if (!fs.existsSync(dir)) return matches;
+  const files = fs.readdirSync(dir);
+  for (const file of files) {
+    const fullPath = path.join(dir, file);
+    const stat = fs.statSync(fullPath);
+    if (stat.isDirectory()) {
+      if (file.toLowerCase() === 'archive') continue;
+      scanConcepts(fullPath, bundleRoot, workspaceRoot, matches);
+    } else if (stat.isFile() &amp;&amp; file.endsWith('.md')) {
+      if (file === 'index.md' || file === 'log.md') continue;
+      try {
+        const content = fs.readFileSync(fullPath, 'utf8');
+        const fm = parseFrontmatter(content);
+        const body = getConceptBody(content);
+        if (fm) {
+          matches.push({
+            relativePath: path.relative(bundleRoot, fullPath).replace(/\\/g, '/'),
+            absolutePath: fullPath,
+            frontmatter: fm,
+            body: body
+          });
+        }
+      } catch (e) {}
+    }
+  }
+  return matches;
+}
+
+function main() {
+  const args = process.argv.slice(2);
+  const fileIndex = args.indexOf('--file');
+  const searchIndex = args.indexOf('--search');
+
+  if (fileIndex === -1 &amp;&amp; searchIndex === -1) {
+    console.error('Usage: node okf-query/scripts/query.js --file &lt;path&gt; OR --search &lt;keyword&gt;');
+    process.exit(1);
+  }
+
+  const workspaceRoot = process.cwd();
+  const bundleIdx = args.indexOf('--bundle');
+  let bundleRoot = (bundleIdx !== -1 &amp;&amp; args[bundleIdx + 1])
+    ? path.resolve(workspaceRoot, args[bundleIdx + 1])
+    : path.join(workspaceRoot, 'docs', 'okf');
+  if (!fs.existsSync(bundleRoot)) {
+    bundleRoot = path.join(workspaceRoot, 'okf');
+  }
+
+  if (!fs.existsSync(bundleRoot)) {
+    console.error(`Error: OKF bundle not found.`);
+    process.exit(1);
+  }
+
+  const allConcepts = scanConcepts(bundleRoot, bundleRoot, workspaceRoot);
+  const matched = [];
+
+  if (fileIndex !== -1) {
+    const targetFile = path.resolve(workspaceRoot, args[fileIndex + 1]);
+    const normalizedTarget = path.normalize(targetFile).toLowerCase();
+
+    // Tier 1: Exact file match or resource is a directory enclosing target
+    for (const c of allConcepts) {
+      const resourceUris = collectConceptResourceUris(c.frontmatter);
+
+      for (const uri of resourceUris) {
+        const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
+        if (resPath) {
+          const normalizedRes = path.normalize(resPath).toLowerCase();
+          if (normalizedTarget === normalizedRes || normalizedTarget.startsWith(normalizedRes + path.sep)) {
+            matched.push(c);
+            break;
+          }
+        }
+      }
+    }
+
+    // Tier 2: Directory / Subsystem match (target resides in the same directory as a documented resource)
+    if (matched.length === 0) {
+      for (const c of allConcepts) {
+        const resourceUris = collectConceptResourceUris(c.frontmatter);
+
+        for (const uri of resourceUris) {
+          const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
+          if (resPath) {
+            const resDir = path.dirname(path.normalize(resPath)).toLowerCase();
+            const wsNorm = path.normalize(workspaceRoot).toLowerCase();
+            if (resDir !== wsNorm &amp;&amp; (normalizedTarget === resDir || normalizedTarget.startsWith(resDir + path.sep))) {
+              matched.push(c);
+              break;
+            }
+          }
+        }
+      }
+    }
+  } else if (searchIndex !== -1) {
+    const keyword = args[searchIndex + 1].toLowerCase();
+    for (const c of allConcepts) {
+      const title = (c.frontmatter.title || '').toLowerCase();
+      const desc = (c.frontmatter.description || '').toLowerCase();
+      const type = (c.frontmatter.type || '').toLowerCase();
+      const runtime = (c.frontmatter.runtime || '').toLowerCase();
+      const tags = (c.frontmatter.tags || []).map(t =&gt; String(t).toLowerCase());
+      const body = c.body.toLowerCase();
+      let sourcesText = '';
+      for (const uri of collectConceptResourceUris(c.frontmatter)) {
+        sourcesText += ' ' + String(uri).toLowerCase();
+      }
+      if (Array.isArray(c.frontmatter.sources)) {
+        for (const src of c.frontmatter.sources) {
+          if (src &amp;&amp; typeof src === 'object') {
+            if (src.title) sourcesText += ' ' + String(src.title).toLowerCase();
+            if (src.description) sourcesText += ' ' + String(src.description).toLowerCase();
+            if (src.author) sourcesText += ' ' + String(src.author).toLowerCase();
+            if (src.id) sourcesText += ' ' + String(src.id).toLowerCase();
+          }
+        }
+      }
+
+      if (
+        title.includes(keyword) ||
+        desc.includes(keyword) ||
+        type.includes(keyword) ||
+        runtime.includes(keyword) ||
+        tags.some(t =&gt; t.includes(keyword)) ||
+        sourcesText.includes(keyword) ||
+        body.includes(keyword)
+      ) {
+        matched.push(c);
+      }
+    }
+  }
+
+  if (matched.length === 0) {
+    if (fileIndex !== -1) {
+      const relTarget = path.relative(workspaceRoot, path.resolve(workspaceRoot, args[fileIndex + 1]));
+      console.log(`No matching OKF concepts found for file: ${relTarget}`);
+      console.log(`Tip: Try searching by keyword: node okf-query/scripts/query.js --search &lt;module-or-topic&gt;`);
+      console.log(`Or inspect the catalog index at: ${fs.existsSync(path.join(bundleRoot, 'index.md')) ? path.relative(workspaceRoot, path.join(bundleRoot, 'index.md')).replace(/\\/g, '/') : 'docs/okf/index.md'}`);
+    } else {
+      console.log('No matching OKF concepts found.');
+    }
+    return;
+  }
+
+  // Format and output matched concepts
+  console.log(`=== OKF CONTEXT BLOCK (${matched.length} concept(s) found) ===\n`);
+  for (const c of matched) {
+    console.log(`[Concept: ${c.frontmatter.title || c.relativePath}]`);
+    console.log(`Type:        ${c.frontmatter.type}`);
+    if (c.frontmatter.description) console.log(`Description: ${c.frontmatter.description}`);
+    if (c.frontmatter.resource)    console.log(`Resource:    ${c.frontmatter.resource}`);
+    if (c.frontmatter.runtime)     console.log(`Runtime:     ${c.frontmatter.runtime}`);
+    if (c.frontmatter.computation) console.log(`Computation: ${c.frontmatter.computation}`);
+    if (c.frontmatter.tags)        console.log(`Tags:        ${c.frontmatter.tags.join(', ')}`);
+    if (c.frontmatter.status)      console.log(`Status:      ${c.frontmatter.status}`);
+    if (c.frontmatter.stale_after) console.log(`Stale After: ${c.frontmatter.stale_after}`);
+    
+    let trustTier = 'unverified';
+    if (c.frontmatter.verified) {
+      const verifications = Array.isArray(c.frontmatter.verified) ? c.frontmatter.verified : [c.frontmatter.verified];
+      const hasHuman = verifications.some(v =&gt; v &amp;&amp; v.by &amp;&amp; String(v.by).startsWith('human:'));
+      trustTier = hasHuman ? 'human-reviewed' : 'machine-confirmed';
+    }
+    console.log(`Trust Tier:  ${trustTier}`);
+    
+    console.log(`----------------------------------------`);
+    console.log(c.body.trim());
+    console.log(`\n========================================\n`);
+  }
+}
+
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  parseFrontmatter,
+  scanConcepts,
+  collectConceptResourceUris
+};
+</code></pre>
               </div>
             </div>
           </div>
@@ -1475,8 +1809,9 @@ Whenever code modifications touch existing resources or introduce untracked work
 node okf-maintain/scripts/maintain.js        # Auto-syncs drift timestamps, frontier, log, and viz
 node okf-maintain/scripts/maintain.js --check # Audit mode: checks drift and frontier without changes
 ```
+This automatically updates timestamps for drifted concepts, updates `## Not yet specified` in `index.md`, records the entry in `log.md`, regenerates `viz.html`, and runs `okf-lint --drift`.
 
-### Semantic Maintenance & New Concepts
+### Semantic Maintenance &amp; New Concepts
 
 1. **Guard: confirm a bundle exists.** Look for an `okf/` directory at the repo root (or the bundle root this repo uses). If there is none, stop — there is nothing to maintain.
    - Done when you have the bundle root, or have stopped.
@@ -1484,19 +1819,19 @@ node okf-maintain/scripts/maintain.js --check # Audit mode: checks drift and fro
 2. **Identify affected and missing concepts.** Map what changed (files edited/created, features added, facts learned) to the concept file(s) that cover it. Check `index.md` if present. If your changes introduced a new significant database schema/collection, API route module, frontend dashboard page, core system component, platform-specific/sandbox constraint (e.g., mobile WebView/in-app browser quirks, CORS limitations, CDN asset blockages), developer utility page (like testing environments), or a new codebase behavior or pattern that warrants a permanent engineering guideline, identify it as a concept that must be updated or created. Track any undocumented files (the "frontier") to be indexed in the `index.md` under `## Not yet specified`.
    - Done when you have the list of concepts to update and new concepts to create, or have confirmed none apply (then stop).
 
-3. **Update and/or create concepts.** Edit existing affected concepts to match reality. If you identified missing concepts in Step 2, you can invoke the `okf-wayfinder` skill to guide the authoring of new concept files by interviewing the developer. In both cases: set or refresh the `generated` frontmatter block (updating `at` with the current UTC ISO timestamp using `date -u +%Y-%m-%dT%H:%M:%SZ` and setting/preserving `by` with the actor), cross-link related concepts, and follow the `okf` skill guidelines for frontmatter and structure.
+3. **Update and/or create concepts.** Edit existing affected concepts to match reality. If you identified missing concepts in Step 2, you can invoke the `okf-wayfinder` skill to guide the authoring of new concept files by interviewing the developer. In both cases: set or refresh the `generated` frontmatter block (updating `at` with the current UTC ISO timestamp using `date -u +%Y-%m-%dT%H:%M:%SZ` and setting/preserving `by` with standard actor format `&lt;producer&gt;/&lt;version&gt;`, `human:&lt;id&gt;`, or `process:&lt;id&gt;`), update `sources` if references changed, cross-link related concepts, and follow the `okf` skill guidelines for frontmatter and structure.
    - Done when every affected concept reflects the change and all new concepts are authored.
 
-4. **Update reserved files.** Append a dated line to `log.md` describing the changes and additions. If you added a new concept, add it to `index.md` (and remove it from `## Not yet specified` if it was there). If any new undocumented workspace files are identified, list them under the `## Not yet specified` section of `index.md` to map the known frontier.
+4. **Update reserved files.** Append a dated line to `log.md` under an ISO 8601 `## YYYY-MM-DD` date heading describing the changes and additions. If you added a new concept, add it to `index.md` (and remove it from `## Not yet specified` if it was there). If any new undocumented workspace files are identified, list them under the `## Not yet specified` section of `index.md` to map the known frontier.
    - Done when `log.md` records the change and `index.md` lists any new concept and updates the undocumented frontier list — for each reserved file the bundle uses.
 
-5. **Steering Notice Upkeep.** Check if any agent steering files in the workspace root (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, or `GEMINI.md`) contain OKF directives. If any contain the version comment `<!-- okf-steering-version: 1.8.0 -->` or mention OKF, verify they are at version `1.8.0` with both the Pre-Work Grounding Gate (including Step 4: Model-Tier Routing) and Pre-Completion Verification Gate (including Step 1: Semantic Concept &amp; Source Binding Upkeep). If the comment is missing or references a version older than `1.8.0`, automatically update or overwrite the steering directives block without prompting for user confirmation (or run `node okf-maintain/scripts/maintain.js`), as this is a required conformance gate.
-   - Done when all present OKF steering notices contain the correct up-to-date directives and the `<!-- okf-steering-version: 1.8.0 -->` comment.
+5. **Steering Notice Upkeep.** Check if any agent steering files in the workspace root (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, or `GEMINI.md`) contain OKF directives. If any contain the version comment `&lt;!-- okf-steering-version: 1.8.0 --&gt;` or mention OKF, verify they are at version `1.8.0` with both the Pre-Work Grounding Gate (including Step 4: Model-Tier Routing) and the Pre-Completion Verification Gate (including Step 1: Semantic Concept &amp; Source Binding Upkeep). If the comment is missing or references a version older than `1.8.0`, automatically update or overwrite the steering directives block without prompting for user confirmation (or run `node okf-maintain/scripts/maintain.js`), as this is a required conformance gate.
+   - Done when all present OKF steering notices contain the correct up-to-date directives and the `&lt;!-- okf-steering-version: 1.8.0 --&gt;` comment.
 
 6. **Conformance gate.** Verify the bundle still conforms, per the `okf` skill.
    - Done when every non-reserved `.md` has parseable frontmatter with a non-empty `type`.
 
-## Reorganization & Link Upkeep
+## Reorganization &amp; Link Upkeep
 
 - **Scale Trigger:** When a concept addition pushes the root concepts count past 10, check if the bundle should transition to a nested layout. Recommend this restructure to the user before executing.
 - **Link Refactoring:** When moving concept files, update all bundle-relative links in the body of all affected files (e.g., rewrite `[Auth](/auth.md)` to `[Auth](/subsystems/auth.md)`) and refresh the `index.md` listing.
@@ -1540,18 +1875,56 @@ node okf-maintain/scripts/maintain.js --check # Audit mode: checks drift and fro
 ---
 name: okf-lint
 description: Statically analyze the OKF knowledge bundle to check conformance, link integrity, and concept drift.
+version: 1.8.0
 ---
 
-1. **Verify Conformance**
-   - Ensure all .md files have valid YAML frontmatter with a type.
+# `okf-lint` Workflow
 
-2. **Verify Link Integrity**
-   - Confirm internal markdown links point to existing concepts.
+Ensure the OKF v0.2 bundle remains conformant, fresh, and synchronized with codebase changes.
 
-3. **Check Concept Drift (`--drift`)**
-   - Query git last commit date of concept's resource:
-     git log -1 --format="%aI" -- &lt;file-path&gt;
-   - If the code file is newer than the generated.at timestamp (or legacy timestamp), raise drift warning.</code></pre>
+## Usage
+
+```bash
+# Run conformance, provenance, freshness, and link integrity checks (broken links reported as warnings per §6.1)
+node okf-lint/scripts/lint.js [--bundle &lt;path&gt;]
+
+# Run checks including Git + working-tree concept drift and unmapped dirty file analysis
+node okf-lint/scripts/lint.js --drift
+
+# Enforce strict link resolution (broken links fail build)
+node okf-lint/scripts/lint.js --strict-links
+
+# Emit structured JSON summary for CI/CD and agent tooling
+node okf-lint/scripts/lint.js --drift --json
+```
+
+## Steps
+
+1. **Verify Conformance &amp; Provenance (§5, §7, §8, §9, §11, §12)**
+   - Parse all `.md` concept files in the bundle.
+   - Verify each file has parseable YAML frontmatter containing a non-empty `type`.
+   - Verify reserved files (`index.md` frontmatter rules §8, §12 and `log.md` `YYYY-MM-DD` date headings §9).
+   - Check lifecycle `status` (`draft | stable | deprecated`, §5.4) and actor format syntax `&lt;producer&gt;/&lt;version&gt;`, `human:&lt;id&gt;`, or `process:&lt;id&gt;` across `generated.by`, `verified[].by`, and `sources[].author` (§5.1, §7).
+   - Validate structured `sources` entries for required `resource` keys and verify that body footnote citations (`[^id]`) match a declared `sources[].id` (§5.1).
+
+2. **Verify Link Integrity (§6.1)**
+   - Extract internal Markdown link references outside code blocks matching `[Label](/concepts/target.md)`.
+   - Confirm that the targeted concept file exists in the bundle and uses a descriptive name label rather than a bare filename or URL.
+   - Per OKF v0.2 §6.1, broken links are tolerated and flagged as warnings by default; use `--strict-links` to treat them as hard build errors.
+
+3. **Check Concept Drift &amp; Freshness (`--drift`, §5.2, §5.5, §6.2)**
+   - For every active concept with local paths in `resource`, `sources` (string or `{ resource }` object), `computation`, `executor.resource`, or `attester.resource`:
+     - Compare the latest Git commit (`git log -1 --format="%aI"`) and uncommitted working-tree modification time (`git status --porcelain` + `mtime`) against the concept's `generated.at` (or legacy `timestamp`).
+     - Flag a warning if any bound file was modified after the concept's timestamp.
+   - Check workspace `git status --porcelain` for modified or added code files not bound to any concept's frontmatter, emitting a `[Drift Warning]`.
+   - Validate `stale_after` (§5.5) and warn when `now &gt;= stale_after`.
+
+4. **Verify Attested Computations (§10)**
+   - For concepts with `type: Attested Computation`, ensure `runtime` is present, verify that either a `computation` file path or an inline `# Computation` body section is provided (§10.3), and confirm that referenced local files (`computation`, `executor.resource`, `attester.resource`) exist on disk.
+
+5. **Audit Steering Notices (v1.8.0)**
+   - Audit all present agent steering files (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `GEMINI.md`) in the workspace root for the current template version (`1.8.0`), confirming `Pre-Work Grounding Gate`, `Model-Tier Routing`, and `Pre-Completion Verification Gate` are present.
+</code></pre>
               </div>
 
               <!-- Panel 2: lint.js -->
@@ -1627,11 +2000,12 @@ if (gitTimeStr) {
 ---
 name: okf-visualize
 description: Generate and display an interactive Cytoscape.js HTML graph visualization for an OKF knowledge bundle. Use when the user asks to visualize, graph, view, or render an OKF bundle.
+version: 1.8.0
 ---
 
 # Visualizing OKF Bundles
 
-Generate a self-contained interactive Cytoscape.js HTML visualization of an Open Knowledge Format (OKF) bundle, and copy it to the active conversation's artifact directory so the user can open the interactive graph.
+Generate a self-contained interactive Cytoscape.js HTML visualization of an Open Knowledge Format (OKF) v0.2 bundle, and copy it to the active conversation's artifact directory so the user can open the interactive graph.
 
 ## Workflow
 
@@ -1641,7 +2015,7 @@ Generate a self-contained interactive Cytoscape.js HTML visualization of an Open
 2. **Run the visualization command.** Generate the `viz.html` file using the custom Node.js visualization script.
    * Run the command (resolving the path to this skill's folder):
      ```powershell
-     node &lt;path-to-skill-directory&gt;/scripts/visualize.js --bundle &lt;absolute-path-to-bundle&gt; --out &lt;absolute-path-to-bundle&gt;/viz.html
+     node &lt;path-to-skill-directory&gt;/scripts/visualize.js --bundle &lt;absolute-path-to-bundle&gt; --out &lt;absolute-path-to-bundle&gt;/viz.html [--no-open]
      ```
    * **Done when**: The command finishes successfully and `viz.html` exists inside the bundle directory.
 
@@ -1655,6 +2029,12 @@ Generate a self-contained interactive Cytoscape.js HTML visualization of an Open
 
 4. **Share the interactive visualization.** Inform the user that the visualization has been compiled and copy-pasted to the artifacts folder. Provide a clickable absolute file link using the `file://` scheme to let them open it directly in their browser.
    * **Done when**: You output the clickable markdown link, e.g. `[Interactive Visualization](file:///&lt;artifact-directory-path&gt;/viz.html)`.
+
+## OKF v0.2 Visualization Capabilities
+
+- **Active Concept Filtering**: Automatically skips `archive/` directories created by `okf-prune` so only active concepts are graphed.
+- **Lineage &amp; Attested Computation Edges (§5.1, §6.2, §10.2)**: Extracts directed graph edges from inline markdown links as well as `.md` bundle references in `sources`, `computation`, `executor.resource`, and `attester.resource`.
+- **Rich v0.2 Metadata Inspector (`viz.js`)**: Displays `status`, `stale_after` expiration warnings, derived `Trust Tier` (`unverified`, `machine-confirmed`, `human-reviewed`), `generated` actor/timestamp, `sources` (both shorthand string paths and structured objects with `author`, `usage_count`, `last_modified`, `usage_window`), and `Attested Computation` contracts (`runtime`, `parameters`, `computation`, `executor`, `attester`).
 
 ## Troubleshooting &amp; Technical Implementation Notes
 
@@ -1686,9 +2066,35 @@ function parseArgs() {
     } else if (process.argv[i] === '--out' &amp;&amp; process.argv[i + 1]) {
       args.out = path.resolve(process.argv[i + 1]);
       i++;
+    } else if (process.argv[i] === '--no-open') {
+      args.noOpen = true;
     }
   }
   return args;
+}
+
+function splitRespectingQuotes(str, delimiter = ',') {
+  const result = [];
+  let current = '';
+  let inDouble = false;
+  let inSingle = false;
+  for (let i = 0; i &lt; str.length; i++) {
+    const char = str[i];
+    if (char === '"' &amp;&amp; !inSingle) {
+      inDouble = !inDouble;
+      current += char;
+    } else if (char === "'" &amp;&amp; !inDouble) {
+      inSingle = !inSingle;
+      current += char;
+    } else if (char === delimiter &amp;&amp; !inDouble &amp;&amp; !inSingle) {
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current);
+  return result;
 }
 
 function parseFrontmatter(content) {
@@ -1698,39 +2104,118 @@ function parseFrontmatter(content) {
   }
   const fmText = match[1];
   const body = content.slice(match[0].length).trim();
+  
+  function parseInlineValue(val) {
+    val = val.trim();
+    if (val.startsWith('{') &amp;&amp; val.endsWith('}')) {
+      const obj = {};
+      const pairs = splitRespectingQuotes(val.slice(1, -1), ',');
+      for (const pair of pairs) {
+        const colonIdx = pair.indexOf(':');
+        if (colonIdx === -1) continue;
+        const k = pair.slice(0, colonIdx).trim();
+        let v = pair.slice(colonIdx + 1).trim();
+        if ((v.startsWith('"') &amp;&amp; v.endsWith('"')) || (v.startsWith("'") &amp;&amp; v.endsWith("'"))) {
+          v = v.slice(1, -1);
+        }
+        obj[k] = v;
+      }
+      return obj;
+    }
+    if (val.startsWith('[') &amp;&amp; val.endsWith(']')) {
+      return splitRespectingQuotes(val.slice(1, -1), ',').map(item =&gt; {
+        item = item.trim();
+        if ((item.startsWith('"') &amp;&amp; item.endsWith('"')) || (item.startsWith("'") &amp;&amp; item.endsWith("'"))) {
+          item = item.slice(1, -1);
+        }
+        return item;
+      });
+    }
+    if ((val.startsWith('"') &amp;&amp; val.endsWith('"')) || (val.startsWith("'") &amp;&amp; val.endsWith("'"))) {
+      return val.slice(1, -1);
+    }
+    return val;
+  }
+
   const fm = {};
   const lines = fmText.split(/\r?\n/);
-  for (const line of lines) {
-    const colonIndex = line.indexOf(':');
-    if (colonIndex === -1) continue;
-    const key = line.slice(0, colonIndex).trim();
-    let val = line.slice(colonIndex + 1).trim();
+  let currentKey = null;
+  let inArray = false;
 
-    if ((val.startsWith('"') &amp;&amp; val.endsWith('"')) || (val.startsWith("'") &amp;&amp; val.endsWith("'"))) {
-      val = val.slice(1, -1);
+  for (let i = 0; i &lt; lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim() || line.trim().startsWith('#')) continue;
+
+    const matchIndent = line.match(/^(\s*)/);
+    const indent = matchIndent ? matchIndent[1].length : 0;
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('-')) {
+      const rest = trimmed.slice(1).trim();
+      if (!currentKey) continue;
+      if (!Array.isArray(fm[currentKey])) {
+        fm[currentKey] = [];
+      }
+      
+      if (rest.startsWith('{') &amp;&amp; rest.endsWith('}')) {
+        fm[currentKey].push(parseInlineValue(rest));
+      } else {
+        const colonIdx = rest.indexOf(':');
+        if (colonIdx !== -1 &amp;&amp; !/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(rest)) {
+          const k = rest.slice(0, colonIdx).trim();
+          const v = parseInlineValue(rest.slice(colonIdx + 1).trim());
+          const obj = {};
+          obj[k] = v;
+          fm[currentKey].push(obj);
+        } else {
+          fm[currentKey].push(parseInlineValue(rest));
+        }
+      }
+      inArray = true;
+      continue;
     }
 
-    if (key === 'tags') {
-      if (val.startsWith('[') &amp;&amp; val.endsWith(']')) {
-        fm[key] = val.slice(1, -1).split(',').map(t =&gt; t.trim().replace(/^['"]|['"]$/g, ''));
+    const colonIdx = trimmed.indexOf(':');
+    if (colonIdx === -1) continue;
+
+    const key = trimmed.slice(0, colonIdx).trim();
+    const val = parseInlineValue(trimmed.slice(colonIdx + 1).trim());
+
+    if (indent === 0) {
+      currentKey = key;
+      inArray = false;
+      if (val === '') {
+        fm[key] = {};
       } else {
-        fm[key] = [val];
+        fm[key] = val;
       }
     } else {
-      fm[key] = val;
+      if (inArray &amp;&amp; currentKey &amp;&amp; Array.isArray(fm[currentKey])) {
+        const lastItem = fm[currentKey][fm[currentKey].length - 1];
+        if (lastItem &amp;&amp; typeof lastItem === 'object') {
+          lastItem[key] = val;
+        }
+      } else if (currentKey &amp;&amp; fm[currentKey] &amp;&amp; typeof fm[currentKey] === 'object') {
+        fm[currentKey][key] = val;
+      }
     }
   }
   return { frontmatter: fm, body };
 }
 
 function extractLinks(body, docDir, bundleRoot) {
+  // Strip fenced code blocks and inline backticked code
+  const stripped = body
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`[^`\r\n]+`/g, '');
+
   const linkRe = /\]\(([^)\s]+\.md)(?:#[A-Za-z0-9_\-]*)?\)/g;
   const out = [];
   const seen = new Set();
   const bundleRootResolved = path.resolve(bundleRoot);
 
   let match;
-  while ((match = linkRe.exec(body)) !== null) {
+  while ((match = linkRe.exec(stripped)) !== null) {
     const target = match[1];
     if (target.includes('://')) {
       continue;
@@ -1764,6 +2249,7 @@ function walkConcepts(dir, bundleRoot, list = []) {
     const fullPath = path.join(dir, file);
     const stat = fs.statSync(fullPath);
     if (stat.isDirectory()) {
+      if (file.toLowerCase() === 'archive') continue;
       walkConcepts(fullPath, bundleRoot, list);
     } else if (stat.isFile() &amp;&amp; file.endsWith('.md')) {
       const lowerFile = file.toLowerCase();
@@ -1781,7 +2267,15 @@ function buildGraph(concepts) {
   const TYPE_PALETTE = {
     "BigQuery Dataset": "#8b5cf6",
     "BigQuery Table": "#3b82f6",
-    "Reference": "#10b981"
+    "Reference": "#10b981",
+    "Attested Computation": "#f59e0b",
+    "Concept": "#0ea5e9",
+    "Skill": "#6366f1",
+    "Playbook": "#ec4899",
+    "Utility": "#14b8a6",
+    "Decision": "#f97316",
+    "Metric": "#eab308",
+    "Subsystem": "#2563eb"
   };
   const DEFAULT_NODE_COLOR = "#94a3b8";
 
@@ -1797,7 +2291,18 @@ function buildGraph(concepts) {
         resource: c.resource,
         tags: c.tags,
         color: color,
-        size: size
+        size: size,
+        status: c.status,
+        stale_after: c.stale_after,
+        verified: c.verified,
+        generated: c.generated,
+        sources: c.sources,
+        usage_window: c.usage_window,
+        runtime: c.runtime,
+        parameters: c.parameters,
+        computation: c.computation,
+        executor: c.executor,
+        attester: c.attester
       }
     };
   });
@@ -1844,8 +2349,15 @@ function buildGraph(concepts) {
 function main() {
   const args = parseArgs();
   if (!args.bundle) {
-    console.error('Error: Missing required argument --bundle');
-    process.exit(1);
+    const defaultBundle = fs.existsSync(path.resolve('docs/okf'))
+      ? path.resolve('docs/okf')
+      : (fs.existsSync(path.resolve('okf')) ? path.resolve('okf') : null);
+    if (defaultBundle) {
+      args.bundle = defaultBundle;
+    } else {
+      console.error('Error: Missing required argument --bundle');
+      process.exit(1);
+    }
   }
   
   const bundleRoot = args.bundle;
@@ -1878,6 +2390,45 @@ function main() {
       tags = [String(tags)];
     }
 
+    let sources = frontmatter.sources || [];
+    if (!Array.isArray(sources)) {
+      sources = [sources];
+    }
+
+    const links = extractLinks(body || '', path.dirname(mdPath), bundleRoot);
+    const candidatePathFields = [];
+    for (const src of sources) {
+      const rawResource = typeof src === 'string' ? src : (src &amp;&amp; src.resource);
+      if (rawResource) candidatePathFields.push(rawResource);
+    }
+    if (frontmatter.computation) candidatePathFields.push(frontmatter.computation);
+    if (frontmatter.executor &amp;&amp; frontmatter.executor.resource) candidatePathFields.push(frontmatter.executor.resource);
+    if (frontmatter.attester &amp;&amp; frontmatter.attester.resource) candidatePathFields.push(frontmatter.attester.resource);
+
+    for (const rawResource of candidatePathFields) {
+      if (typeof rawResource === 'string' &amp;&amp; !/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//i.test(rawResource)) {
+        if (rawResource.startsWith('/') || rawResource.startsWith('./') || rawResource.startsWith('../') || rawResource.endsWith('.md')) {
+          let cleanTarget = rawResource;
+          if (cleanTarget.startsWith('/')) {
+            cleanTarget = cleanTarget.slice(1);
+          } else {
+            try {
+              const docDir = path.dirname(mdPath);
+              const resolved = path.resolve(docDir, cleanTarget);
+              cleanTarget = path.relative(bundleRoot, resolved);
+            } catch (e) {}
+          }
+          let rel = cleanTarget.split(path.sep).join('/');
+          if (rel.endsWith('.md')) {
+            rel = rel.slice(0, -3);
+          }
+          if (rel &amp;&amp; !links.includes(rel)) {
+            links.push(rel);
+          }
+        }
+      }
+    }
+
     concepts.push({
       id: conceptId,
       type: String(frontmatter.type || 'Unknown'),
@@ -1886,7 +2437,18 @@ function main() {
       resource: String(frontmatter.resource || ''),
       tags: tags.map(String),
       body: body || '',
-      links_to: extractLinks(body || '', path.dirname(mdPath), bundleRoot)
+      links_to: links,
+      status: frontmatter.status || 'stable',
+      stale_after: frontmatter.stale_after || '',
+      verified: frontmatter.verified || [],
+      generated: frontmatter.generated || {},
+      sources: sources,
+      usage_window: frontmatter.usage_window || null,
+      runtime: frontmatter.runtime || '',
+      parameters: frontmatter.parameters || [],
+      computation: frontmatter.computation || '',
+      executor: frontmatter.executor || null,
+      attester: frontmatter.attester || null
     });
   }
 
@@ -1919,7 +2481,15 @@ function main() {
   }));
 }
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  parseFrontmatter,
+  extractLinks,
+  buildGraph
+};
 </code></pre>
               </div>
 
@@ -2142,6 +2712,22 @@ window.BUNDLE = __BUNDLE_DATA__;
     document.getElementById("detail-content").hidden = true;
   }
 
+  function appendDynamicRow(dl, label, valueNodeOrText) {
+    const dt = document.createElement("dt");
+    dt.className = "dynamic-fm";
+    dt.textContent = label;
+    const dd = document.createElement("dd");
+    dd.className = "dynamic-fm";
+    if (typeof valueNodeOrText === "string") {
+      dd.textContent = valueNodeOrText;
+    } else {
+      dd.appendChild(valueNodeOrText);
+    }
+    dl.appendChild(dt);
+    dl.appendChild(dd);
+    return dd;
+  }
+
   function showDetail(conceptId) {
     const data = nodeIndex[conceptId];
     if (!data) return;
@@ -2186,6 +2772,124 @@ window.BUNDLE = __BUNDLE_DATA__;
       }
     } else {
       tagsEl.textContent = "—";
+    }
+
+    // Dynamic v0.2 metadata display
+    const dl = document.querySelector("dl.frontmatter");
+    if (dl) {
+      const existingDynamics = dl.querySelectorAll(".dynamic-fm");
+      existingDynamics.forEach(el =&gt; el.remove());
+
+      if (data.status) {
+        appendDynamicRow(dl, "Status", data.status);
+      }
+
+      if (data.stale_after) {
+        const dd = appendDynamicRow(dl, "Stale After", data.stale_after);
+        const isStale = new Date(data.stale_after) &lt;= new Date();
+        if (isStale) {
+          const warning = document.createElement("span");
+          warning.style.color = "#dc2626";
+          warning.style.fontWeight = "bold";
+          warning.style.marginLeft = "8px";
+          warning.textContent = "(Stale)";
+          dd.appendChild(warning);
+        }
+      }
+
+      // Trust tier calculation (§5.3)
+      let trustTier = "unverified";
+      if (data.verified &amp;&amp; (Array.isArray(data.verified) ? data.verified.length : Object.keys(data.verified).length)) {
+        const verifications = Array.isArray(data.verified) ? data.verified : [data.verified];
+        const hasHuman = verifications.some(v =&gt; v &amp;&amp; v.by &amp;&amp; String(v.by).startsWith("human:"));
+        trustTier = hasHuman ? "human-reviewed" : "machine-confirmed";
+      }
+      const trustDd = appendDynamicRow(dl, "Trust Tier", trustTier);
+      if (trustTier === "human-reviewed") {
+        trustDd.style.color = "#16a34a";
+        trustDd.style.fontWeight = "bold";
+      } else if (trustTier === "machine-confirmed") {
+        trustDd.style.color = "#2563eb";
+      } else {
+        trustDd.style.color = "#64748b";
+      }
+
+      // Generated metadata (§5.2)
+      if (data.generated &amp;&amp; (data.generated.by || data.generated.at)) {
+        const parts = [];
+        if (data.generated.by) parts.push(data.generated.by);
+        if (data.generated.at) parts.push(`at ${data.generated.at}`);
+        appendDynamicRow(dl, "Generated", parts.join(" "));
+      }
+
+      // Attested Computation metadata (§10.2)
+      if (data.runtime) {
+        appendDynamicRow(dl, "Runtime", data.runtime);
+      }
+      if (data.computation) {
+        appendDynamicRow(dl, "Computation", data.computation);
+      }
+      if (Array.isArray(data.parameters) &amp;&amp; data.parameters.length &gt; 0) {
+        const paramText = data.parameters
+          .map(p =&gt; `${p.name}:${p.type || "any"}${p.required ? "*" : ""}`)
+          .join(", ");
+        appendDynamicRow(dl, "Parameters", paramText);
+      }
+      if (data.executor &amp;&amp; data.executor.resource) {
+        const receiptInfo = Array.isArray(data.executor.receipt) ? ` (receipt: ${data.executor.receipt.join(", ")})` : "";
+        appendDynamicRow(dl, "Executor", `${data.executor.resource}${receiptInfo}`);
+      }
+      if (data.attester &amp;&amp; data.attester.resource) {
+        appendDynamicRow(dl, "Attester", data.attester.resource);
+      }
+
+      // Sources list (§5.1: supports both shorthand strings and structured objects)
+      if (data.sources &amp;&amp; data.sources.length &amp;&amp; data.sources[0]) {
+        const srcContainer = document.createElement("div");
+        data.sources.forEach(src =&gt; {
+          if (!src) return;
+          const div = document.createElement("div");
+          div.style.marginBottom = "4px";
+          if (typeof src === "string") {
+            const a = document.createElement("a");
+            a.href = src;
+            a.textContent = src;
+            a.target = "_blank";
+            a.rel = "noopener";
+            a.className = "external";
+            div.appendChild(a);
+          } else {
+            if (src.resource) {
+              const a = document.createElement("a");
+              a.href = src.resource;
+              a.textContent = src.title || src.id || src.resource;
+              a.target = "_blank";
+              a.rel = "noopener";
+              a.className = "external";
+              div.appendChild(a);
+            } else {
+              div.textContent = src.title || src.id || "Unnamed source";
+            }
+            const metaParts = [];
+            if (src.author) metaParts.push(`by ${src.author}`);
+            if (src.usage_count !== undefined) metaParts.push(`usage: ${src.usage_count}`);
+            if (src.last_modified) metaParts.push(`modified: ${src.last_modified}`);
+            if (metaParts.length &gt; 0) {
+              const metaSpan = document.createElement("span");
+              metaSpan.className = "muted";
+              metaSpan.style.marginLeft = "6px";
+              metaSpan.textContent = `(${metaParts.join(" · ")})`;
+              div.appendChild(metaSpan);
+            }
+          }
+          srcContainer.appendChild(div);
+        });
+        appendDynamicRow(dl, "Sources", srcContainer);
+      }
+
+      if (data.usage_window &amp;&amp; (data.usage_window.from || data.usage_window.to)) {
+        appendDynamicRow(dl, "Usage Window", `${data.usage_window.from || "?"} → ${data.usage_window.to || "?"}`);
+      }
     }
 
     const body = bundle.bodies[conceptId] || "";
@@ -2438,17 +3142,51 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 14px 0; }
 ---
 name: okf-upgrade
 description: Automatically upgrade an OKF bundle from v0.1 to v0.2.
-version: 1.4.0
+disable-model-invocation: true
+version: 1.8.0
 ---
 
-Migrate an existing OKF bundle from Version 0.1 to Version 0.2 format. This skill automates the migration of legacy frontmatter, citations, and adds version compatibility flags.
+Migrate an existing **OKF bundle** from Version 0.1 to Version 0.2 format. This skill automates the migration of legacy frontmatter, citations, actor conventions, log headings, and version compatibility flags.
 
 ## Usage
 
 ```bash
 # Upgrade the local bundle in the workspace
-node okf-upgrade/scripts/upgrade.js
-```</code></pre>
+node okf-upgrade/scripts/upgrade.js [--bundle &lt;path&gt;]
+
+# Target a specific username for the 'generated.by' metadata fields
+node okf-upgrade/scripts/upgrade.js --user "ahormati"
+```
+
+## Migration Actions Performed
+
+1. **Frontmatter Upgrade (§5.2, §13.1)**:
+   - Replaces the legacy `timestamp: &lt;time&gt;` frontmatter property with the structured `generated` mapping:
+     ```yaml
+     generated:
+       by: human:&lt;user&gt;
+       at: &lt;timestamp&gt;
+     ```
+
+2. **Citation Migration &amp; Provenance Preservation (§5.1, §13.1)**:
+   - Locates the `# Citations` heading in the markdown body, extracts external URLs and markdown links into structured frontmatter `sources` entries, and removes `# Citations` from the body.
+   - Preserves both shorthand string `sources` entries and structured provenance objects (`id`, `resource`, `title`, `author`, `usage_count`, `last_modified`, `usage_window`).
+
+3. **Version Check (§8, §12)**:
+   - Inserts `okf_version: "0.2"` into the frontmatter of the bundle-root `index.md` file.
+
+4. **Actor Normalization (§5.1, §7)**:
+   - Normalizes non-standard `agent:&lt;name&gt;` actor formats in `generated.by`, `verified[].by`, and `sources[].author` to `&lt;producer&gt;/&lt;version&gt;` (e.g. `agent:Antigravity/3.5-Flash` -&gt; `Antigravity/3.5-Flash`).
+
+5. **Log Date Heading Normalization (§9)**:
+   - Formats `log.md` date headings to ISO 8601 `YYYY-MM-DD` and merges duplicate consecutive date sections.
+
+6. **Bare Link Auto-Fixing (§6.1)**:
+   - Replaces bare/non-descriptive link labels (e.g. `[doc.md](doc.md)`) outside code blocks with the target concept's `title`.
+
+7. **Lint Verification (§11)**:
+   - Automatically runs `okf-lint` on the target bundle upon completion to verify compatibility.
+</code></pre>
                </div>
 
                <!-- Panel 2: upgrade.js -->
@@ -2530,25 +3268,85 @@ node okf-upgrade/scripts/upgrade.js
 ---
 name: okf-prune
 description: Use when an OKF bundle contains stale, expired, deprecated, orphaned, or dangling concepts that need pruning, archiving, or cleanup.
-version: 1.0.0
+version: 1.8.0
 ---
 
 # `okf-prune` Workflow
 
-Maintain knowledge bundle hygiene through automated concept lifecycle pruning, archiving, and garbage collection.
+Maintain knowledge bundle hygiene through automated concept lifecycle pruning, archiving, and garbage collection aligned with OKF v0.2 (§5.4, §5.5, §6.2, §10).
+
+## Overview
+
+Over the lifecycle of a codebase, concepts change:
+- Features are deprecated or removed (`status: deprecated`, §5.4).
+- Temporary contracts or deadlines expire (`stale_after`, §5.5).
+- Underlying source code or computation files are deleted, leaving ghost concepts with missing local `resource`, `sources`, `computation`, `executor.resource`, or `attester.resource` files (§6.2, §10.2).
+- Concepts become disconnected and orphaned with 0 inbound links (across `index.md`, body cross-links, and `sources` concept lineage links).
+
+`okf-prune` systematically audits the bundle, identifies candidates for removal or archiving, moves them safely to `archive/` (or permanently deletes them), updates `index.md`, logs the changes in `log.md`, and refreshes `viz.html`.
 
 ## Usage
 
 ```bash
-# Audit mode (exits 1 if prunable items found)
-node okf-prune/scripts/prune.js --check
+# 1. Audit / Check Mode (Read-Only)
+# Scans bundle and reports candidates without making changes. Exits with code 1 if prunable items exist.
+node okf-prune/scripts/prune.js --check [--bundle &lt;path&gt;]
+node okf-prune/scripts/prune.js --dry-run
+npm run okf:prune:check
 
-# Safe archive mode (default action)
+# 2. Archive Mode (Default Safe Action)
+# Moves matching concepts to archive/, marks status: deprecated, updates index.md, log.md, and viz.html.
 node okf-prune/scripts/prune.js
+npm run okf:prune
 
-# Hard permanent deletion mode
+# 3. Permanent Deletion Mode
+# Permanently removes candidate concept files from disk and cleans up index.md.
 node okf-prune/scripts/prune.js --delete
-```</code></pre>
+
+# 4. Filtered Pruning
+# Target specific categories instead of all prunable concepts:
+node okf-prune/scripts/prune.js --stale       # Only expired stale_after concepts
+node okf-prune/scripts/prune.js --deprecated  # Only status: deprecated concepts
+node okf-prune/scripts/prune.js --ghosts      # Only concepts with missing local resource/source/computation files
+node okf-prune/scripts/prune.js --orphans     # Only unlinked / isolated concepts
+
+# 5. Machine-Readable JSON Output
+node okf-prune/scripts/prune.js --check --json
+```
+
+## Quick Reference
+
+| Command / Flag | Action | Modifies Files? | Exit Code |
+|---|---|---|---|
+| `--check` / `--dry-run` | Audits bundle for prunable concepts | No | 0 if clean, 1 if candidates found |
+| `--archive` (default) | Moves concepts to `archive/`, sets `status: deprecated`, updates `index.md`, `log.md`, `viz.html` | Yes | 0 |
+| `--delete` | Permanently deletes files, cleans `index.md` &amp; `log.md` | Yes | 0 |
+| `--stale` | Targets only concepts where `now &gt;= stale_after` | Condition-dependent | 0 / 1 |
+| `--deprecated` | Targets only concepts with `status: deprecated` | Condition-dependent | 0 / 1 |
+| `--ghosts` | Targets concepts whose local `resource`, `sources`, `computation`, `executor`, or `attester` files are missing | Condition-dependent | 0 / 1 |
+| `--orphans` | Targets concepts with 0 incoming links (including transitive orphans) | Condition-dependent | 0 / 1 |
+| `--json` | Emits structured JSON result | Same as mode | 0 / 1 |
+
+## Pruning Criteria &amp; Rules
+
+1. **Expired Concepts (`--stale`, §5.5)**
+   - Concept has a `stale_after` timestamp in frontmatter.
+   - Evaluated as `Date.now() &gt;= new Date(stale_after).getTime()`.
+   - Action: Archive or re-verify.
+
+2. **Deprecated Concepts (`--deprecated`, §5.4)**
+   - Concept frontmatter contains `status: deprecated`.
+   - Per OKF v0.2 §5.4, deprecated concepts are kept for history and links but should not remain in active concept listings.
+   - Action: Move to `archive/` subfolder and update `index.md` listing.
+
+3. **Ghost Concepts (`--ghosts`, §6.2 &amp; §10.2)**
+   - Concept has a local path in `resource`, `sources` (string or `{ resource }` object), `computation`, `executor.resource`, or `attester.resource` whose file has been deleted from the repository. External URI schemes (`https://`, `bigquery://`, `gs://`, etc.) and scope descriptors (§5.1) are excluded.
+   - Action: Clean up or archive to prevent drift errors.
+
+4. **Orphaned Concepts (`--orphans`, §5.1 &amp; §6.1)**
+   - Concept has 0 inbound links across `index.md`, active concept markdown bodies (outside code blocks), and `sources` concept lineage references.
+   - Action: Archive or link into the concept hierarchy.
+</code></pre>
                </div>
 
                <!-- Panel 2: prune.js -->
