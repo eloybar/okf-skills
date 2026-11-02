@@ -129,11 +129,33 @@ function parseFrontmatter(content) {
   return fm;
 }
 
-function resolveResourceLocalPath(resourceUri, workspaceRoot) {
-  if (!resourceUri || /^https?:\/\//i.test(resourceUri)) return null;
-  let localPath = resourceUri.replace(/^file:\/\/\/?/, '');
+function resolveResourceLocalPath(resourceUri, workspaceRoot, bundleRoot = null) {
+  if (!resourceUri || typeof resourceUri !== 'string') return null;
+  const trimmed = resourceUri.trim();
+  if (/^(?!file:\/\/)[a-zA-Z][a-zA-Z0-9+.-]*:\/\//i.test(trimmed)) return null;
+  if (!/^file:\/\//i.test(trimmed) && /\s/.test(trimmed) && !/[\/\\]/.test(trimmed)) return null;
+
+  const isFileUri = /^file:\/\//i.test(trimmed);
+  let localPath = trimmed.replace(/^file:\/\/\/?/, '');
+  if (!isFileUri && trimmed.startsWith('/') && bundleRoot) {
+    const bundleCandidate = path.normalize(path.join(bundleRoot, trimmed.slice(1)));
+    if (fs.existsSync(bundleCandidate)) return bundleCandidate;
+    const workspaceCandidate = path.normalize(path.join(workspaceRoot, trimmed.slice(1)));
+    if (fs.existsSync(workspaceCandidate)) return workspaceCandidate;
+  }
   if (path.isAbsolute(localPath)) {
-    return path.normalize(localPath);
+    const absNorm = path.normalize(localPath);
+    if (fs.existsSync(absNorm)) return absNorm;
+    const stripped = localPath.replace(/^[\/\\]+/, '');
+    const relCandidate = path.normalize(path.join(workspaceRoot, stripped));
+    if (fs.existsSync(relCandidate)) return relCandidate;
+    return absNorm;
+  }
+  if (bundleRoot) {
+    const bundleRelCandidate = path.normalize(path.join(bundleRoot, localPath));
+    if (fs.existsSync(bundleRelCandidate) && !fs.existsSync(path.join(workspaceRoot, localPath))) {
+      return bundleRelCandidate;
+    }
   }
   return path.normalize(path.join(workspaceRoot, localPath));
 }
@@ -238,6 +260,7 @@ function scanWorkspaceFiles(dir, workspaceRoot, documentedResources, results = [
     }
 
     if (stat.isDirectory()) {
+      if (fs.existsSync(path.join(fullPath, '.git'))) continue;
       scanWorkspaceFiles(fullPath, workspaceRoot, documentedResources, results, gitignorePatterns);
     } else if (stat.isFile()) {
       if (file !== 'skills-lock.json' && file !== '.gitignore' && file !== 'LICENSE') {
@@ -259,6 +282,7 @@ function walkConceptFiles(dir, list = []) {
     const fullPath = path.join(dir, file);
     const stat = fs.statSync(fullPath);
     if (stat.isDirectory()) {
+      if (file.toLowerCase() === 'archive') continue;
       walkConceptFiles(fullPath, list);
     } else if (stat.isFile() && file.endsWith('.md')) {
       if (file !== 'index.md' && file !== 'log.md') {
@@ -534,6 +558,14 @@ async function main() {
     process.exit(1);
   }
 
+  // Auto-sync index.html and skill mirrors when running inside the okf-skills repository
+  const repoSyncScript = path.join(workspaceRoot, 'scripts', 'sync-skills.js');
+  if (!isCheckMode && fs.existsSync(repoSyncScript) && fs.existsSync(path.join(workspaceRoot, 'index.html'))) {
+    try {
+      execFileSync(process.execPath, [repoSyncScript], { cwd: workspaceRoot, stdio: 'ignore' });
+    } catch (e) {}
+  }
+
   const conceptFiles = walkConceptFiles(bundleRoot);
   const documentedResources = new Set();
   const driftedConcepts = [];
@@ -579,24 +611,27 @@ async function main() {
       });
     }
     if (fm.computation) {
-      const local = resolveResourceLocalPath(fm.computation, workspaceRoot);
+      const local = resolveResourceLocalPath(fm.computation, workspaceRoot, bundleRoot);
       if (local) {
         documentedResources.add(path.relative(workspaceRoot, local).replace(/\\/g, '/').toLowerCase());
         documentedResources.add(path.resolve(local).toLowerCase());
+        resourcesToCheck.push({ path: local, label: path.basename(local) });
       }
     }
     if (fm.executor && fm.executor.resource) {
-      const local = resolveResourceLocalPath(fm.executor.resource, workspaceRoot);
+      const local = resolveResourceLocalPath(fm.executor.resource, workspaceRoot, bundleRoot);
       if (local) {
         documentedResources.add(path.relative(workspaceRoot, local).replace(/\\/g, '/').toLowerCase());
         documentedResources.add(path.resolve(local).toLowerCase());
+        resourcesToCheck.push({ path: local, label: path.basename(local) });
       }
     }
     if (fm.attester && fm.attester.resource) {
-      const local = resolveResourceLocalPath(fm.attester.resource, workspaceRoot);
+      const local = resolveResourceLocalPath(fm.attester.resource, workspaceRoot, bundleRoot);
       if (local) {
         documentedResources.add(path.relative(workspaceRoot, local).replace(/\\/g, '/').toLowerCase());
         documentedResources.add(path.resolve(local).toLowerCase());
+        resourcesToCheck.push({ path: local, label: path.basename(local) });
       }
     }
 

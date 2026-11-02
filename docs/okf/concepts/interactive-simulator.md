@@ -5,14 +5,17 @@ description: A self-contained HTML brief and token efficiency calculator explain
 resource: index.html
 tags: [simulation, onboarding, visual-brief, playground]
 generated:
-  by: Antigravity/3.5-Flash
-  at: 2026-10-29T13:41:01.624Z
+  by: Antigravity/4.0
+  at: 2026-11-02T00:37:39.718Z
+sources:
+  - scripts/sync-skills.js
 ---
 
 # Overview
 The `index.html` file acts as an interactive simulator and playbook. It provides a visual, zero-dependency breakdown of the OKF pipeline lifecycle and an ongoing token efficiency calculator.
 
 # Key Features
-- **Pure CSS Interactive Pipeline**: Toggles active detail tabs for all 9 pipeline steps using pure CSS selectors (`:checked ~ label`), working without Javascript.
+- **Pure CSS Interactive Pipeline**: Toggles active detail tabs for all pipeline steps using pure CSS selectors (`:checked ~ label`), working without Javascript.
+- **Automated Live Skill Snippet Synchronization**: Kept 100% synchronized with live `SKILL.md` and script files across all skills via [`scripts/sync-skills.js`](/scripts/sync-skills.js) (`npm run okf:sync` and `npm run okf:sync:check`), invoked automatically by `okf-maintain`.
 - **Token Efficiency Simulator**: Calculates ongoing token consumption rates for traditional search exploration versus OKF-guided progressive disclosures on both legacy and greenfield codebases.
 - **Workflow Playbooks**: Outlines setup steps and strategies for deploying OKF in different project scopes.

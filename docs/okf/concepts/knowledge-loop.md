@@ -6,8 +6,10 @@ resource: README.md
 tags: [architecture, loop, feedback]
 generated:
   by: Antigravity/4.0
-  at: 2026-10-29T13:41:01.624Z
+  at: 2026-11-02T00:37:39.718Z
 sources:
+  - scripts/lib/okf-core.js
+  - scripts/sync-skills.js
   - scripts/test-lifecycle.js
   - scripts/test-parser.js
   - package.json
@@ -15,7 +17,7 @@ sources:
 ---
 
 # Overview
-The knowledge loop lifecycle binds the OKF skills together into a continuous self-documenting pipeline:
+The knowledge loop lifecycle binds the OKF skills together into a continuous self-documenting pipeline backed by the canonical shared parser and serializer core in [`scripts/lib/okf-core.js`](/scripts/lib/okf-core.js) and automated skill/playbook synchronizer in [`scripts/sync-skills.js`](/scripts/sync-skills.js):
 
 1. **OKF Specification**: Standardized by the [OKF Specification v0.2](/concepts/okf-specification.md) and operationalized by [OKF Core Skill](/concepts/okf-skill.md).
 2. **Initial Bundle Creation**: Bootstraps the concept files and directory structure using [OKF Core Skill](/concepts/okf-skill.md).
