@@ -5,6 +5,7 @@ Newest changes recorded chronologically.
 
 
 ## 2026-11-02
+- Synchronized timestamp for 10 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-prune-skill.md, concepts/okf-query-skill.md, concepts/okf-skill.md, concepts/okf-upgrade-skill.md, concepts/okf-visualize-skill.md, concepts/okf-wayfinder-skill.md.
 - Synchronized timestamp for 2 drifted concept(s): concepts/okf-maintain-skill.md, concepts/okf-skill.md.
 - Synchronized timestamp for 10 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-prune-skill.md, concepts/okf-query-skill.md, concepts/okf-skill.md, concepts/okf-upgrade-skill.md, concepts/okf-visualize-skill.md, concepts/okf-wayfinder-skill.md.
 - Synchronized steering notice in `AGENTS.md` to v1.8.1.
