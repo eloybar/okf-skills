@@ -6,7 +6,7 @@ resource: file:///D:/projects/okf-skills/okf-maintain/SKILL.md
 tags: [maintenance, automation, sync]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-02T00:40:12.219Z
+  at: 2026-11-02T11:13:49.014Z
 sources:
   - okf-maintain/scripts/maintain.js
 ---
@@ -17,9 +17,15 @@ The `okf-maintain` skill runs post-edit to verify that codebase modifications ma
 # Architecture & CLI Automation
 - **Script**: Located at [`okf-maintain/scripts/maintain.js`](/okf-maintain/scripts/maintain.js).
 - **Execution Modes**:
-  - `node okf-maintain/scripts/maintain.js` (or `npm run okf:maintain`): Automatically detects concept-resource drift across `resource`, `sources` (string and object entries), `computation`, `executor.resource`, and `attester.resource` via both committed Git history (`git log -1`) and uncommitted working-tree/staged changes (`git status --porcelain` + filesystem `mtime`), normalizes both string and object entries in `sources:`, refreshes `generated.at`, auto-heals outdated agent steering notices (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `GEMINI.md`) to the v1.8.0 template (including Model-Tier Routing) without user prompting, scans for unindexed frontier files (skipping `archive/` and nested git repositories) and graduates bound files out of `## Not yet specified` in `index.md`, appends entries to `log.md`, regenerates `viz.html` (`--no-open` via sibling skill resolution), and verifies with `okf-lint --drift`.
+  - `node okf-maintain/scripts/maintain.js` (or `npm run okf:maintain`): Automatically detects concept-resource drift across `resource`, `sources` (string and object entries), `computation`, `executor.resource`, and `attester.resource` via both committed Git history (`git log -1`) and uncommitted working-tree/staged changes (`git status --porcelain` + filesystem `mtime`), normalizes both string and object entries in `sources:`, refreshes `generated.at`, auto-heals outdated agent steering notices (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `GEMINI.md`) to the v1.8.1 template (including Model-Tier Routing) without user prompting, scans for unindexed frontier files (skipping `archive/` and nested git repositories) and graduates bound files out of `## Not yet specified` in `index.md`, appends entries to `log.md`, regenerates `viz.html` (`--no-open` via sibling skill resolution), and verifies with `okf-lint --drift`.
   - `node okf-maintain/scripts/maintain.js --check`: Non-destructive audit mode that exits with code 1 if committed or working-tree drift, unindexed frontier files, or outdated steering notices are found.
   - `node okf-maintain/scripts/maintain.js --json`: Outputs structured JSON for CI and subagent tooling.
+
+# Steering Template
+`buildSteeringDirectivesBlock(bundleRelPath, targetVersion, skillsBase)` renders the steering block (about 450 tokens) in this order: `## 📂 Knowledge Bundle / OKF` (where the bundle is, the closest-parent `okf/` rule, the session-start lint/maintain sync), `## ⚡ Pre-Work Grounding Gate` (1 Search, 2 Per-file context, 3 Cite, 4 Model-Tier Routing) and `## ⚡ Pre-Completion Verification Gate` (1 Semantic Concept & Source Binding Upkeep, 2 Maintain, 3 Lint), then the version tag.
+- **Runnable commands**: `resolveSkillsBase(workspaceRoot)` builds the script path prefix from `maintain.js`'s own install location. The prefix is workspace-relative when the skills live in the repo (in this repo it is empty, so commands read `node okf-query/...`), `~/`-relative when they live under the home directory, and absolute otherwise. The bundle path is written workspace-relative with no leading slash (e.g. `docs/okf`).
+- **Compatibility contract**: `okf-lint` and `okf-maintain --check` require the strings `Pre-Work Grounding Gate`, `Pre-Completion Verification Gate`, `Model-Tier Routing` and the `<!-- okf-steering-version: X -->` tag. `scripts/test-lifecycle.js` also asserts `Semantic Concept & Source Binding Upkeep`. Keep all of these when editing the template.
+- Both helpers are exported from `maintain.js`.
 
 # Workflow
 1. **Guard check**: Verifies the bundle directory exists (in this repo, `/docs/okf`).

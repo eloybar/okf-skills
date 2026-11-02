@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { buildSteeringDirectivesBlock } = require('../okf-maintain/scripts/maintain.js');
 
 const workspaceRoot = path.resolve(__dirname, '..');
 const isCheck = process.argv.includes('--check');
@@ -41,6 +42,8 @@ function buildSyncedIndexHtml(originalHtml) {
 
   const mappings = [
     { panelId: 'details-panel-2', header: '# ~/.agent/skills/okf/SKILL.md', relFile: 'okf/SKILL.md' },
+    { panelId: 's3-panel-1', header: '# okf-wayfinder/SKILL.md', relFile: 'okf-wayfinder/SKILL.md' },
+    { panelId: 'details-panel-4', header: '# AGENTS.md / CLAUDE.md Content', rawContent: buildSteeringDirectivesBlock('docs/okf', '1.8.1', '') },
     { panelId: 's5q-panel-1', header: '# okf-query/SKILL.md', relFile: 'okf-query/SKILL.md' },
     { panelId: 's5q-panel-2', header: null, relFile: 'okf-query/scripts/query.js' },
     { panelId: 'details-panel-6', header: '# ~/.agent/skills/okf-maintain/SKILL.md', relFile: 'okf-maintain/SKILL.md' },
@@ -55,7 +58,9 @@ function buildSyncedIndexHtml(originalHtml) {
   ];
 
   for (const m of mappings) {
-    const fileContent = fs.readFileSync(path.join(workspaceRoot, m.relFile), 'utf8');
+    const fileContent = m.rawContent !== undefined
+      ? m.rawContent
+      : fs.readFileSync(path.join(workspaceRoot, m.relFile), 'utf8');
     html = replacePreInPanel(html, m.panelId, m.header, fileContent);
   }
 
@@ -102,15 +107,20 @@ function main() {
     }
   }
 
-  // 2. Sync .agents/skills/* mirror if present
-  const agentsSkillsDir = path.join(workspaceRoot, '.agents', 'skills');
-  if (fs.existsSync(agentsSkillsDir)) {
-    for (const skill of SKILLS) {
-      copyRecursive(
-        path.join(workspaceRoot, skill),
-        path.join(agentsSkillsDir, skill),
-        driftItems
-      );
+  // 2. Sync .agents/skills/* and agent/skills/* mirrors if present
+  const mirrorRoots = [
+    path.join(workspaceRoot, '.agents', 'skills'),
+    path.join(workspaceRoot, 'agent', 'skills')
+  ];
+  for (const mirrorDir of mirrorRoots) {
+    if (fs.existsSync(mirrorDir)) {
+      for (const skill of SKILLS) {
+        copyRecursive(
+          path.join(workspaceRoot, skill),
+          path.join(mirrorDir, skill),
+          driftItems
+        );
+      }
     }
   }
 

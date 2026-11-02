@@ -5,6 +5,12 @@ Newest changes recorded chronologically.
 
 
 ## 2026-11-02
+- Synchronized timestamp for 2 drifted concept(s): concepts/okf-maintain-skill.md, concepts/okf-skill.md.
+- Synchronized timestamp for 10 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-prune-skill.md, concepts/okf-query-skill.md, concepts/okf-skill.md, concepts/okf-upgrade-skill.md, concepts/okf-visualize-skill.md, concepts/okf-wayfinder-skill.md.
+- Synchronized steering notice in `AGENTS.md` to v1.8.1.
+- Bumped `TARGET_STEERING_VERSION`, `INSTALLED_VERSION`, `package.json`, and all `SKILL.md` files to `1.8.1` so `okf-maintain` automatically upgrades existing `1.8.0` steering notices to the compact, install-path-aware steering template; hardened `resolveSkillsBase` against local `.agents/skills` mirrors; and connected `index.html` Details Panel 4 to `buildSteeringDirectivesBlock` in `scripts/sync-skills.js`.
+- Rewrote the agent steering template (`buildSteeringDirectivesBlock` in `okf-maintain/scripts/maintain.js`): about 60% shorter and no longer repeats instructions. Commands now use the real skill install path (new `resolveSkillsBase`), the bundle path has no leading slash, and the `npm run okf:*` aliases (which don't exist in consumer repos) are gone. All strings checked by lint and the tests are kept. Regenerated `AGENTS.md` and documented the template in [OKF Maintain Skill](/concepts/okf-maintain-skill.md).
+- Synchronized timestamp for 2 drifted concept(s): concepts/okf-maintain-skill.md, concepts/okf-skill.md.
 - Synchronized timestamp for 9 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-prune-skill.md, concepts/okf-query-skill.md, concepts/okf-upgrade-skill.md, concepts/okf-visualize-skill.md, concepts/okf-wayfinder-skill.md.
 - Synchronized timestamp for 3 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-maintain-skill.md.
 - Added canonical shared OKF core module (`scripts/lib/okf-core.js`) and automated skill & `index.html` synchronizer (`scripts/sync-skills.js`, `npm run okf:sync`, `npm run okf:sync:check`), integrated directly into `okf-maintain/scripts/maintain.js` and `scripts/test-parser.js`.

@@ -2,7 +2,7 @@
 name: okf-upgrade
 description: Automatically upgrade an OKF bundle from v0.1 to v0.2.
 disable-model-invocation: true
-version: 1.8.0
+version: 1.8.1
 ---
 
 Migrate an existing **OKF bundle** from Version 0.1 to Version 0.2 format. This skill automates the migration of legacy frontmatter, citations, actor conventions, log headings, and version compatibility flags.
