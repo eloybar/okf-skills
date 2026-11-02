@@ -6,7 +6,7 @@ resource: file:///D:/projects/okf-skills/okf-visualize/SKILL.md
 tags: [visualization, graph, network]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-02T11:12:45.663Z
+  at: 2026-11-02T11:15:33.095Z
 sources:
   - okf-visualize/scripts/visualize.js
   - okf-visualize/static/viz.css
