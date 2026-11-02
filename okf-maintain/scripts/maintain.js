@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { execSync, execFileSync } = require('child_process');
 
 function splitRespectingQuotes(str, delimiter = ',') {
@@ -413,7 +414,7 @@ function appendLogEntry(logPath, entries, dateStr) {
   return true;
 }
 
-const TARGET_STEERING_VERSION = '1.8.0';
+const TARGET_STEERING_VERSION = '1.8.1';
 
 function compareVersions(v1, v2) {
   const parts1 = v1.split('.').map(Number);
@@ -427,42 +428,46 @@ function compareVersions(v1, v2) {
   return 0;
 }
 
-function buildSteeringDirectivesBlock(bundleRelPath, targetVersion) {
-  return `## ⚡ Pre-Work Grounding Gate (MANDATORY)
-Before inspecting code, planning architecture, answering system questions, or modifying files:
-1. **Initial Search & Discovery:** Query the OKF bundle using \`node okf-query/scripts/query.js --search <keywords>\` (or \`npm run okf:query -- --search <keywords>\`) or inspect \`${bundleRelPath}/index.md\` to ground domain understanding.
-2. **Target File Retrieval:** Before modifying or analyzing any specific file, run \`node okf-query/scripts/query.js --file <file-path>\` (or \`npm run okf:query -- --file <file-path>\`) to inject relevant design contracts, constraints, and dependencies. If no direct concept is found, fall back to searching keywords for the enclosing directory/module.
-3. **Grounding Citation:** You MUST explicitly cite the consulted OKF concept(s) (or state *"OKF Check: no matching concept found for <topic>"*) in your plan, explanation, or response before modifying code.
-4. **Model-Tier Routing:** Use the **High** reasoning setting of the active model during initial bundle bootstrapping (\`okf\`, \`okf-wayfinder\`), domain/architecture discovery, and implementation planning. Once the implementation plan is laid out and approved, switch back to the **Medium** setting of the same model before executing implementation tasks.
+// Path prefix for invoking the OKF skill scripts, as seen from the workspace root:
+// workspace-relative when the skills live inside the repo, `~/`-relative when under
+// the user's home directory, absolute otherwise. Always ends with '/' (or is '').
+function resolveSkillsBase(workspaceRoot) {
+  if (
+    workspaceRoot &&
+    fs.existsSync(path.join(workspaceRoot, 'okf-query', 'scripts', 'query.js')) &&
+    fs.existsSync(path.join(workspaceRoot, 'okf-maintain', 'scripts', 'maintain.js'))
+  ) {
+    return '';
+  }
+  const skillsRoot = path.resolve(__dirname, '..', '..');
+  const isInside = (rel) => rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+  const relWs = path.relative(workspaceRoot, skillsRoot);
+  if (relWs === '') return '';
+  if (isInside(relWs) && !relWs.startsWith('.')) return relWs.replace(/\\/g, '/') + '/';
+  const relHome = path.relative(os.homedir(), skillsRoot);
+  if (isInside(relHome)) return '~/' + relHome.replace(/\\/g, '/') + '/';
+  if (isInside(relWs)) return relWs.replace(/\\/g, '/') + '/';
+  return skillsRoot.replace(/\\/g, '/') + '/';
+}
+
+function buildSteeringDirectivesBlock(bundleRelPath, targetVersion, skillsBase = '') {
+  const b = bundleRelPath;
+  const s = skillsBase;
+  return `## 📂 Knowledge Bundle / OKF
+Architecture, contracts and procedures for this repository are documented in the OKF bundle at \`${b}/\` (start at \`${b}/index.md\`). Run OKF tools from the repo root. If nested bundles exist, use the closest parent \`okf/\` of the file you are working on. At session start, run \`node ${s}okf-lint/scripts/lint.js --drift\`; if it reports drift, run \`node ${s}okf-maintain/scripts/maintain.js\`.
+
+## ⚡ Pre-Work Grounding Gate (MANDATORY)
+Before answering questions about the system, planning, or editing:
+1. **Search:** \`node ${s}okf-query/scripts/query.js --search <keywords>\` (or read \`${b}/index.md\`).
+2. **Per-file context:** \`node ${s}okf-query/scripts/query.js --file <path>\` before analyzing or editing a file; if nothing matches, search by module name.
+3. **Cite** the concept(s) you used, or state "OKF Check: no matching concept for <topic>".
+4. **Model-Tier Routing:** use the model's **High** setting for bootstrapping, architecture discovery and planning; switch to **Medium** once the plan is approved, for implementation and upkeep.
 
 ## ⚡ Pre-Completion Verification Gate (MANDATORY)
-Before claiming any user request is complete or ending your turn after modifying workspace code (keeping the active model on its **Medium** setting for post-implementation upkeep):
-1. **Semantic Concept & Source Binding Upkeep:** Update the prose of any affected OKF concept files (or create a new concept) to reflect architectural, behavioral, or operational changes; bind all newly created or modified source files in the concept's \`resource:\` or \`sources:\` frontmatter so they graduate out of \`## Not yet specified\` in \`index.md\`; and record a descriptive summary in \`log.md\`.
-2. **Maintenance Sync:** Run \`node okf-maintain/scripts/maintain.js\` (or \`npm run okf:maintain\`) to auto-sync concept timestamps, unindexed frontier files in \`index.md\`, changelog entries in \`log.md\`, and rebuild \`viz.html\`.
-3. **Lint & Drift Gate:** Run \`node okf-lint/scripts/lint.js --drift\` (or \`npm run okf:lint:drift\`) to guarantee 0 errors, 0 warnings, and no unmapped modified files.
-
-## 📂 Knowledge Bundle / OKF
-An OKF knowledge bundle is located in the \`${bundleRelPath}\` directory. This bundle describes the core concepts, skills, and architecture of the OKF system implemented here.
-
-### 1. Verification and Synchronization on Startup
-On startup, before making any modifications to the codebase:
-- Run the \`okf-lint --drift\` skill (or \`npm run okf:lint:drift\`) to detect and inspect any unsynchronized concept drift.
-- Run the \`okf-maintain\` skill (or \`node okf-maintain/scripts/maintain.js\`) to fix/sync any flagged concept drift.
-
-### 2. Locating the OKF Bundle
-- Always locate and use \`${bundleRelPath}\` relative to the workspace root to check and maintain the bundle.
-
-### 3. Context Grounding & Retrieval
-- **Grounding Initial Questions**: Before answering any initial user questions about the codebase, system behavior, or design on session startup, first attempt to ground your answer in the OKF bundle. Run \`node okf-query/scripts/query.js --search <keywords>\` (or \`npm run okf:query -- --search <keywords>\`) or check the [Index File](${bundleRelPath}/index.md) to find documentation and concepts explaining the subject.
-- **Retrieval before Edits**: Before analyzing or modifying any specific file, run \`node okf-query/scripts/query.js --file <file-path>\` (or \`npm run okf:query -- --file <file-path>\`) to retrieve and inject relevant design guidelines, SLAs, and dependencies directly into your context. If \`--file\` yields no results, fall back to searching by parent folder or keyword.
-
-### 4. Post-Edit Upkeep & Conformance
-- After making edits, run the \`okf-maintain\` skill (\`node okf-maintain/scripts/maintain.js\`) to update the relevant concept files, frontmatter timestamps, index entries, and \`log.md\`. Make sure to update or create concepts if you:
-  - Modify schemas, components, or API endpoints.
-  - Discover platform or sandbox-specific constraints (e.g., mobile WebView quirks, CORS limitations, CDN asset blockages).
-  - Improve or add structural documentation to developer utility pages (like testing environments).
-  - Learn a new codebase behavior or pattern that warrants a permanent engineering guideline.
-- Run the \`okf-lint\` skill (\`node okf-lint/scripts/lint.js\`) to guarantee that all markdown links are intact and all concept structures conform before completing the task.
+Before reporting work complete after changing code:
+1. **Semantic Concept & Source Binding Upkeep:** update affected concepts, or create one, when you change a schema, component, API, configuration or build/deploy step, or learn a durable constraint or pattern. Bind new or changed source files in the concept's \`resource:\`/\`sources:\` frontmatter, and add a dated line to \`${b}/log.md\`.
+2. **Maintain:** \`node ${s}okf-maintain/scripts/maintain.js\` (refreshes timestamps, the \`## Not yet specified\` frontier, \`log.md\` and \`viz.html\`).
+3. **Lint:** \`node ${s}okf-lint/scripts/lint.js --drift\`. It must report 0 errors and 0 warnings.
 
 <!-- okf-steering-version: ${targetVersion} -->`;
 }
@@ -503,9 +508,8 @@ function inspectAndSyncSteeringFile(filePath, workspaceRoot, bundleRoot, targetV
     return { exists: true, outdated: true, updated: false };
   }
 
-  let bundleRel = path.relative(workspaceRoot, bundleRoot).replace(/\\/g, '/');
-  if (!bundleRel.startsWith('/')) bundleRel = '/' + bundleRel;
-  const newBlock = buildSteeringDirectivesBlock(bundleRel, targetVersion);
+  const bundleRel = path.relative(workspaceRoot, bundleRoot).replace(/\\/g, '/') || '.';
+  const newBlock = buildSteeringDirectivesBlock(bundleRel, targetVersion, resolveSkillsBase(workspaceRoot));
 
   let newContent = content;
   const startRegex = /(## (?:⚡ )?Pre-Work Grounding Gate[\s\S]*?|## (?:⚡ )?Pre-Completion Verification Gate[\s\S]*?|## (?:📂 )?Knowledge Bundle \/ OKF[\s\S]*?)(?:<!-- okf-steering-version:\s*[0-9.]+\s*-->)/;
@@ -722,32 +726,10 @@ async function main() {
   }
 
   // 3. Execution / Sync Mode
-  const nowISO = new Date().toISOString();
-  const dateStr = nowISO.slice(0, 10);
   const logEntries = [];
   const updatedFiles = [];
 
-  // 3a. Update timestamps for drifted concepts
-  for (const drift of driftedConcepts) {
-    const ok = updateConceptTimestamp(drift.fullPath, nowISO, actor);
-    if (ok) {
-      updatedFiles.push(drift.file);
-    }
-  }
-  if (updatedFiles.length > 0) {
-    logEntries.push(`Synchronized timestamp for ${updatedFiles.length} drifted concept(s): ${updatedFiles.join(', ')}.`);
-  }
-
-  // 3b. Update index.md frontier
-  let indexUpdated = false;
-  if (fs.existsSync(indexPath)) {
-    indexUpdated = updateIndexFrontier(indexPath, frontierList, documentedResources);
-    if (indexUpdated) {
-      logEntries.push(`Synchronized workspace frontier mapping in \`index.md\` (${frontierList.length} undocumented files mapped).`);
-    }
-  }
-
-  // 3c. Auto-sync steering notice files
+  // 3a. Auto-sync steering notice files first so any concept binding AGENTS.md gets a newer timestamp
   const updatedSteering = [];
   for (const sName of steeringFilesToCheck) {
     const sPath = path.join(workspaceRoot, sName);
@@ -758,6 +740,29 @@ async function main() {
   }
   if (updatedSteering.length > 0) {
     logEntries.push(`Synchronized steering notice in \`${updatedSteering.join(', ')}\` to v${TARGET_STEERING_VERSION}.`);
+  }
+
+  const nowISO = new Date().toISOString();
+  const dateStr = nowISO.slice(0, 10);
+
+  // 3b. Update timestamps for drifted concepts
+  for (const drift of driftedConcepts) {
+    const ok = updateConceptTimestamp(drift.fullPath, nowISO, actor);
+    if (ok) {
+      updatedFiles.push(drift.file);
+    }
+  }
+  if (updatedFiles.length > 0) {
+    logEntries.push(`Synchronized timestamp for ${updatedFiles.length} drifted concept(s): ${updatedFiles.join(', ')}.`);
+  }
+
+  // 3c. Update index.md frontier
+  let indexUpdated = false;
+  if (fs.existsSync(indexPath)) {
+    indexUpdated = updateIndexFrontier(indexPath, frontierList, documentedResources);
+    if (indexUpdated) {
+      logEntries.push(`Synchronized workspace frontier mapping in \`index.md\` (${frontierList.length} undocumented files mapped).`);
+    }
   }
 
   // 3d. Record in log.md
@@ -829,5 +834,7 @@ if (require.main === module) {
 
 module.exports = {
   parseFrontmatter,
-  inspectAndSyncSteeringFile
+  inspectAndSyncSteeringFile,
+  buildSteeringDirectivesBlock,
+  resolveSkillsBase
 };

@@ -547,7 +547,7 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
   return results;
 }
 
-const INSTALLED_VERSION = '1.8.0';
+const INSTALLED_VERSION = '1.8.1';
 
 function compareVersions(v1, v2) {
   const parts1 = v1.split('.').map(Number);
@@ -671,7 +671,7 @@ async function main() {
 
   const results = scanAndLint(bundleRoot, bundleRoot, workspaceRoot, checkDrift, strictLinks);
 
-  const TARGET_STEERING_VERSION = '1.8.0';
+  const TARGET_STEERING_VERSION = '1.8.1';
   // Check steering notice files for outdated templates across all supported agents
   const steeringFilesToCheck = ['AGENTS.md', 'CLAUDE.md', '.cursorrules', '.windsurfrules', '.clinerules', 'GEMINI.md'];
   for (const sName of steeringFilesToCheck) {
