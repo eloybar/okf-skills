@@ -7,7 +7,7 @@ tags: [pruning, cleanup, lifecycle, archiving, automation]
 status: stable
 generated:
   by: Antigravity/4.0
-  at: 2026-11-02T11:15:33.095Z
+  at: 2026-11-02T17:38:10.583Z
 sources:
   - okf-prune/scripts/prune.js
 ---
@@ -20,4 +20,4 @@ The `okf-prune` skill manages bundle hygiene and concept lifecycles by detecting
 - **Safe Archiving**: By default, moves pruned concepts into an `archive/` directory within the bundle, updates frontmatter with `status: deprecated` and `archived_at`, and relocates concept links in `index.md` to an `## Archived Concepts` section.
 - **Permanent Deletion Mode**: Allows complete removal of obsolete concepts via the `--delete` flag.
 - **Category Filtering**: Allows selective pruning targeting only stale (`--stale`), deprecated (`--deprecated`), ghost (`--ghosts`), or orphaned (`--orphans`) concepts.
-- **Changelog & Visualization Sync**: Appends entries to `log.md` detailing pruned items and triggers graph visualization updates (`--no-open`).
+- **Changelog & Visualization Sync**: Appends entries to `log.md` detailing pruned items (and optionally refreshes `viz.html` when `--viz` is passed).

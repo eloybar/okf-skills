@@ -43,7 +43,7 @@ function buildSyncedIndexHtml(originalHtml) {
   const mappings = [
     { panelId: 'details-panel-2', header: '# ~/.agent/skills/okf/SKILL.md', relFile: 'okf/SKILL.md' },
     { panelId: 's3-panel-1', header: '# okf-wayfinder/SKILL.md', relFile: 'okf-wayfinder/SKILL.md' },
-    { panelId: 'details-panel-4', header: '# AGENTS.md / CLAUDE.md Content', rawContent: buildSteeringDirectivesBlock('docs/okf', '1.8.1', '') },
+    { panelId: 'details-panel-4', header: '# AGENTS.md / CLAUDE.md Content', rawContent: buildSteeringDirectivesBlock('docs/okf', '1.8.2', '') },
     { panelId: 's5q-panel-1', header: '# okf-query/SKILL.md', relFile: 'okf-query/SKILL.md' },
     { panelId: 's5q-panel-2', header: null, relFile: 'okf-query/scripts/query.js' },
     { panelId: 'details-panel-6', header: '# ~/.agent/skills/okf-maintain/SKILL.md', relFile: 'okf-maintain/SKILL.md' },

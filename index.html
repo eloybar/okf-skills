@@ -1044,7 +1044,7 @@
 name: okf
 description: Author and maintain Open Knowledge Format (OKF) bundles — directories of typed markdown concept files.
 disable-model-invocation: true
-version: 1.8.1
+version: 1.8.2
 ---
 
 Capture knowledge as an **OKF bundle**: a directory of markdown **concept** files, each carrying YAML **frontmatter** plus a free-form body. No SDK, no central authority — readable, diffable, portable. Spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md
@@ -1082,7 +1082,7 @@ Capture knowledge as an **OKF bundle**: a directory of markdown **concept** file
      * Instruct them to ground any initial user questions about the codebase by searching the OKF bundle first (e.g., running `okf-query --search &lt;keywords&gt;` or checking `index.md`) before answering or planning.
      * Instruct them to run `okf-query --file &lt;file-path&gt;` before analyzing/editing files to pull context.
      * Instruct them to maintain the bundle post-edit by running `okf-maintain` followed by `okf-lint` to update or create concepts if they modify schemas/components/APIs, discover platform/sandbox-specific constraints (e.g., mobile WebView quirks, CORS limits, CDN blockages), improve developer utility/test pages, or learn new codebase behaviors/patterns that warrant a permanent guideline.
-     * Include the steering version tracking tag at the bottom of the section: `&lt;!-- okf-steering-version: 1.8.1 --&gt;`.
+     * Include the steering version tracking tag at the bottom of the section: `&lt;!-- okf-steering-version: 1.8.2 --&gt;`.
    - Done when the target root-level agent steering file (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, etc.) exists and contains the tailored OKF steering directives with the version tag.
 
 
@@ -1223,7 +1223,7 @@ Everything else is soft guidance. When reading a bundle, degrade gracefully: tol
 ---
 name: okf-wayfinder
 description: Guide users in establishing and documenting new concepts in their OKF bundle through interactive, context-aware interviews.
-version: 1.8.1
+version: 1.8.2
 ---
 
 # `okf-wayfinder` Workflow
@@ -1281,7 +1281,7 @@ Guide the developer through creating a brand new, fully conforming OKF v0.2 conc
      - If `type: Attested Computation`, include `runtime` (required), `parameters`, `computation` (or an inline `# Computation` section), `executor`, and `attester`.
      - If time-sensitive (e.g., `Playbook`, `Decision`, SLA contract), set `stale_after` to an ISO 8601 UTC expiration timestamp.
    - Add the concept to `index.md` and record a summary in `log.md` under a `## YYYY-MM-DD` date heading.
-   - **Automated Post-Authoring Verification:** Run `okf-maintain` and `okf-lint --drift` to graduate bound files out of `## Not yet specified` in `index.md`, rebuild `viz.html`, and verify 0 errors and 0 warnings:
+   - **Automated Post-Authoring Verification:** Run `okf-maintain` and `okf-lint --drift` to graduate bound files out of `## Not yet specified` in `index.md` and verify 0 errors and 0 warnings:
      ```bash
      node okf-maintain/scripts/maintain.js
      node okf-lint/scripts/lint.js --drift
@@ -1373,7 +1373,7 @@ Before reporting work complete after changing code:
 2. **Maintain:** `node okf-maintain/scripts/maintain.js` (refreshes timestamps, the `## Not yet specified` frontier, `log.md` and `viz.html`).
 3. **Lint:** `node okf-lint/scripts/lint.js --drift`. It must report 0 errors and 0 warnings.
 
-&lt;!-- okf-steering-version: 1.8.1 --&gt;</code></pre>
+&lt;!-- okf-steering-version: 1.8.2 --&gt;</code></pre>
             </div>
           </div>
         </div>
@@ -1412,7 +1412,7 @@ Before reporting work complete after changing code:
 ---
 name: okf-query
 description: Scan the OKF knowledge bundle to retrieve and inject relevant architectural and business context matching specific files or search queries.
-version: 1.8.1
+version: 1.8.2
 ---
 
 # `okf-query` Workflow
@@ -1843,7 +1843,7 @@ module.exports = {
 ---
 name: okf-maintain
 description: Use after changing or learning something about a codebase that has an okf/ knowledge bundle, so the bundle doesn't go stale. Fires when your edits touch code an existing OKF concept documents, or when you discover a fact a concept should record.
-version: 1.8.1
+version: 1.8.2
 ---
 
 Keep an existing **OKF bundle** current so it doesn't rot. This skill handles both reactive upkeep of existing files and the automatic authoring of new concept files when new significant components, schemas, or modules are introduced to the codebase. (For specific frontmatter/conformance rules, follow the `okf` skill, which is the single source of truth for how a concept is written).
@@ -1853,10 +1853,10 @@ Keep an existing **OKF bundle** current so it doesn't rot. This skill handles bo
 ### ⚡ Fast Mechanical Upkeep (CLI Automation)
 Whenever code modifications touch existing resources or introduce untracked workspace files, run the automated maintainer script:
 ```bash
-node okf-maintain/scripts/maintain.js        # Auto-syncs drift timestamps, frontier, log, and viz
+node okf-maintain/scripts/maintain.js        # Auto-syncs drift timestamps, frontier, steering, and log (add --viz to rebuild viz.html)
 node okf-maintain/scripts/maintain.js --check # Audit mode: checks drift and frontier without changes
 ```
-This automatically updates timestamps for drifted concepts, updates `## Not yet specified` in `index.md`, records the entry in `log.md`, regenerates `viz.html`, and runs `okf-lint --drift`.
+This automatically updates timestamps for drifted concepts, updates `## Not yet specified` in `index.md`, records the entry in `log.md`, and runs `okf-lint --drift` (pass `--viz` or run `okf-visualize` to generate `viz.html`).
 
 ### Semantic Maintenance &amp; New Concepts
 
@@ -1872,8 +1872,8 @@ This automatically updates timestamps for drifted concepts, updates `## Not yet 
 4. **Update reserved files.** Append a dated line to `log.md` under an ISO 8601 `## YYYY-MM-DD` date heading describing the changes and additions. If you added a new concept, add it to `index.md` (and remove it from `## Not yet specified` if it was there). If any new undocumented workspace files are identified, list them under the `## Not yet specified` section of `index.md` to map the known frontier.
    - Done when `log.md` records the change and `index.md` lists any new concept and updates the undocumented frontier list — for each reserved file the bundle uses.
 
-5. **Steering Notice Upkeep.** Check if any agent steering files in the workspace root (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, or `GEMINI.md`) contain OKF directives. If any contain the version comment `&lt;!-- okf-steering-version: 1.8.1 --&gt;` or mention OKF, verify they are at version `1.8.1` with both the Pre-Work Grounding Gate (including Step 4: Model-Tier Routing) and the Pre-Completion Verification Gate (including Step 1: Semantic Concept &amp; Source Binding Upkeep). If the comment is missing or references a version older than `1.8.1`, automatically update or overwrite the steering directives block without prompting for user confirmation (or run `node okf-maintain/scripts/maintain.js`), as this is a required conformance gate.
-   - Done when all present OKF steering notices contain the correct up-to-date directives and the `&lt;!-- okf-steering-version: 1.8.1 --&gt;` comment.
+5. **Steering Notice Upkeep.** Check if any agent steering files in the workspace root (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, or `GEMINI.md`) contain OKF directives. If any contain the version comment `&lt;!-- okf-steering-version: 1.8.2 --&gt;` or mention OKF, verify they are at version `1.8.2` with both the Pre-Work Grounding Gate (including Step 4: Model-Tier Routing) and the Pre-Completion Verification Gate (including Step 1: Semantic Concept &amp; Source Binding Upkeep). If the comment is missing or references a version older than `1.8.2`, automatically update or overwrite the steering directives block without prompting for user confirmation (or run `node okf-maintain/scripts/maintain.js`), as this is a required conformance gate.
+   - Done when all present OKF steering notices contain the correct up-to-date directives and the `&lt;!-- okf-steering-version: 1.8.2 --&gt;` comment.
 
 6. **Conformance gate.** Verify the bundle still conforms, per the `okf` skill.
    - Done when every non-reserved `.md` has parseable frontmatter with a non-empty `type`.
@@ -1922,7 +1922,7 @@ This automatically updates timestamps for drifted concepts, updates `## Not yet 
 ---
 name: okf-lint
 description: Statically analyze the OKF knowledge bundle to check conformance, link integrity, and concept drift.
-version: 1.8.1
+version: 1.8.2
 ---
 
 # `okf-lint` Workflow
@@ -1969,8 +1969,8 @@ node okf-lint/scripts/lint.js --drift --json
 4. **Verify Attested Computations (§10)**
    - For concepts with `type: Attested Computation`, ensure `runtime` is present, verify that either a `computation` file path or an inline `# Computation` body section is provided (§10.3), and confirm that referenced local files (`computation`, `executor.resource`, `attester.resource`) exist on disk.
 
-5. **Audit Steering Notices (v1.8.1)**
-   - Audit all present agent steering files (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `GEMINI.md`) in the workspace root for the current template version (`1.8.1`), confirming `Pre-Work Grounding Gate`, `Model-Tier Routing`, and `Pre-Completion Verification Gate` are present.
+5. **Audit Steering Notices (v1.8.2)**
+   - Audit all present agent steering files (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `GEMINI.md`) in the workspace root for the current template version (`1.8.2`), confirming `Pre-Work Grounding Gate`, `Model-Tier Routing`, and `Pre-Completion Verification Gate` are present.
 </code></pre>
               </div>
 
@@ -2047,7 +2047,7 @@ if (gitTimeStr) {
 ---
 name: okf-visualize
 description: Generate and display an interactive Cytoscape.js HTML graph visualization for an OKF knowledge bundle. Use when the user asks to visualize, graph, view, or render an OKF bundle.
-version: 1.8.1
+version: 1.8.2
 ---
 
 # Visualizing OKF Bundles
@@ -3190,7 +3190,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 14px 0; }
 name: okf-upgrade
 description: Automatically upgrade an OKF bundle from v0.1 to v0.2.
 disable-model-invocation: true
-version: 1.8.1
+version: 1.8.2
 ---
 
 Migrate an existing **OKF bundle** from Version 0.1 to Version 0.2 format. This skill automates the migration of legacy frontmatter, citations, actor conventions, log headings, and version compatibility flags.
@@ -3315,7 +3315,7 @@ node okf-upgrade/scripts/upgrade.js --user "ahormati"
 ---
 name: okf-prune
 description: Use when an OKF bundle contains stale, expired, deprecated, orphaned, or dangling concepts that need pruning, archiving, or cleanup.
-version: 1.8.1
+version: 1.8.2
 ---
 
 # `okf-prune` Workflow
@@ -3330,7 +3330,7 @@ Over the lifecycle of a codebase, concepts change:
 - Underlying source code or computation files are deleted, leaving ghost concepts with missing local `resource`, `sources`, `computation`, `executor.resource`, or `attester.resource` files (§6.2, §10.2).
 - Concepts become disconnected and orphaned with 0 inbound links (across `index.md`, body cross-links, and `sources` concept lineage links).
 
-`okf-prune` systematically audits the bundle, identifies candidates for removal or archiving, moves them safely to `archive/` (or permanently deletes them), updates `index.md`, logs the changes in `log.md`, and refreshes `viz.html`.
+`okf-prune` systematically audits the bundle, identifies candidates for removal or archiving, moves them safely to `archive/` (or permanently deletes them), updates `index.md`, and logs the changes in `log.md` (pass `--viz` to also refresh `viz.html`).
 
 ## Usage
 
@@ -3342,7 +3342,7 @@ node okf-prune/scripts/prune.js --dry-run
 npm run okf:prune:check
 
 # 2. Archive Mode (Default Safe Action)
-# Moves matching concepts to archive/, marks status: deprecated, updates index.md, log.md, and viz.html.
+# Moves matching concepts to archive/, marks status: deprecated, and updates index.md and log.md.
 node okf-prune/scripts/prune.js
 npm run okf:prune
 
@@ -3366,7 +3366,7 @@ node okf-prune/scripts/prune.js --check --json
 | Command / Flag | Action | Modifies Files? | Exit Code |
 |---|---|---|---|
 | `--check` / `--dry-run` | Audits bundle for prunable concepts | No | 0 if clean, 1 if candidates found |
-| `--archive` (default) | Moves concepts to `archive/`, sets `status: deprecated`, updates `index.md`, `log.md`, `viz.html` | Yes | 0 |
+| `--archive` (default) | Moves concepts to `archive/`, sets `status: deprecated`, updates `index.md` and `log.md` | Yes | 0 |
 | `--delete` | Permanently deletes files, cleans `index.md` &amp; `log.md` | Yes | 0 |
 | `--stale` | Targets only concepts where `now &gt;= stale_after` | Condition-dependent | 0 / 1 |
 | `--deprecated` | Targets only concepts with `status: deprecated` | Condition-dependent | 0 / 1 |

@@ -1,7 +1,7 @@
 ---
 name: okf-lint
 description: Statically analyze the OKF knowledge bundle to check conformance, link integrity, and concept drift.
-version: 1.8.1
+version: 1.8.2
 ---
 
 # `okf-lint` Workflow
@@ -48,5 +48,5 @@ node okf-lint/scripts/lint.js --drift --json
 4. **Verify Attested Computations (§10)**
    - For concepts with `type: Attested Computation`, ensure `runtime` is present, verify that either a `computation` file path or an inline `# Computation` body section is provided (§10.3), and confirm that referenced local files (`computation`, `executor.resource`, `attester.resource`) exist on disk.
 
-5. **Audit Steering Notices (v1.8.1)**
-   - Audit all present agent steering files (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `GEMINI.md`) in the workspace root for the current template version (`1.8.1`), confirming `Pre-Work Grounding Gate`, `Model-Tier Routing`, and `Pre-Completion Verification Gate` are present.
+5. **Audit Steering Notices (v1.8.2)**
+   - Audit all present agent steering files (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `GEMINI.md`) in the workspace root for the current template version (`1.8.2`), confirming `Pre-Work Grounding Gate`, `Model-Tier Routing`, and `Pre-Completion Verification Gate` are present.
