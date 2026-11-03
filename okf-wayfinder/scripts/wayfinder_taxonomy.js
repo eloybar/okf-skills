@@ -311,10 +311,38 @@ function loadGitignorePatterns(workspaceRoot) {
   return patterns;
 }
 
+function isOkfBundleDir(dirPath) {
+  const idx = path.join(dirPath, 'index.md');
+  if (!fs.existsSync(idx)) return false;
+  try {
+    const head = fs.readFileSync(idx, 'utf8').slice(0, 2000);
+    const m = head.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    return !!(m && /^okf_version\s*:/m.test(m[1]));
+  } catch (e) {
+    return false;
+  }
+}
+
+function isCoveredByResource(relPath, fullPath, documentedResources) {
+  const normRel = relPath.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+  if (
+    documentedResources.has(path.normalize(fullPath)) ||
+    documentedResources.has(normRel) ||
+    documentedResources.has(path.resolve(fullPath).toLowerCase())
+  ) {
+    return true;
+  }
+  const parts = normRel.split('/');
+  for (let i = 1; i < parts.length; i++) {
+    if (documentedResources.has(parts.slice(0, i).join('/'))) return true;
+  }
+  return false;
+}
+
 /**
  * Recursively scans the workspace to find files that do not have associated concepts.
  */
-function scanWorkspace(dir, workspaceRoot, documentedResources, results = [], gitignorePatterns = null) {
+function scanWorkspace(dir, workspaceRoot, documentedResources, results = [], gitignorePatterns = null, bundleRoot = null) {
   if (!fs.existsSync(dir)) return results;
   
   if (gitignorePatterns === null) {
@@ -323,6 +351,7 @@ function scanWorkspace(dir, workspaceRoot, documentedResources, results = [], gi
   
   const files = fs.readdirSync(dir);
   const ignores = ['.git', 'node_modules', '.agents', '.claude', 'agent', 'docs', 'tmp', 'temp', '.idea', '.vscode'];
+  const normBundleRoot = bundleRoot ? path.resolve(bundleRoot).toLowerCase() : null;
   
   for (const file of files) {
     if (ignores.includes(file)) continue;
@@ -349,16 +378,13 @@ function scanWorkspace(dir, workspaceRoot, documentedResources, results = [], gi
     if (stat.isDirectory()) {
       // Skip nested git repositories / submodules / worktrees
       if (fs.existsSync(path.join(fullPath, '.git'))) continue;
-      scanWorkspace(fullPath, workspaceRoot, documentedResources, results, gitignorePatterns);
+      // Skip active or nested OKF bundles
+      if (normBundleRoot && path.resolve(fullPath).toLowerCase() === normBundleRoot) continue;
+      if (isOkfBundleDir(fullPath)) continue;
+      scanWorkspace(fullPath, workspaceRoot, documentedResources, results, gitignorePatterns, bundleRoot);
     } else if (stat.isFile()) {
       const normalized = path.normalize(fullPath);
-      const normRel = relPath.toLowerCase();
-      const normAbs = path.resolve(fullPath).toLowerCase();
-      if (
-        !documentedResources.has(normalized) &&
-        !documentedResources.has(normRel) &&
-        !documentedResources.has(normAbs)
-      ) {
+      if (!isCoveredByResource(relPath, fullPath, documentedResources)) {
         // Skip common auxiliary files that do not warrant dedicated concept maps
         if (file !== 'skills-lock.json' && file !== '.gitignore' && file !== 'LICENSE') {
           results.push({
@@ -623,7 +649,7 @@ function main() {
   }
 
   // Scan for undocumented files (the frontier)
-  const frontier = scanWorkspace(workspaceRoot, workspaceRoot, taxonomy.resources);
+  const frontier = scanWorkspace(workspaceRoot, workspaceRoot, taxonomy.resources, [], null, bundlePath);
   const frontierGroups = clusterFrontier(frontier);
   const subdirectories = Array.from(taxonomy.subdirectories).sort();
   const conceptCount = taxonomy.concepts.length;
