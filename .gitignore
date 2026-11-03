@@ -27,3 +27,5 @@ temp/
 .claude/
 agent/
 skills-lock.json
+
+okf-skills/
