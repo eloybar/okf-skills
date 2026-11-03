@@ -6,7 +6,7 @@ resource: okf-maintain/SKILL.md
 tags: [maintenance, automation, sync]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-03T21:37:47.707Z
+  at: 2026-11-03T21:42:36.735Z
 sources:
   - okf-maintain/scripts/maintain.js
   - scripts/test-lifecycle.js
