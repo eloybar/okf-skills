@@ -763,6 +763,58 @@ Body cites an undefined footnote[^missing-src] and forgets unused-src.
   fs.unlinkSync(badFootnoteFile);
   console.log('✓ okf-lint verified [^id] footnote attribution against sources[].id.');
 
+  // 15e. Transitive concept drift & CRLF preservation in a single okf-maintain pass
+  const crlfDependentFile = path.join(bundleRoot, 'concepts', 'dependent_concept.md');
+  const oldTransIso = new Date(Date.now() - 120000).toISOString();
+  const crlfContent = [
+    '---',
+    'type: Specification',
+    'title: Dependent Specification',
+    'description: Depends on Cloud Sync Service concept.',
+    'resource: docs/okf/concepts/shorthand_concept.md',
+    'generated:',
+    '  by: Antigravity/4.0',
+    `  at: ${oldTransIso}`,
+    '---',
+    '',
+    '# Dependent Specification',
+    'References [Cloud Sync Service](/concepts/shorthand_concept.md).'
+  ].join('\r\n') + '\r\n';
+  fs.writeFileSync(crlfDependentFile, crlfContent, 'utf8');
+
+  // Modify src/shorthand_sync.ts so shorthand_concept.md drifts, which transitively drifts dependent_concept.md
+  fs.writeFileSync(shorthandCodeFile, 'export function syncCloud() { return "transitive-test"; }\n');
+  execSync(`node "${scripts.maintain}"`, { cwd: tempDir, stdio: 'ignore' });
+
+  // Verify a SINGLE maintain pass cleared drift for BOTH shorthand_concept.md and dependent_concept.md
+  const transLintJson = JSON.parse(execSync(`node "${scripts.lint}" --drift --json`, { cwd: tempDir }).toString());
+  const conceptDriftWarnings = transLintJson.warnings.filter(w => w.includes('Concept drift detected'));
+  assert.equal(conceptDriftWarnings.length, 0, 'Single okf-maintain pass must clear transitive concept-to-concept drift');
+  const updatedCrlfContent = fs.readFileSync(crlfDependentFile, 'utf8');
+  assert.ok(!updatedCrlfContent.includes(`at: ${oldTransIso}`), 'dependent_concept.md timestamp must be updated transitively');
+  assert.ok(updatedCrlfContent.startsWith('---\r\n'), 'updateConceptTimestamp must preserve CRLF line endings in frontmatter');
+  console.log('✓ okf-maintain resolved transitive concept-to-concept drift and preserved CRLF in a single pass.');
+
+  // 15f. okf-query smart section excerpting on large concepts (> 12 KB) and --full override
+  const largeBody = '# Section One\n' + 'A'.repeat(13000) + '\n\n# Section Two SpecialToken\nMatched paragraph with SpecialToken.\n';
+  const largeConceptFile = path.join(bundleRoot, 'concepts', 'large_concept.md');
+  fs.writeFileSync(largeConceptFile, `---
+type: Reference
+title: Large Reference Doc
+resource: src/shorthand_sync.ts
+generated:
+  by: Antigravity/4.0
+  at: ${new Date().toISOString()}
+---
+${largeBody}`);
+  const excerptOut = execSync(`node "${scripts.query}" --search SpecialToken`, { cwd: tempDir }).toString();
+  assert.ok(excerptOut.includes('[Matching Sections for "SpecialToken"]'), 'okf-query --search should excerpt matching sections on >12KB concepts');
+  assert.ok(excerptOut.length < 4000, 'Excerpted output should be compact');
+  const fullOut = execSync(`node "${scripts.query}" --search SpecialToken --full`, { cwd: tempDir }).toString();
+  assert.ok(fullOut.length > 13000, 'okf-query --search --full should print full concept body');
+  fs.unlinkSync(largeConceptFile);
+  console.log('✓ okf-query excerpted matching sections on >12KB concepts and supported --full.');
+
   console.log('\n======================================');
   console.log('🎉 ALL LIFE CYCLE TEST CASES PASSED SUCCESSFULLY!');
   console.log('======================================');

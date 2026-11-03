@@ -323,10 +323,57 @@ function main() {
     return;
   }
 
+  const forceFull = args.includes('--full');
+  const MAX_CONCEPT_CHARS = 12000;
+  const searchKeyword = searchIndex !== -1 && args[searchIndex + 1] ? args[searchIndex + 1].toLowerCase() : null;
+
+  function formatConceptBody(concept) {
+    const trimmed = concept.body.trim();
+    if (forceFull || trimmed.length <= MAX_CONCEPT_CHARS) {
+      return trimmed;
+    }
+
+    const lines = trimmed.split(/\r?\n/);
+    const sections = [];
+    let current = { heading: '(Introduction)', lines: [] };
+    for (const line of lines) {
+      if (/^#{1,3}\s+/.test(line)) {
+        if (current.lines.length > 0 || current.heading !== '(Introduction)') {
+          sections.push(current);
+        }
+        current = { heading: line.trim(), lines: [line] };
+      } else {
+        current.lines.push(line);
+      }
+    }
+    if (current.lines.length > 0) sections.push(current);
+
+    const toc = sections
+      .filter(s => s.heading !== '(Introduction)')
+      .map(s => '  ' + s.heading)
+      .join('\n');
+
+    if (searchKeyword) {
+      const matchingSections = sections.filter(s =>
+        s.heading.toLowerCase().includes(searchKeyword) ||
+        s.lines.join('\n').toLowerCase().includes(searchKeyword)
+      );
+      if (matchingSections.length > 0) {
+        const excerpt = matchingSections.map(s => s.lines.join('\n').trim()).join('\n\n---\n\n');
+        if (excerpt.length <= MAX_CONCEPT_CHARS) {
+          return `[Concept Outline (${concept.relativePath})]\n${toc}\n\n[Matching Sections for "${args[searchIndex + 1]}"]\n${excerpt}\n\n(Note: Showing matching sections from ${concept.relativePath} [${trimmed.length} chars total]. Pass --full to print entire concept.)`;
+        }
+      }
+    }
+
+    return `${trimmed.slice(0, MAX_CONCEPT_CHARS)}\n\n... [Truncated at ${MAX_CONCEPT_CHARS} of ${trimmed.length} chars from ${concept.relativePath}. Pass --full or read ${concept.relativePath} directly for remaining sections]\nSection Outline:\n${toc}`;
+  }
+
   // Format and output matched concepts
   console.log(`=== OKF CONTEXT BLOCK (${matched.length} concept(s) found) ===\n`);
   for (const c of matched) {
     console.log(`[Concept: ${c.frontmatter.title || c.relativePath}]`);
+    console.log(`File:        ${c.relativePath}`);
     console.log(`Type:        ${c.frontmatter.type}`);
     if (c.frontmatter.description) console.log(`Description: ${c.frontmatter.description}`);
     if (c.frontmatter.resource)    console.log(`Resource:    ${c.frontmatter.resource}`);
@@ -345,7 +392,7 @@ function main() {
     console.log(`Trust Tier:  ${trustTier}`);
     
     console.log(`----------------------------------------`);
-    console.log(c.body.trim());
+    console.log(formatConceptBody(c));
     console.log(`\n========================================\n`);
   }
 }
