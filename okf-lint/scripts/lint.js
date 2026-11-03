@@ -166,9 +166,51 @@ function extractFootnoteRefs(content) {
   return Array.from(refs);
 }
 
+const gitModifiedCache = new Map();
+const gitDirtySetByCwd = new Map();
+
+function getRepoDirtySet(execCwd) {
+  const normCwd = path.resolve(execCwd).toLowerCase();
+  if (gitDirtySetByCwd.has(normCwd)) {
+    return gitDirtySetByCwd.get(normCwd);
+  }
+  const dirtySet = new Set();
+  try {
+    const topLevel = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      cwd: execCwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+    const statusOut = execFileSync('git', ['-c', 'core.quotepath=false', 'status', '--porcelain', '-uall'], {
+      cwd: topLevel,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    });
+    for (const line of statusOut.split(/\r?\n/)) {
+      if (!line.trim()) continue;
+      const m = line.match(/^\s*[MADRCU?!]{1,2}\s+(.*)$/);
+      if (!m) continue;
+      let rawPath = m[1].trim();
+      if (rawPath.includes(' -> ')) rawPath = rawPath.split(' -> ').pop().trim();
+      rawPath = rawPath.replace(/^"|"$/g, '');
+      dirtySet.add(path.resolve(topLevel, rawPath).toLowerCase());
+    }
+  } catch (e) {
+    // Ignore git status errors
+  }
+  gitDirtySetByCwd.set(normCwd, dirtySet);
+  return dirtySet;
+}
+
 function getGitLastModifiedISO(filePath, cwd) {
-  const cleanPath = filePath.replace(/\\/g, '/');
-  const execCwd = cwd || path.dirname(filePath);
+  const absFile = path.resolve(filePath);
+  const cacheKey = absFile.toLowerCase();
+  if (gitModifiedCache.has(cacheKey)) {
+    return gitModifiedCache.get(cacheKey);
+  }
+
+  const cleanPath = absFile.replace(/\\/g, '/');
+  const execCwd = cwd || path.dirname(absFile);
   let gitIso = null;
   try {
     const stdout = execFileSync('git', ['log', '-1', '--format=%aI', '--', cleanPath], {
@@ -182,15 +224,11 @@ function getGitLastModifiedISO(filePath, cwd) {
   }
 
   try {
-    const statusOut = execFileSync('git', ['status', '--porcelain', '--', cleanPath], {
-      cwd: execCwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore']
-    }).trim();
-
-    if (statusOut && fs.existsSync(filePath)) {
-      const mtimeIso = fs.statSync(filePath).mtime.toISOString();
+    const dirtySet = getRepoDirtySet(execCwd);
+    if (dirtySet.has(cacheKey) && fs.existsSync(absFile)) {
+      const mtimeIso = fs.statSync(absFile).mtime.toISOString();
       if (!gitIso || new Date(mtimeIso) > new Date(gitIso)) {
+        gitModifiedCache.set(cacheKey, mtimeIso);
         return mtimeIso;
       }
     }
@@ -198,6 +236,7 @@ function getGitLastModifiedISO(filePath, cwd) {
     // Fallback if git status fails
   }
 
+  gitModifiedCache.set(cacheKey, gitIso);
   return gitIso;
 }
 

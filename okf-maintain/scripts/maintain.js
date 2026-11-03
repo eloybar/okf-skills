@@ -161,9 +161,51 @@ function resolveResourceLocalPath(resourceUri, workspaceRoot, bundleRoot = null)
   return path.normalize(path.join(workspaceRoot, localPath));
 }
 
+const gitModifiedCache = new Map();
+const gitDirtySetByCwd = new Map();
+
+function getRepoDirtySet(execCwd) {
+  const normCwd = path.resolve(execCwd).toLowerCase();
+  if (gitDirtySetByCwd.has(normCwd)) {
+    return gitDirtySetByCwd.get(normCwd);
+  }
+  const dirtySet = new Set();
+  try {
+    const topLevel = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      cwd: execCwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+    const statusOut = execFileSync('git', ['-c', 'core.quotepath=false', 'status', '--porcelain', '-uall'], {
+      cwd: topLevel,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    });
+    for (const line of statusOut.split(/\r?\n/)) {
+      if (!line.trim()) continue;
+      const m = line.match(/^\s*[MADRCU?!]{1,2}\s+(.*)$/);
+      if (!m) continue;
+      let rawPath = m[1].trim();
+      if (rawPath.includes(' -> ')) rawPath = rawPath.split(' -> ').pop().trim();
+      rawPath = rawPath.replace(/^"|"$/g, '');
+      dirtySet.add(path.resolve(topLevel, rawPath).toLowerCase());
+    }
+  } catch (e) {
+    // Ignore git status errors
+  }
+  gitDirtySetByCwd.set(normCwd, dirtySet);
+  return dirtySet;
+}
+
 function getGitLastModifiedISO(filePath, cwd) {
-  const cleanPath = filePath.replace(/\\/g, '/');
-  const execCwd = cwd || path.dirname(filePath);
+  const absFile = path.resolve(filePath);
+  const cacheKey = absFile.toLowerCase();
+  if (gitModifiedCache.has(cacheKey)) {
+    return gitModifiedCache.get(cacheKey);
+  }
+
+  const cleanPath = absFile.replace(/\\/g, '/');
+  const execCwd = cwd || path.dirname(absFile);
   let gitIso = null;
   try {
     const stdout = execFileSync('git', ['log', '-1', '--format=%aI', '--', cleanPath], {
@@ -177,15 +219,11 @@ function getGitLastModifiedISO(filePath, cwd) {
   }
 
   try {
-    const statusOut = execFileSync('git', ['status', '--porcelain', '--', cleanPath], {
-      cwd: execCwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore']
-    }).trim();
-
-    if (statusOut && fs.existsSync(filePath)) {
-      const mtimeIso = fs.statSync(filePath).mtime.toISOString();
+    const dirtySet = getRepoDirtySet(execCwd);
+    if (dirtySet.has(cacheKey) && fs.existsSync(absFile)) {
+      const mtimeIso = fs.statSync(absFile).mtime.toISOString();
       if (!gitIso || new Date(mtimeIso) > new Date(gitIso)) {
+        gitModifiedCache.set(cacheKey, mtimeIso);
         return mtimeIso;
       }
     }
@@ -193,6 +231,7 @@ function getGitLastModifiedISO(filePath, cwd) {
     // Fallback if git status fails
   }
 
+  gitModifiedCache.set(cacheKey, gitIso);
   return gitIso;
 }
 
@@ -294,32 +333,40 @@ function walkConceptFiles(dir, list = []) {
   return list;
 }
 
-function updateConceptTimestamp(filePath, nowISO, actor) {
+function updateConceptTimestamp(filePath, nowISO, actor, syncDate = null) {
   const content = fs.readFileSync(filePath, 'utf8');
+  const eol = content.includes('\r\n') ? '\r\n' : '\n';
   const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!fmMatch) return false;
 
-  let fmText = fmMatch[1];
+  let fmText = fmMatch[1].replace(/\r\n/g, '\n');
   let updatedFm = fmText;
 
   // Check if generated block exists
-  if (/generated:\s*\r?\n/m.test(fmText)) {
+  if (/generated:\s*\n/m.test(fmText)) {
     // Update at within generated
-    if (/(\s+at:\s*)([^\r\n]+)/.test(fmText)) {
-      updatedFm = updatedFm.replace(/(\s+at:\s*)([^\r\n]+)/, `$1${nowISO}`);
+    if (/(\s+at:\s*)([^\n]+)/.test(fmText)) {
+      updatedFm = updatedFm.replace(/(\s+at:\s*)([^\n]+)/, `$1${nowISO}`);
     } else {
-      updatedFm = updatedFm.replace(/(generated:\s*\r?\n)/, `$1  at: ${nowISO}\n`);
+      updatedFm = updatedFm.replace(/(generated:\s*\n)/, `$1  at: ${nowISO}\n`);
     }
-  } else if (/timestamp:\s*[^\r\n]+/m.test(fmText)) {
+  } else if (/timestamp:\s*[^\n]+/m.test(fmText)) {
     // Update legacy timestamp
-    updatedFm = updatedFm.replace(/timestamp:\s*[^\r\n]+/, `generated:\n  by: ${actor}\n  at: ${nowISO}`);
+    updatedFm = updatedFm.replace(/timestamp:\s*[^\n]+/, `generated:\n  by: ${actor}\n  at: ${nowISO}`);
   } else {
     // Add generated block
     updatedFm = updatedFm.trimEnd() + `\ngenerated:\n  by: ${actor}\n  at: ${nowISO}\n`;
   }
 
-  const newContent = content.replace(fmMatch[0], `---\n${updatedFm.trim()}\n---`);
+  const normalizedBlock = `---\n${updatedFm.trim()}\n---`;
+  const finalBlock = eol === '\r\n' ? normalizedBlock.replace(/\n/g, '\r\n') : normalizedBlock;
+  const newContent = content.replace(fmMatch[0], finalBlock);
   fs.writeFileSync(filePath, newContent, 'utf8');
+  if (syncDate instanceof Date && !isNaN(syncDate.getTime())) {
+    try {
+      fs.utimesSync(filePath, syncDate, syncDate);
+    } catch (e) {}
+  }
   return true;
 }
 
@@ -388,29 +435,28 @@ function updateIndexFrontier(indexPath, frontierList, documentedResources) {
 
 function appendLogEntry(logPath, entries, dateStr) {
   if (!fs.existsSync(logPath)) return false;
-  const content = fs.readFileSync(logPath, 'utf8');
+  const rawContent = fs.readFileSync(logPath, 'utf8');
+  const eol = rawContent.includes('\r\n') ? '\r\n' : '\n';
+  const content = rawContent.replace(/\r\n/g, '\n');
   const dateHeading = `## ${dateStr}`;
 
   let newEntriesText = entries.map(e => `- ${e}`).join('\n');
+  let newContent;
 
   if (content.includes(dateHeading)) {
-    // Append under existing date heading
     const parts = content.split(dateHeading);
-    const newContent = parts[0] + dateHeading + '\n' + newEntriesText + '\n' + parts[1].replace(/^\r?\n/, '');
-    fs.writeFileSync(logPath, newContent, 'utf8');
-    return true;
+    newContent = parts[0] + dateHeading + '\n' + newEntriesText + '\n' + parts[1].replace(/^\n/, '');
+  } else {
+    const firstHeadingMatch = content.match(/\n(## \d{4}-\d{2}-\d{2})/);
+    if (firstHeadingMatch) {
+      const idx = firstHeadingMatch.index;
+      newContent = content.slice(0, idx) + `\n\n${dateHeading}\n${newEntriesText}\n` + content.slice(idx);
+    } else {
+      newContent = content.trimEnd() + `\n\n${dateHeading}\n${newEntriesText}\n`;
+    }
   }
 
-  // Insert before the first date heading or at end
-  const firstHeadingMatch = content.match(/\n(## \d{4}-\d{2}-\d{2})/);
-  if (firstHeadingMatch) {
-    const idx = firstHeadingMatch.index;
-    const newContent = content.slice(0, idx) + `\n\n${dateHeading}\n${newEntriesText}\n` + content.slice(idx);
-    fs.writeFileSync(logPath, newContent, 'utf8');
-    return true;
-  }
-
-  fs.writeFileSync(logPath, content.trimEnd() + `\n\n${dateHeading}\n${newEntriesText}\n`, 'utf8');
+  fs.writeFileSync(logPath, eol === '\r\n' ? newContent.replace(/\n/g, '\r\n') : newContent, 'utf8');
   return true;
 }
 
@@ -575,6 +621,7 @@ async function main() {
   const documentedResources = new Set();
   const driftedConcepts = [];
   const staleConcepts = [];
+  const allConceptRecords = [];
 
   // 1. Analyze concepts for drift and documented resources
   for (const cFile of conceptFiles) {
@@ -641,8 +688,16 @@ async function main() {
     }
 
     const lastModified = fm.timestamp || (fm.generated && fm.generated.at);
-    if (lastModified) {
-      const conceptTime = new Date(lastModified);
+    const conceptTime = lastModified ? new Date(lastModified) : null;
+    allConceptRecords.push({
+      file: relConcept,
+      fullPath: cFile,
+      absKey: path.resolve(cFile).toLowerCase(),
+      conceptTimeIso: (conceptTime && !isNaN(conceptTime.getTime())) ? conceptTime.toISOString() : null,
+      resourcesToCheck
+    });
+
+    if (conceptTime && !isNaN(conceptTime.getTime())) {
       for (const res of resourcesToCheck) {
         if (fs.existsSync(res.path)) {
           const gitTimeStr = getGitLastModifiedISO(res.path, workspaceRoot);
@@ -659,6 +714,33 @@ async function main() {
               break;
             }
           }
+        }
+      }
+    }
+  }
+
+  // Propagate drift transitively when Concept B references Concept A in resource/sources and Concept A is drifted
+  const driftedByAbsKey = new Map(driftedConcepts.map(d => [path.resolve(d.fullPath).toLowerCase(), d]));
+  let addedTransitive = true;
+  while (addedTransitive) {
+    addedTransitive = false;
+    for (const rec of allConceptRecords) {
+      if (driftedByAbsKey.has(rec.absKey)) continue;
+      for (const res of rec.resourcesToCheck) {
+        const resKey = path.resolve(res.path).toLowerCase();
+        if (driftedByAbsKey.has(resKey)) {
+          const upstream = driftedByAbsKey.get(resKey);
+          const transDrift = {
+            file: rec.file,
+            fullPath: rec.fullPath,
+            resource: res.label,
+            gitTime: upstream.gitTime,
+            conceptTime: rec.conceptTimeIso || upstream.conceptTime
+          };
+          driftedConcepts.push(transDrift);
+          driftedByAbsKey.set(rec.absKey, transDrift);
+          addedTransitive = true;
+          break;
         }
       }
     }
@@ -743,12 +825,13 @@ async function main() {
     logEntries.push(`Synchronized steering notice in \`${updatedSteering.join(', ')}\` to v${TARGET_STEERING_VERSION}.`);
   }
 
-  const nowISO = new Date().toISOString();
+  const syncDate = new Date();
+  const nowISO = syncDate.toISOString();
   const dateStr = nowISO.slice(0, 10);
 
-  // 3b. Update timestamps for drifted concepts
+  // 3b. Update timestamps for drifted concepts (and align mtime to syncDate so transitive concept checks never see mtime > generated.at)
   for (const drift of driftedConcepts) {
-    const ok = updateConceptTimestamp(drift.fullPath, nowISO, actor);
+    const ok = updateConceptTimestamp(drift.fullPath, nowISO, actor, syncDate);
     if (ok) {
       updatedFiles.push(drift.file);
     }
