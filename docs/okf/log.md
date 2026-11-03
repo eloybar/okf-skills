@@ -7,6 +7,7 @@ Newest changes recorded chronologically.
 
 ## 2026-11-03
 - Synchronized timestamp for 4 drifted concept(s): concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-wayfinder-skill.md.
+- Synchronized timestamp for 4 drifted concept(s): concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-wayfinder-skill.md.
 - Updated `okf-maintain/scripts/maintain.js`, `okf-wayfinder/scripts/wayfinder_taxonomy.js`, and `okf-lint/scripts/lint.js` to skip active/nested OKF bundle directories during frontier scans, cover child files under directory resource bindings (`isCoveredByResource` + directory dirty-file drift checks), preserve prose and trailing `## ` sections (e.g. `## Provenance`, `## Archived Concepts`) and CRLF/LF line endings when updating `## Not yet specified` in `index.md`, treat files mentioned anywhere in `index.md` as listed, and self-heal stale bundle-internal bullets; added Step 15g regression tests in `scripts/test-lifecycle.js`.
 - Synchronized timestamp for 5 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md.
 - Synchronized timestamp for 5 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md.
