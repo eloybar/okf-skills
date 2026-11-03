@@ -815,6 +815,69 @@ ${largeBody}`);
   fs.unlinkSync(largeConceptFile);
   console.log('✓ okf-query excerpted matching sections on >12KB concepts and supported --full.');
 
+  // 15g. Frontier section surgery, prose/Provenance preservation, directory binding & nested bundle exclusion
+  const sqlFixesDir = path.join(tempDir, 'sql-fixes');
+  fs.mkdirSync(sqlFixesDir, { recursive: true });
+  fs.writeFileSync(path.join(sqlFixesDir, 'patch01.sql'), 'UPDATE accounts SET active = 1;\n');
+  fs.writeFileSync(path.join(tempDir, 'src', 'explained_in_prose.js'), 'module.exports = {};\n');
+
+  // Create a nested OKF bundle inside subpkg/okf with okf_version in index.md
+  const nestedBundleDir = path.join(tempDir, 'subpkg', 'okf');
+  fs.mkdirSync(nestedBundleDir, { recursive: true });
+  fs.writeFileSync(path.join(nestedBundleDir, 'index.md'), '---\nokf_version: 0.2\n---\n# Nested Bundle\n');
+  fs.writeFileSync(path.join(nestedBundleDir, 'nested-concept.md'), '---\ntype: Concept\ntitle: Nested\n---\nBody\n');
+
+  // Bind sql-fixes/ directory on shorthand_concept.md
+  fs.writeFileSync(
+    shorthandConceptFile,
+    fs.readFileSync(shorthandConceptFile, 'utf8').replace(
+      '  - src/shorthand_sync.ts',
+      '  - src/shorthand_sync.ts\n  - sql-fixes/'
+    )
+  );
+
+  // Craft index.md with prose in ## Not yet specified, a stale self-bundle bullet, and a trailing ## Provenance section
+  const indexWithProseAndProvenance = [
+    '---',
+    'okf_version: 0.2',
+    '---',
+    '',
+    '# Index',
+    '',
+    '## Concepts and Skills',
+    '- [Cloud Sync Service](/concepts/shorthand_concept.md)',
+    '',
+    '## Not yet specified',
+    'The helper `src/explained_in_prose.js` is intentionally lightweight and documented inline.',
+    '- `docs/okf/index.md` — Undocumented codebase file.',
+    '- `sql-fixes/patch01.sql` — Undocumented codebase file.',
+    '',
+    '## Provenance',
+    'Hand-written provenance notes that must remain byte-for-byte intact.'
+  ].join('\r\n') + '\r\n';
+  fs.writeFileSync(path.join(bundleRoot, 'index.md'), indexWithProseAndProvenance, 'utf8');
+
+  execSync(`node "${scripts.maintain}"`, { cwd: tempDir, stdio: 'ignore' });
+  const afterSurgeryIndex = fs.readFileSync(path.join(bundleRoot, 'index.md'), 'utf8');
+  assert.ok(afterSurgeryIndex.includes('\r\n'), 'updateIndexFrontier must preserve CRLF line endings');
+  assert.ok(afterSurgeryIndex.includes('The helper `src/explained_in_prose.js` is intentionally lightweight'), 'Hand-written prose in ## Not yet specified must be preserved');
+  assert.ok(!afterSurgeryIndex.includes('- `src/explained_in_prose.js`'), 'File already mentioned in index prose must not be added again as a bullet');
+  assert.ok(!afterSurgeryIndex.includes('docs/okf/index.md'), 'Stale bundle-internal bullets must be self-healed and removed');
+  assert.ok(!afterSurgeryIndex.includes('sql-fixes/patch01.sql'), 'File inside bound sql-fixes/ directory must be graduated from frontier');
+  assert.ok(!afterSurgeryIndex.includes('subpkg/okf'), 'Nested OKF bundle files must not be listed as undocumented');
+  assert.ok(afterSurgeryIndex.includes('## Provenance\r\nHand-written provenance notes that must remain byte-for-byte intact.'), 'Trailing ## Provenance section must be preserved byte-for-byte');
+
+  // Second run must be a strict no-op on index.md
+  execSync(`node "${scripts.maintain}"`, { cwd: tempDir, stdio: 'ignore' });
+  const secondSurgeryIndex = fs.readFileSync(path.join(bundleRoot, 'index.md'), 'utf8');
+  assert.strictEqual(secondSurgeryIndex, afterSurgeryIndex, 'Second maintain run must leave index.md untouched');
+
+  // Wayfinder must also skip sql-fixes/ and subpkg/okf
+  const wfAfterDirBind = JSON.parse(execSync(`node "${scripts.taxonomy}" --bundle "${bundleRoot}"`, { cwd: tempDir }).toString());
+  assert.ok(!wfAfterDirBind.frontier.some(f => f.path.startsWith('sql-fixes/')), 'wayfinder must exclude files covered by directory binding');
+  assert.ok(!wfAfterDirBind.frontier.some(f => f.path.startsWith('subpkg/okf/')), 'wayfinder must exclude nested OKF bundles');
+  console.log('✓ Frontier section surgery preserved prose & Provenance, respected directory bindings, and skipped nested bundles.');
+
   console.log('\n======================================');
   console.log('🎉 ALL LIFE CYCLE TEST CASES PASSED SUCCESSFULLY!');
   console.log('======================================');

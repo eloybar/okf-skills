@@ -220,11 +220,28 @@ function getGitLastModifiedISO(filePath, cwd) {
 
   try {
     const dirtySet = getRepoDirtySet(execCwd);
-    if (dirtySet.has(cacheKey) && fs.existsSync(absFile)) {
-      const mtimeIso = fs.statSync(absFile).mtime.toISOString();
-      if (!gitIso || new Date(mtimeIso) > new Date(gitIso)) {
-        gitModifiedCache.set(cacheKey, mtimeIso);
-        return mtimeIso;
+    const stat = fs.existsSync(absFile) ? fs.statSync(absFile) : null;
+    if (stat) {
+      let latestDirtyMtime = null;
+      if (stat.isDirectory()) {
+        const prefix = cacheKey.endsWith(path.sep) ? cacheKey : cacheKey + path.sep;
+        for (const dirtyPath of dirtySet) {
+          if (dirtyPath.startsWith(prefix) && fs.existsSync(dirtyPath)) {
+            const mtime = fs.statSync(dirtyPath).mtime;
+            if (!latestDirtyMtime || mtime > latestDirtyMtime) {
+              latestDirtyMtime = mtime;
+            }
+          }
+        }
+      } else if (dirtySet.has(cacheKey)) {
+        latestDirtyMtime = stat.mtime;
+      }
+      if (latestDirtyMtime) {
+        const mtimeIso = latestDirtyMtime.toISOString();
+        if (!gitIso || new Date(mtimeIso) > new Date(gitIso)) {
+          gitModifiedCache.set(cacheKey, mtimeIso);
+          return mtimeIso;
+        }
       }
     }
   } catch (e) {
@@ -270,13 +287,38 @@ function loadGitignorePatterns(workspaceRoot) {
   return patterns;
 }
 
-function scanWorkspaceFiles(dir, workspaceRoot, documentedResources, results = [], gitignorePatterns = null) {
+function isOkfBundleDir(dirPath) {
+  const idx = path.join(dirPath, 'index.md');
+  if (!fs.existsSync(idx)) return false;
+  try {
+    const head = fs.readFileSync(idx, 'utf8').slice(0, 2000);
+    const m = head.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    return !!(m && /^okf_version\s*:/m.test(m[1]));
+  } catch (e) {
+    return false;
+  }
+}
+
+// A file is covered when it, or any ancestor directory, is bound as a resource.
+// This lets a concept bind a whole module directory (e.g. `file:///.../sql-fixes/`).
+function isCoveredByResource(relPath, fullPath, documentedResources) {
+  const normRel = relPath.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+  if (documentedResources.has(normRel) || documentedResources.has(path.resolve(fullPath).toLowerCase())) return true;
+  const parts = normRel.split('/');
+  for (let i = 1; i < parts.length; i++) {
+    if (documentedResources.has(parts.slice(0, i).join('/'))) return true;
+  }
+  return false;
+}
+
+function scanWorkspaceFiles(dir, workspaceRoot, documentedResources, results = [], gitignorePatterns = null, bundleRoot = null) {
   if (!fs.existsSync(dir)) return results;
   if (gitignorePatterns === null) {
     gitignorePatterns = loadGitignorePatterns(workspaceRoot);
   }
   const files = fs.readdirSync(dir);
   const ignores = ['.git', 'node_modules', '.agents', '.claude', 'agent', 'docs', 'tmp', 'temp', '.idea', '.vscode'];
+  const normBundleRoot = bundleRoot ? path.resolve(bundleRoot).toLowerCase() : null;
   
   for (const file of files) {
     if (ignores.includes(file)) continue;
@@ -301,12 +343,15 @@ function scanWorkspaceFiles(dir, workspaceRoot, documentedResources, results = [
 
     if (stat.isDirectory()) {
       if (fs.existsSync(path.join(fullPath, '.git'))) continue;
-      scanWorkspaceFiles(fullPath, workspaceRoot, documentedResources, results, gitignorePatterns);
+      // An OKF bundle's own files (concepts, index.md, log.md, viz.html) are the
+      // documentation, not undocumented workspace files. Skip the active bundle and
+      // any nested bundle (a directory whose index.md declares okf_version).
+      if (normBundleRoot && path.resolve(fullPath).toLowerCase() === normBundleRoot) continue;
+      if (isOkfBundleDir(fullPath)) continue;
+      scanWorkspaceFiles(fullPath, workspaceRoot, documentedResources, results, gitignorePatterns, bundleRoot);
     } else if (stat.isFile()) {
       if (file !== 'skills-lock.json' && file !== '.gitignore' && file !== 'LICENSE') {
-        // Normalize comparison path
-        const normRel = relPath.toLowerCase();
-        if (!documentedResources.has(normRel) && !documentedResources.has(path.resolve(fullPath).toLowerCase())) {
+        if (!isCoveredByResource(relPath, fullPath, documentedResources)) {
           results.push({ path: relPath, absolutePath: fullPath });
         }
       }
@@ -370,66 +415,85 @@ function updateConceptTimestamp(filePath, nowISO, actor, syncDate = null) {
   return true;
 }
 
-function updateIndexFrontier(indexPath, frontierList, documentedResources) {
+function updateIndexFrontier(indexPath, frontierList, documentedResources, workspaceRoot = null) {
   if (!fs.existsSync(indexPath)) return false;
   let content = fs.readFileSync(indexPath, 'utf8');
 
-  // Find ## Not yet specified section
-  const sectionIdx = content.indexOf('## Not yet specified');
-  let beforeSection = content;
-  let sectionContent = '';
+  const eol = content.includes('\r\n') ? '\r\n' : '\n';
+  const itemRe = /^-\s+`([^`]+)`(?:\s*[—–-]\s*(.*))?$/;
 
-  if (sectionIdx !== -1) {
-    beforeSection = content.slice(0, sectionIdx);
-    sectionContent = content.slice(sectionIdx);
+  // Locate the section, bounded by its heading and the next `## ` heading (or EOF).
+  // Only the bullet items inside it are managed. Hand-written prose in the section
+  // and every section after it are preserved byte-for-byte.
+  const headingMatch = content.match(/^## Not yet specified[^\r\n]*$/m);
+  let before, section, after;
+  if (headingMatch) {
+    const start = headingMatch.index;
+    const bodyStart = start + headingMatch[0].length;
+    const nextIdx = content.slice(bodyStart).search(/^## /m);
+    const end = nextIdx === -1 ? content.length : bodyStart + nextIdx;
+    before = content.slice(0, start);
+    section = content.slice(start, end);
+    after = content.slice(end);
+  } else {
+    before = content.trimEnd() + eol + eol;
+    section = '## Not yet specified' + eol;
+    after = '';
   }
 
-  // Parse existing frontier items: - `path` — description
-  const existingMap = new Map();
-  const lines = sectionContent.split(/\r?\n/);
+  const lines = section.split(/\r?\n/);
+  let modified = !headingMatch;
+  const bundleRel = workspaceRoot
+    ? path.relative(workspaceRoot, path.dirname(indexPath)).replace(/\\/g, '/').toLowerCase()
+    : '';
+
+  // 1. Drop managed bullet items whose file is now documented.
+  const kept = [];
+  const listed = new Set();
   for (const line of lines) {
-    const match = line.match(/^-\s+`([^`]+)`(?:\s*[—–-]\s*(.*))?/);
-    if (match) {
-      existingMap.set(match[1].replace(/\\/g, '/').toLowerCase(), {
-        originalPath: match[1],
-        desc: match[2] ? match[2].trim() : ''
-      });
+    const m = line.match(itemRe);
+    if (m) {
+      const key = m[1].replace(/\\/g, '/').toLowerCase();
+      // Also self-heal entries that point inside this bundle; earlier versions
+      // listed the bundle's own files as frontier.
+      const inBundle = bundleRel !== '' && key.startsWith(bundleRel + '/');
+      if (inBundle || isCoveredByResource(key, key, documentedResources)) {
+        modified = true;
+        continue;
+      }
+      listed.add(key);
     }
+    kept.push(line);
   }
 
-  let modified = false;
+  // 2. Add frontier files not already acknowledged anywhere in the index. A path
+  //    the author already explains in prose counts as listed, which matches how
+  //    `--check` decides what is unindexed.
+  const lowerContent = content.toLowerCase();
+  const additions = frontierList
+    .filter(f => {
+      const norm = f.path.toLowerCase();
+      return !listed.has(norm) && !isCoveredByResource(norm, f.absolutePath || norm, documentedResources) && !lowerContent.includes(norm);
+    })
+    .sort((a, b) => a.path.localeCompare(b.path))
+    .map(f => `- \`${f.path}\` — Undocumented codebase file.`);
 
-  // 1. Remove items that are now documented
-  for (const [key, item] of existingMap.entries()) {
-    if (documentedResources.has(key)) {
-      existingMap.delete(key);
-      modified = true;
+  if (additions.length > 0) {
+    modified = true;
+    // Insert after the last existing managed bullet, or directly under the heading.
+    let insertAt = 1;
+    for (let i = 0; i < kept.length; i++) {
+      if (itemRe.test(kept[i])) insertAt = i + 1;
     }
+    kept.splice(insertAt, 0, ...additions);
   }
 
-  // 2. Add newly discovered frontier items
-  for (const f of frontierList) {
-    const norm = f.path.toLowerCase();
-    if (!existingMap.has(norm) && !documentedResources.has(norm)) {
-      existingMap.set(norm, {
-        originalPath: f.path,
-        desc: 'Undocumented codebase file.'
-      });
-      modified = true;
-    }
-  }
+  if (!modified) return false;
 
-  if (!modified && sectionIdx !== -1) return false;
-
-  // Rebuild ## Not yet specified
-  const sortedItems = Array.from(existingMap.values()).sort((a, b) => a.originalPath.localeCompare(b.originalPath));
-  let newSection = '## Not yet specified\n';
-  for (const item of sortedItems) {
-    newSection += `- \`${item.originalPath}\`${item.desc ? ' — ' + item.desc : ''}\n`;
-  }
-
-  const finalContent = beforeSection.trimEnd() + '\n\n' + newSection;
-  fs.writeFileSync(indexPath, finalContent, 'utf8');
+  let newSection = kept.join(eol);
+  if (after && !/(\r?\n){2}$/.test(newSection)) newSection = newSection.trimEnd() + eol + eol;
+  if (!after) newSection = newSection.trimEnd() + eol;
+  fs.writeFileSync(indexPath, before + newSection + after, 'utf8');
   return true;
 }
 
@@ -747,7 +811,7 @@ async function main() {
   }
 
   // 2. Scan workspace for undocumented frontier files
-  const frontierList = scanWorkspaceFiles(workspaceRoot, workspaceRoot, documentedResources);
+  const frontierList = scanWorkspaceFiles(workspaceRoot, workspaceRoot, documentedResources, [], null, bundleRoot);
 
   // Check if index.md has unlisted frontier files
   const indexPath = path.join(bundleRoot, 'index.md');
@@ -843,7 +907,7 @@ async function main() {
   // 3c. Update index.md frontier
   let indexUpdated = false;
   if (fs.existsSync(indexPath)) {
-    indexUpdated = updateIndexFrontier(indexPath, frontierList, documentedResources);
+    indexUpdated = updateIndexFrontier(indexPath, frontierList, documentedResources, workspaceRoot);
     if (indexUpdated) {
       logEntries.push(`Synchronized workspace frontier mapping in \`index.md\` (${frontierList.length} undocumented files mapped).`);
     }
