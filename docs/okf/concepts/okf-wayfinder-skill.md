@@ -7,7 +7,7 @@ tags: [wizard, onboarding, creation, documentation]
 status: stable
 generated:
   by: Antigravity/4.0
-  at: 2026-11-03T21:37:47.707Z
+  at: 2026-11-03T21:42:36.735Z
 verified:
   - by: human:luciano-barrios
     at: 2026-11-01T23:59:00Z
