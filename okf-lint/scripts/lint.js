@@ -225,11 +225,28 @@ function getGitLastModifiedISO(filePath, cwd) {
 
   try {
     const dirtySet = getRepoDirtySet(execCwd);
-    if (dirtySet.has(cacheKey) && fs.existsSync(absFile)) {
-      const mtimeIso = fs.statSync(absFile).mtime.toISOString();
-      if (!gitIso || new Date(mtimeIso) > new Date(gitIso)) {
-        gitModifiedCache.set(cacheKey, mtimeIso);
-        return mtimeIso;
+    const stat = fs.existsSync(absFile) ? fs.statSync(absFile) : null;
+    if (stat) {
+      let latestDirtyMtime = null;
+      if (stat.isDirectory()) {
+        const prefix = cacheKey.endsWith(path.sep) ? cacheKey : cacheKey + path.sep;
+        for (const dirtyPath of dirtySet) {
+          if (dirtyPath.startsWith(prefix) && fs.existsSync(dirtyPath)) {
+            const mtime = fs.statSync(dirtyPath).mtime;
+            if (!latestDirtyMtime || mtime > latestDirtyMtime) {
+              latestDirtyMtime = mtime;
+            }
+          }
+        }
+      } else if (dirtySet.has(cacheKey)) {
+        latestDirtyMtime = stat.mtime;
+      }
+      if (latestDirtyMtime) {
+        const mtimeIso = latestDirtyMtime.toISOString();
+        if (!gitIso || new Date(mtimeIso) > new Date(gitIso)) {
+          gitModifiedCache.set(cacheKey, mtimeIso);
+          return mtimeIso;
+        }
       }
     }
   } catch (e) {
