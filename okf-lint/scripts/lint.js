@@ -141,14 +141,14 @@ function stripCodeFromBody(content) {
 function extractLinks(content) {
   const stripped = content
     .replace(/```[\s\S]*?```/g, '')
-    .replace(/`[^`\r\n]+`/g, '');
+    .replace(/`[^`\r\n]*\]\([^`\r\n]*`/g, '');
 
   const links = [];
   const linkRe = /\[([^\]]*)\]\(([^)\s]+\.md)(?:#[A-Za-z0-9_\-]*)?\)/g;
   let match;
   while ((match = linkRe.exec(stripped)) !== null) {
     links.push({
-      label: match[1].trim(),
+      label: match[1].replace(/`/g, '').trim(),
       target: match[2]
     });
   }
@@ -324,17 +324,23 @@ function resolveWorkspaceAndBundle(args) {
 function resolveResourceLocalPath(resourceUri, workspaceRoot, bundleRoot = null) {
   if (!resourceUri || typeof resourceUri !== 'string') return null;
   const trimmed = resourceUri.trim();
-  // Ignore non-file:// URI schemes (https://, bigquery://, gs://, etc.)
+  // Ignore non-file:// URI schemes (https://, bigquery://, gs://, git:323eae6:..., urn:..., etc.)
   if (/^(?!file:\/\/)[a-zA-Z][a-zA-Z0-9+.-]*:\/\//i.test(trimmed)) return null;
+  if (/^(?!file:)[a-zA-Z][a-zA-Z0-9+.-]+:/i.test(trimmed)) return null;
   // Ignore scope descriptors (§5.1, e.g. "all queries in BigQuery project X")
   if (!/^file:\/\//i.test(trimmed) && /\s/.test(trimmed) && !/[\/\\]/.test(trimmed)) return null;
 
   const isFileUri = /^file:\/\//i.test(trimmed);
-  let localPath = trimmed.replace(/^file:\/\/\/?/, '');
-  if (!isFileUri && trimmed.startsWith('/') && bundleRoot) {
-    const bundleCandidate = path.normalize(path.join(bundleRoot, trimmed.slice(1)));
+  let localPath = trimmed.replace(/^file:\/\/\/?/, '').replace(/[?#].*$/, '');
+  if (/%[0-9A-Fa-f]{2}/.test(localPath)) {
+    try {
+      localPath = decodeURIComponent(localPath);
+    } catch (e) {}
+  }
+  if (!isFileUri && localPath.startsWith('/') && bundleRoot) {
+    const bundleCandidate = path.normalize(path.join(bundleRoot, localPath.slice(1)));
     if (fs.existsSync(bundleCandidate)) return bundleCandidate;
-    const workspaceCandidate = path.normalize(path.join(workspaceRoot, trimmed.slice(1)));
+    const workspaceCandidate = path.normalize(path.join(workspaceRoot, localPath.slice(1)));
     if (fs.existsSync(workspaceCandidate)) return workspaceCandidate;
   }
   if (path.isAbsolute(localPath)) {
@@ -352,6 +358,15 @@ function resolveResourceLocalPath(resourceUri, workspaceRoot, bundleRoot = null)
     }
   }
   return path.normalize(path.join(workspaceRoot, localPath));
+}
+
+function isReservedBundleFile(filePath, bundleRoot) {
+  if (!filePath || !bundleRoot) return false;
+  const absFile = path.resolve(filePath).toLowerCase();
+  const absBundle = path.resolve(bundleRoot).toLowerCase();
+  if (!absFile.startsWith(absBundle + path.sep)) return false;
+  const base = path.basename(absFile);
+  return base === 'log.md' || base === 'index.md' || base === 'viz.html';
 }
 
 const FRONTIER_EXTENSIONS = new Set([
@@ -564,7 +579,7 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
         const declaredConceptTime = new Date(lastModified);
         for (const res of deduplicatedResources) {
           const resolvedPath = res.resolvedBound;
-          if (resolvedPath && fs.existsSync(resolvedPath) && effectiveConceptTime) {
+          if (resolvedPath && fs.existsSync(resolvedPath) && effectiveConceptTime && !isReservedBundleFile(resolvedPath, bundleRoot)) {
             const gitTimeStr = getGitLastModifiedISO(resolvedPath, workspaceRoot);
             if (gitTimeStr) {
               const gitTime = new Date(gitTimeStr);

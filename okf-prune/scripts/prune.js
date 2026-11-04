@@ -134,15 +134,20 @@ function resolveResourceLocalPath(resourceUri, workspaceRoot, bundleRoot = null)
   const trimmed = resourceUri.trim();
   // Ignore non-file:// URI schemes (https://, bigquery://, gs://, etc.)
   if (/^(?!file:\/\/)[a-zA-Z][a-zA-Z0-9+.-]*:\/\//i.test(trimmed)) return null;
+  // Ignore non-path URI schemes without "//" (e.g. git:323eae6:path, urn:..., mailto:...)
+  if (/^(?!file:)[a-zA-Z][a-zA-Z0-9+.-]+:/i.test(trimmed)) return null;
   // Ignore scope descriptors (§5.1, e.g. "all queries in BigQuery project X")
   if (!/^file:\/\//i.test(trimmed) && /\s/.test(trimmed) && !/[\/\\]/.test(trimmed)) return null;
 
   const isFileUri = /^file:\/\//i.test(trimmed);
-  let localPath = trimmed.replace(/^file:\/\/\/?/, '');
+  let localPath = trimmed.replace(/^file:\/\/\/?/, '').replace(/[?#].*$/, '');
+  try {
+    localPath = decodeURIComponent(localPath);
+  } catch (e) {}
   if (!isFileUri && trimmed.startsWith('/') && bundleRoot) {
-    const bundleCandidate = path.normalize(path.join(bundleRoot, trimmed.slice(1)));
+    const bundleCandidate = path.normalize(path.join(bundleRoot, localPath.slice(1)));
     if (fs.existsSync(bundleCandidate)) return bundleCandidate;
-    const workspaceCandidate = path.normalize(path.join(workspaceRoot, trimmed.slice(1)));
+    const workspaceCandidate = path.normalize(path.join(workspaceRoot, localPath.slice(1)));
     if (fs.existsSync(workspaceCandidate)) return workspaceCandidate;
   }
   if (path.isAbsolute(localPath)) {
@@ -165,12 +170,12 @@ function resolveResourceLocalPath(resourceUri, workspaceRoot, bundleRoot = null)
 function extractLinks(markdown) {
   const stripped = markdown
     .replace(/```[\s\S]*?```/g, '')
-    .replace(/`[^`\r\n]+`/g, '');
+    .replace(/`[^`\r\n]*\]\([^`\r\n]*`/g, '');
   const links = [];
   const linkRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
   let match;
   while ((match = linkRegex.exec(stripped)) !== null) {
-    links.push({ label: match[1], target: match[2] });
+    links.push({ label: match[1].replace(/`/g, '').trim(), target: match[2] });
   }
   return links;
 }
