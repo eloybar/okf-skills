@@ -359,16 +359,6 @@ function resolveWorkspaceAndBundle(args) {
   if (bundleIdx !== -1 && args[bundleIdx + 1]) {
     const bundleRoot = path.resolve(cwd, args[bundleIdx + 1]);
     if (fs.existsSync(bundleRoot)) {
-      try {
-        const topLevel = execFileSync('git', ['rev-parse', '--show-toplevel'], {
-          cwd: bundleRoot,
-          encoding: 'utf8',
-          stdio: ['ignore', 'pipe', 'ignore']
-        }).trim();
-        if (topLevel && fs.existsSync(topLevel)) {
-          return { workspaceRoot: path.normalize(topLevel), bundleRoot };
-        }
-      } catch (e) {}
       const parentDir = path.dirname(bundleRoot);
       const derivedRoot = path.basename(parentDir).toLowerCase() === 'docs'
         ? path.dirname(parentDir)

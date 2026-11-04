@@ -305,16 +305,6 @@ function resolveWorkspaceAndBundle(args) {
   if (bundleIdx !== -1 && args[bundleIdx + 1]) {
     const bundleRoot = path.resolve(cwd, args[bundleIdx + 1]);
     if (fs.existsSync(bundleRoot)) {
-      try {
-        const topLevel = execFileSync('git', ['rev-parse', '--show-toplevel'], {
-          cwd: bundleRoot,
-          encoding: 'utf8',
-          stdio: ['ignore', 'pipe', 'ignore']
-        }).trim();
-        if (topLevel && fs.existsSync(topLevel)) {
-          return { workspaceRoot: path.normalize(topLevel), bundleRoot };
-        }
-      } catch (e) {}
       const parentDir = path.dirname(bundleRoot);
       const derivedRoot = path.basename(parentDir).toLowerCase() === 'docs'
         ? path.dirname(parentDir)
@@ -551,11 +541,17 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
         }
       }
 
+      const deduplicatedResources = [];
+      const seenResolvedPaths = new Set();
       for (const item of resourcesToCheck) {
         const resolvedBound = resolveResourceLocalPath(item.path, workspaceRoot, bundleRoot);
         if (resolvedBound) {
+          const normKey = path.resolve(resolvedBound).toLowerCase();
+          if (seenResolvedPaths.has(normKey)) continue;
+          seenResolvedPaths.add(normKey);
+          deduplicatedResources.push({ ...item, resolvedBound });
           results.documentedResources.add(path.relative(workspaceRoot, resolvedBound).replace(/\\/g, '/').toLowerCase());
-          results.documentedResources.add(path.resolve(resolvedBound).toLowerCase());
+          results.documentedResources.add(normKey);
           if (!isDeprecated && item.checkExists && !fs.existsSync(resolvedBound)) {
             const relMissing = path.relative(workspaceRoot, resolvedBound).replace(/\\/g, '/');
             results.warnings.push(`[${relativePath}] Warning: Missing local resource. ${item.label} ('${relMissing}') does not exist on disk. Update concept bindings or run okf-prune.`);
@@ -566,8 +562,8 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
       if (checkDrift && lastModified && !isDeprecated) {
         const effectiveConceptTime = getEffectiveConceptTime(fullPath, lastModified, workspaceRoot);
         const declaredConceptTime = new Date(lastModified);
-        for (const res of resourcesToCheck) {
-          const resolvedPath = resolveResourceLocalPath(res.path, workspaceRoot, bundleRoot);
+        for (const res of deduplicatedResources) {
+          const resolvedPath = res.resolvedBound;
           if (resolvedPath && fs.existsSync(resolvedPath) && effectiveConceptTime) {
             const gitTimeStr = getGitLastModifiedISO(resolvedPath, workspaceRoot);
             if (gitTimeStr) {
@@ -622,13 +618,24 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
   // Root-level check for modified/added unmapped frontier code files when --drift is enabled
   if (checkDrift && path.resolve(dir) === path.resolve(bundleRoot)) {
     try {
-      const statusOut = execFileSync('git', ['status', '--porcelain', '-uall'], {
+      const topLevel = execFileSync('git', ['rev-parse', '--show-toplevel'], {
         cwd: workspaceRoot,
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'ignore']
+      }).trim();
+      const statusOut = execFileSync('git', ['-c', 'core.quotepath=false', 'status', '--porcelain', '-uall'], {
+        cwd: topLevel || workspaceRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore']
       });
-      const ignoredTopDirs = new Set(['.git', 'node_modules', '.agents', '.claude', 'agent', 'docs', 'tmp', 'temp', '.idea', '.vscode', '.superpowers']);
+      const ignoredTopDirs = new Set([
+        '.git', 'node_modules', '.agents', '.claude', '.gemini', 'agent', 'docs',
+        'tmp', 'temp', '.idea', '.vscode', '.superpowers', '__pycache__',
+        '.pytest_cache', '.mypy_cache', '.ruff_cache', '.venv', 'venv',
+        'dist', 'build', 'coverage', '.next', 'target', 'bin', 'obj'
+      ]);
       const bundleRelNorm = path.relative(workspaceRoot, bundleRoot).replace(/\\/g, '/').toLowerCase();
+      const gitBaseDir = topLevel && fs.existsSync(topLevel) ? topLevel : workspaceRoot;
 
       const lines = statusOut.split(/\r?\n/);
       for (const line of lines) {
@@ -643,18 +650,22 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
           rawPath = rawPath.split(' -> ').pop().trim();
         }
         rawPath = rawPath.replace(/^"|"$/g, '');
-        const relDirtyPath = rawPath.replace(/\\/g, '/');
+        const absDirty = path.resolve(gitBaseDir, rawPath);
+        const relToWorkspace = path.relative(workspaceRoot, absDirty);
+        if (!relToWorkspace || relToWorkspace.startsWith('..') || path.isAbsolute(relToWorkspace)) continue;
+
+        const relDirtyPath = relToWorkspace.replace(/\\/g, '/');
         const relDirtyLower = relDirtyPath.toLowerCase();
 
-        const topSeg = relDirtyPath.split('/')[0];
-        if (ignoredTopDirs.has(topSeg)) continue;
+        const pathSegs = relDirtyPath.split('/');
+        const topSeg = pathSegs[0];
+        if (pathSegs.some(seg => ignoredTopDirs.has(seg))) continue;
         if (fs.existsSync(path.join(workspaceRoot, topSeg, '.git'))) continue;
         if (bundleRelNorm && (relDirtyLower === bundleRelNorm || relDirtyLower.startsWith(bundleRelNorm + '/'))) continue;
 
         const ext = path.extname(relDirtyPath).toLowerCase();
         if (!FRONTIER_EXTENSIONS.has(ext)) continue;
 
-        const absDirty = path.resolve(workspaceRoot, relDirtyPath);
         if (!fs.existsSync(absDirty) || !fs.statSync(absDirty).isFile()) continue;
 
         const absDirtyLower = absDirty.toLowerCase();
