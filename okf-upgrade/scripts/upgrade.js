@@ -1,4 +1,5 @@
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { execSync, execFileSync } = require('child_process');
 
@@ -392,8 +393,224 @@ function autoFixBareLinks(body, bundleRoot, currentFilePath) {
   return { newBody: parts.join(''), modified };
 }
 
+const OKF_SKILLS = [
+  'okf',
+  'okf-maintain',
+  'okf-visualize',
+  'okf-wayfinder',
+  'okf-lint',
+  'okf-query',
+  'okf-upgrade',
+  'okf-prune'
+];
+
+const DEFAULT_SKILLS_REPO_URL = 'https://github.com/eloybar/okf-skills.git';
+
+function hasAllOkfSkills(dirPath) {
+  if (!dirPath || !fs.existsSync(dirPath)) return false;
+  return OKF_SKILLS.every(s => fs.existsSync(path.join(dirPath, s, 'SKILL.md')));
+}
+
+function discoverPrefixedProfileSkillDirs(homeDir, prefix, defaultPath, envDir) {
+  const dirs = [defaultPath];
+  if (envDir) {
+    const envSkills = path.join(envDir, 'skills');
+    if (!dirs.some(d => path.resolve(d).toLowerCase() === path.resolve(envSkills).toLowerCase())) {
+      dirs.push(envSkills);
+    }
+  }
+  if (fs.existsSync(homeDir)) {
+    try {
+      for (const entry of fs.readdirSync(homeDir, { withFileTypes: true })) {
+        if (entry.isDirectory() && entry.name.startsWith(prefix)) {
+          const profSkills = path.join(homeDir, entry.name, 'skills');
+          if (!dirs.some(d => path.resolve(d).toLowerCase() === path.resolve(profSkills).toLowerCase())) {
+            dirs.push(profSkills);
+          }
+        }
+      }
+    } catch (e) {}
+  }
+  return dirs;
+}
+
+function discoverAgentSkillDirs(homeDir, agentFilter = 'All') {
+  const antigravityDir = path.join(homeDir, '.gemini', 'config', 'skills');
+  const claudeDirs = discoverPrefixedProfileSkillDirs(
+    homeDir,
+    '.claude-',
+    path.join(homeDir, '.claude', 'skills'),
+    process.env.CLAUDE_CONFIG_DIR
+  );
+  const codexDirs = discoverPrefixedProfileSkillDirs(
+    homeDir,
+    '.codex-',
+    path.join(homeDir, '.codex', 'skills'),
+    process.env.CODEX_HOME
+  );
+  const universalDir = path.join(homeDir, '.agents', 'skills');
+
+  const normAgent = (agentFilter || 'All').toLowerCase();
+  let candidates = [];
+  if (normAgent === 'antigravity' || normAgent === 'gemini') {
+    candidates = [antigravityDir];
+  } else if (normAgent === 'claude') {
+    candidates = claudeDirs;
+  } else if (normAgent === 'codex') {
+    candidates = codexDirs;
+  } else if (normAgent === 'universal' || normAgent === 'agents') {
+    candidates = [universalDir];
+  } else {
+    candidates = [antigravityDir, ...claudeDirs, ...codexDirs, universalDir];
+  }
+
+  const seen = new Set();
+  const unique = [];
+  for (const dir of candidates) {
+    const key = path.resolve(dir).toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(dir);
+    }
+  }
+  return unique;
+}
+
+function tryGitFastForward(repoDir) {
+  if (!repoDir || !fs.existsSync(path.join(repoDir, '.git'))) return false;
+  try {
+    const dirty = execFileSync('git', ['status', '--porcelain'], {
+      cwd: repoDir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+    if (dirty) return false;
+    execFileSync('git', ['pull', '--ff-only'], {
+      cwd: repoDir,
+      stdio: ['ignore', 'pipe', 'ignore']
+    });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function copyDirContentsSync(srcDir, destDir) {
+  fs.mkdirSync(destDir, { recursive: true });
+  for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+    const srcEntry = path.join(srcDir, entry.name);
+    const destEntry = path.join(destDir, entry.name);
+    if (entry.isDirectory()) {
+      copyDirContentsSync(srcEntry, destEntry);
+    } else if (entry.isFile()) {
+      fs.copyFileSync(srcEntry, destEntry);
+    }
+  }
+}
+
+function upgradeInstalledSkills(options = {}) {
+  const homeDir = options.homeDir || process.env.OKF_SKILLS_HOME || os.homedir();
+  const agentFilter = options.agent || 'All';
+  const explicitSource = options.source || process.env.OKF_SKILLS_SOURCE || null;
+
+  let sourceDir = null;
+  let tempCloneDir = null;
+
+  try {
+    if (explicitSource && fs.existsSync(explicitSource) && hasAllOkfSkills(explicitSource)) {
+      sourceDir = path.resolve(explicitSource);
+    } else {
+      const homeCloneDir = path.join(homeDir, 'okf-skills');
+      if (fs.existsSync(path.join(homeCloneDir, '.git'))) {
+        console.log(`[i] Pulling latest OKF skills in ${homeCloneDir}...`);
+        tryGitFastForward(homeCloneDir);
+      }
+
+      const scriptRepoRoot = path.resolve(__dirname, '..', '..');
+      if (
+        fs.existsSync(path.join(scriptRepoRoot, '.git')) &&
+        hasAllOkfSkills(scriptRepoRoot) &&
+        path.resolve(scriptRepoRoot).toLowerCase() !== path.resolve(homeCloneDir).toLowerCase()
+      ) {
+        tryGitFastForward(scriptRepoRoot);
+      }
+
+      if (hasAllOkfSkills(scriptRepoRoot) && fs.existsSync(path.join(scriptRepoRoot, '.git'))) {
+        sourceDir = scriptRepoRoot;
+      } else if (hasAllOkfSkills(homeCloneDir)) {
+        sourceDir = homeCloneDir;
+      } else {
+        const repoUrl = explicitSource || DEFAULT_SKILLS_REPO_URL;
+        tempCloneDir = fs.mkdtempSync(path.join(os.tmpdir(), 'okf-skills-update-'));
+        console.log(`[i] Fetching latest OKF skills from ${repoUrl}...`);
+        execFileSync('git', ['clone', '--depth', '1', repoUrl, tempCloneDir], {
+          stdio: ['ignore', 'pipe', 'pipe']
+        });
+        sourceDir = tempCloneDir;
+      }
+    }
+
+    const targetDirs = discoverAgentSkillDirs(homeDir, agentFilter);
+    console.log(`==========================================`);
+    console.log(`     OKF Skills Multi-Agent Updater       `);
+    console.log(`==========================================`);
+    console.log(`Source: ${sourceDir}`);
+
+    for (const targetDir of targetDirs) {
+      console.log(`Installing/Updating OKF skills in ${targetDir}...`);
+      fs.mkdirSync(targetDir, { recursive: true });
+      for (const skill of OKF_SKILLS) {
+        const srcPath = path.join(sourceDir, skill);
+        const destPath = path.join(targetDir, skill);
+        let effectiveDest = destPath;
+        try {
+          const lstat = fs.lstatSync(destPath);
+          if (lstat.isSymbolicLink()) {
+            if (fs.existsSync(destPath) && fs.statSync(destPath).isDirectory()) {
+              effectiveDest = fs.realpathSync(destPath);
+            } else {
+              fs.rmSync(destPath, { recursive: true, force: true });
+            }
+          }
+        } catch (e) {}
+        if (path.resolve(srcPath).toLowerCase() === path.resolve(effectiveDest).toLowerCase()) {
+          continue;
+        }
+        copyDirContentsSync(srcPath, effectiveDest);
+        console.log(`[+] Copied ${skill}`);
+      }
+    }
+
+    console.log(`Operation complete!`);
+    return { success: true, sourceDir, targetDirs };
+  } finally {
+    if (tempCloneDir && fs.existsSync(tempCloneDir)) {
+      try {
+        fs.rmSync(tempCloneDir, { recursive: true, force: true });
+      } catch (e) {}
+    }
+  }
+}
+
 function main() {
   const args = process.argv.slice(2);
+  const isSkillsUpdate = args.includes('--skills') || args.includes('--self');
+  const isAllUpgrade = args.includes('--all');
+
+  if (isSkillsUpdate || isAllUpgrade) {
+    const homeIdx = args.indexOf('--home');
+    const sourceIdx = args.indexOf('--source');
+    const agentIdx = args.indexOf('--agent');
+    upgradeInstalledSkills({
+      homeDir: (homeIdx !== -1 && args[homeIdx + 1]) ? path.resolve(args[homeIdx + 1]) : undefined,
+      source: (sourceIdx !== -1 && args[sourceIdx + 1]) ? args[sourceIdx + 1] : undefined,
+      agent: (agentIdx !== -1 && args[agentIdx + 1]) ? args[agentIdx + 1] : 'All'
+    });
+    if (!isAllUpgrade && !args.includes('--bundle')) {
+      return;
+    }
+  }
+
   let user = process.env.USER || process.env.USERNAME || 'unknown';
   const userIdx = args.indexOf('--user');
   if (userIdx !== -1 && args[userIdx + 1]) {
@@ -410,7 +627,10 @@ function main() {
   }
 
   if (!fs.existsSync(bundleRoot)) {
-    console.error(`Error: OKF bundle root not found.`);
+    if (isAllUpgrade) {
+      return;
+    }
+    console.error(`Error: OKF bundle root not found. (To update installed OKF skills across all agents, pass --skills)`);
     process.exit(1);
   }
 
@@ -637,5 +857,7 @@ if (require.main === module) {
 
 module.exports = {
   parseFrontmatter,
-  serializeFrontmatter
+  serializeFrontmatter,
+  discoverAgentSkillDirs,
+  upgradeInstalledSkills
 };

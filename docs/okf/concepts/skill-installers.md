@@ -6,7 +6,7 @@ resource: file:///D:/projects/okf-skills/install.ps1
 tags: [installation, deployment, powershell, bash]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-04T15:12:32.351Z
+  at: 2026-11-04T18:16:09.731Z
 sources:
   - install.sh
 ---
@@ -18,6 +18,7 @@ The installer scripts, `install.ps1` (for Windows PowerShell) and `install.sh` (
 The script detects and installs the skills to the configuration folders of all active LLM agent CLIs:
 - **Google Antigravity / Gemini CLI**: `~/.gemini/config/skills`
 - **Claude Code**: `~/.claude/skills`, plus any custom profile directories (`~/.claude-*/skills`) and `$CLAUDE_CONFIG_DIR/skills`
+- **OpenAI Codex CLI**: `~/.codex/skills`, plus any custom profile directories (`~/.codex-*/skills`) and `$CODEX_HOME/skills`
 - **Universal / General Agents**: `~/.agents/skills`
 
 # Operations

@@ -1185,6 +1185,47 @@ Body.
   assert.equal(spaceLintAfter.warnings.length, 0, `Lint after maintain must still have 0 warnings, got: ${JSON.stringify(spaceLintAfter.warnings)}`);
   console.log('✓ %20/fragment/git: URIs, backtick link labels, and hand-written frontier notes verified.');
 
+  // === STEP 19: OKF-UPGRADE --SKILLS MULTI-AGENT SKILL INSTALLER & UPDATER ===
+  console.log('Step 19: Testing okf-upgrade --skills multi-agent skill installation (Antigravity, Claude profiles, Codex, Universal)...');
+  const fakeHomeDir = path.join(tempDir, 'fake-home');
+  fs.mkdirSync(path.join(fakeHomeDir, '.claude-blub0x'), { recursive: true });
+  fs.mkdirSync(path.join(fakeHomeDir, '.codex-work'), { recursive: true });
+  fs.mkdirSync(path.join(fakeHomeDir, '.agents', 'skills', 'okf'), { recursive: true });
+  fs.mkdirSync(path.join(fakeHomeDir, '.claude', 'skills'), { recursive: true });
+  // Simulate npx skills directory junction from .claude/skills/okf -> .agents/skills/okf
+  fs.symlinkSync(
+    path.join(fakeHomeDir, '.agents', 'skills', 'okf'),
+    path.join(fakeHomeDir, '.claude', 'skills', 'okf'),
+    process.platform === 'win32' ? 'junction' : 'dir'
+  );
+
+  const repoRootDir = path.resolve(__dirname, '..');
+  const upgradeSkillsOut = execSync(
+    `node "${scripts.upgrade}" --skills --home "${fakeHomeDir}" --source "${repoRootDir}"`,
+    { cwd: tempDir }
+  ).toString();
+
+  const expectedAgentDirs = [
+    path.join(fakeHomeDir, '.gemini', 'config', 'skills'),
+    path.join(fakeHomeDir, '.claude', 'skills'),
+    path.join(fakeHomeDir, '.claude-blub0x', 'skills'),
+    path.join(fakeHomeDir, '.codex', 'skills'),
+    path.join(fakeHomeDir, '.codex-work', 'skills'),
+    path.join(fakeHomeDir, '.agents', 'skills')
+  ];
+  for (const agentSkillDir of expectedAgentDirs) {
+    assert.ok(
+      fs.existsSync(path.join(agentSkillDir, 'okf-maintain', 'scripts', 'maintain.js')),
+      `okf-upgrade --skills must install okf-maintain into ${agentSkillDir}`
+    );
+    assert.ok(
+      fs.existsSync(path.join(agentSkillDir, 'okf-upgrade', 'scripts', 'upgrade.js')),
+      `okf-upgrade --skills must install okf-upgrade into ${agentSkillDir}`
+    );
+  }
+  assert.ok(upgradeSkillsOut.includes('Operation complete'), 'okf-upgrade --skills should print completion summary');
+  console.log('✓ okf-upgrade --skills synchronized all 8 skills across Antigravity, Claude profiles, Codex profiles, and Universal directories.');
+
 } finally {
   // Cleanup temp files
   fs.rmSync(tempDir, { recursive: true, force: true });

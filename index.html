@@ -3304,12 +3304,12 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 14px 0; }
                  <pre><code><span class="code-comment"># okf-upgrade/SKILL.md</span>
 ---
 name: okf-upgrade
-description: Automatically upgrade an OKF bundle from v0.1 to v0.2.
+description: Automatically upgrade an OKF bundle from v0.1 to v0.2 and update installed OKF skills across all agent environments.
 disable-model-invocation: true
 version: 1.8.2
 ---
 
-Migrate an existing **OKF bundle** from Version 0.1 to Version 0.2 format. This skill automates the migration of legacy frontmatter, citations, actor conventions, log headings, and version compatibility flags.
+Migrate an existing **OKF bundle** from Version 0.1 to Version 0.2 format, or self-update the installed **OKF skills** across all AI agent environments (Google Antigravity, Claude Code profiles, OpenAI Codex profiles, and universal `.agents/skills`).
 
 ## Usage
 
@@ -3317,11 +3317,20 @@ Migrate an existing **OKF bundle** from Version 0.1 to Version 0.2 format. This 
 # Upgrade the local bundle in the workspace
 node okf-upgrade/scripts/upgrade.js [--bundle &lt;path&gt;]
 
+# Update installed OKF skills to the latest version across all agents (Antigravity, Claude, Codex, Universal)
+node okf-upgrade/scripts/upgrade.js --skills [--agent All|Antigravity|Claude|Codex|Universal]
+
+# Update installed OKF skills AND upgrade the current workspace bundle in one command
+node okf-upgrade/scripts/upgrade.js --all [--bundle &lt;path&gt;]
+
 # Target a specific username for the 'generated.by' metadata fields
 node okf-upgrade/scripts/upgrade.js --user "ahormati"
 ```
 
-## Migration Actions Performed
+## Migration &amp; Self-Update Actions Performed
+
+0. **Multi-Agent Skill Self-Update (`--skills` / `--self` / `--all`)**:
+   - Fast-forwards `~/okf-skills` (if present) or fetches the latest `okf-skills` repository from GitHub, and copies all 8 skills (`okf`, `okf-maintain`, `okf-visualize`, `okf-wayfinder`, `okf-lint`, `okf-query`, `okf-upgrade`, `okf-prune`) into `~/.gemini/config/skills`, `~/.claude/skills`, `~/.claude-*/skills`, `$CLAUDE_CONFIG_DIR/skills`, `~/.codex/skills`, `~/.codex-*/skills`, `$CODEX_HOME/skills`, and `~/.agents/skills`.
 
 1. **Frontmatter Upgrade (§5.2, §13.1)**:
    - Replaces the legacy `timestamp: &lt;time&gt;` frontmatter property with the structured `generated` mapping:
