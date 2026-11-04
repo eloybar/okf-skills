@@ -792,20 +792,23 @@ function main() {
       const rawRes = fm.resource.trim();
       const unsplitCandidate = path.join(workspaceRoot, rawRes.replace(/^file:\/\/\/?/, ''));
       const parts = rawRes.split(',').map(s => s.trim()).filter(Boolean);
-      const anyPartExists = parts.some(p => fs.existsSync(path.join(workspaceRoot, p.replace(/^file:\/\/\/?/, ''))));
-      if (parts.length > 1 && !fs.existsSync(unsplitCandidate) && anyPartExists) {
-        fm.resource = parts[0];
+      const existingParts = parts.filter(p => fs.existsSync(path.join(workspaceRoot, p.replace(/^file:\/\/\/?/, ''))));
+      if (parts.length > 1 && !fs.existsSync(unsplitCandidate) && existingParts.length > 0) {
+        fm.resource = existingParts[0];
         let sources = Array.isArray(fm.sources) ? fm.sources : (fm.sources ? [fm.sources] : []);
         const existingResources = new Set(
           sources.map(s => (typeof s === 'string' ? s : (s && s.resource))).filter(Boolean)
         );
-        for (const p of parts) {
+        existingResources.add(fm.resource);
+        for (const p of existingParts.slice(1)) {
           if (!existingResources.has(p)) {
             sources.push(p);
             existingResources.add(p);
           }
         }
-        fm.sources = sources;
+        if (sources.length > 0 || fm.sources) {
+          fm.sources = sources;
+        }
         modified = true;
         console.log(`[+] ${relativePath}: Split comma-separated resource into resource + sources`);
       }

@@ -1226,6 +1226,129 @@ Body.
   assert.ok(upgradeSkillsOut.includes('Operation complete'), 'okf-upgrade --skills should print completion summary');
   console.log('✓ okf-upgrade --skills synchronized all 8 skills across Antigravity, Claude profiles, Codex profiles, and Universal directories.');
 
+  // === STEP 20: SKILL EVALUATION IMPROVEMENTS (WINDOWS STEERING PATHS, MEDIA FRONTIER, COMMA RESOURCE SPLIT, AUTO-INDEXING) ===
+  console.log('Step 20: Testing skill evaluation improvements (Windows ~/ steering fix, static media exclusion, comma resource split, unindexed concept auto-indexing)...');
+
+  // 20a. Windows PowerShell ~/ path fix in resolveSkillsBase & inspectAndSyncSteeringFile
+  const maintainMod = require(scripts.maintain);
+  const simulatedHome = path.join(tempDir, 'sim-home');
+  const simulatedSkillsRoot = path.join(simulatedHome, '.gemini', 'config', 'skills');
+  const externalWorkspace = path.join(tempDir, 'external-project');
+  fs.mkdirSync(simulatedSkillsRoot, { recursive: true });
+  fs.mkdirSync(path.join(externalWorkspace, 'okf', 'concepts'), { recursive: true });
+
+  const winSkillsBase = maintainMod.resolveSkillsBase(externalWorkspace, {
+    skillsRoot: simulatedSkillsRoot,
+    homeDir: simulatedHome,
+    platform: 'win32'
+  });
+  assert.ok(!winSkillsBase.startsWith('~/'), `Windows resolveSkillsBase must not emit ~/ (got: ${winSkillsBase})`);
+  assert.strictEqual(winSkillsBase, simulatedSkillsRoot.replace(/\\/g, '/') + '/');
+
+  const posixSkillsBase = maintainMod.resolveSkillsBase(externalWorkspace, {
+    skillsRoot: simulatedSkillsRoot,
+    homeDir: simulatedHome,
+    platform: 'linux'
+  });
+  assert.strictEqual(posixSkillsBase, '~/.gemini/config/skills/');
+
+  const winSteeringPath = path.join(externalWorkspace, 'AGENTS.md');
+  fs.writeFileSync(
+    winSteeringPath,
+    `# Agent Steering\n\n` +
+      maintainMod.buildSteeringDirectivesBlock('okf', '1.8.2', '~/.gemini/config/skills/') +
+      `\n`
+  );
+  const winSteeringCheck = maintainMod.inspectAndSyncSteeringFile(
+    winSteeringPath,
+    externalWorkspace,
+    path.join(externalWorkspace, 'okf'),
+    '1.8.2',
+    true,
+    { skillsRoot: simulatedSkillsRoot, homeDir: simulatedHome, platform: 'win32' }
+  );
+  assert.strictEqual(winSteeringCheck.outdated, true, 'Windows steering file containing node ~/ must be detected as outdated even at matching version');
+
+  const winSteeringSync = maintainMod.inspectAndSyncSteeringFile(
+    winSteeringPath,
+    externalWorkspace,
+    path.join(externalWorkspace, 'okf'),
+    '1.8.2',
+    false,
+    { skillsRoot: simulatedSkillsRoot, homeDir: simulatedHome, platform: 'win32' }
+  );
+  assert.strictEqual(winSteeringSync.updated, true, 'Windows steering file containing node ~/ must be auto-healed');
+  const healedWinSteering = fs.readFileSync(winSteeringPath, 'utf8');
+  assert.ok(!healedWinSteering.includes('node ~/'), 'Healed Windows steering file must not contain node ~/');
+  assert.ok(healedWinSteering.includes(`node ${winSkillsBase}okf-lint/scripts/lint.js`), 'Healed Windows steering file must use absolute forward-slash path');
+
+  // 20b. Exclude static media/binary/office/archive assets from frontier & self-heal existing bullets
+  fs.mkdirSync(path.join(externalWorkspace, 'data', 'backup'), { recursive: true });
+  fs.mkdirSync(path.join(externalWorkspace, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(externalWorkspace, 'data', 'backup', 'watch.jpg'), 'fake-jpg');
+  fs.writeFileSync(path.join(externalWorkspace, 'data', 'backup', 'photo.png'), 'fake-png');
+  fs.writeFileSync(path.join(externalWorkspace, 'data', 'backup', 'logo.svg'), '<svg></svg>');
+  fs.writeFileSync(path.join(externalWorkspace, 'data', 'backup', 'manual.pdf'), 'fake-pdf');
+  fs.writeFileSync(path.join(externalWorkspace, 'data', 'backup', 'catalog.xlsx'), 'fake-xlsx');
+  fs.writeFileSync(path.join(externalWorkspace, 'data', 'backup', 'archive.zip'), 'fake-zip');
+  fs.writeFileSync(path.join(externalWorkspace, 'data', 'backup', 'ticket.pkpass'), 'fake-pkpass');
+  fs.writeFileSync(path.join(externalWorkspace, 'src', 'mod_a.js'), 'export const a = 1;\n');
+  fs.writeFileSync(path.join(externalWorkspace, 'src', 'mod_b.js'), 'export const b = 2;\n');
+
+  fs.writeFileSync(path.join(externalWorkspace, 'okf', 'log.md'), '# Log\n\n## 2026-10-01\n- Initial bundle.\n');
+  fs.writeFileSync(
+    path.join(externalWorkspace, 'okf', 'index.md'),
+    `# External Project OKF\n\n## Concepts\n\n## Not yet specified\n- \`data/backup/watch.jpg\` — Undocumented codebase file.\n- \`data/backup/catalog.xlsx\` — Undocumented codebase file.\n`
+  );
+
+  // 20c. Create a legacy concept with comma-separated resource: (including a deleted file) AND leave it unindexed in index.md
+  const commaConceptPath = path.join(externalWorkspace, 'okf', 'concepts', 'comma_resource.md');
+  fs.writeFileSync(
+    commaConceptPath,
+    `---\ntype: Feature\ntitle: Comma Resource Feature\ndescription: Covers mod_a and mod_b.\nstatus: stable\nresource: src/mod_a.js, src/mod_b.js, src/deleted_mod_c.js\ntimestamp: 2026-10-01T00:00:00Z\n---\n# Comma Resource Feature\n\nCovers mod_a and mod_b.\n`
+  );
+
+  execSync(`node "${scripts.upgrade}" --bundle "${path.join(externalWorkspace, 'okf')}"`, { cwd: externalWorkspace });
+  const upgradedCommaRaw = fs.readFileSync(commaConceptPath, 'utf8');
+  assert.ok(upgradedCommaRaw.includes('resource: src/mod_a.js'), 'upgrade.js must set primary resource to first existing file');
+  assert.ok(upgradedCommaRaw.includes('- src/mod_b.js'), 'upgrade.js must move second existing file into sources');
+  assert.ok(!upgradedCommaRaw.includes('- src/mod_a.js'), 'upgrade.js must NOT duplicate primary resource inside sources');
+  assert.ok(!upgradedCommaRaw.includes('deleted_mod_c.js'), 'upgrade.js must NOT add non-existent split files into sources');
+
+  // Verify wayfinder_taxonomy excludes static media assets from frontier
+  const extTaxonomy = JSON.parse(
+    execSync(`node "${scripts.taxonomy}" --bundle "${path.join(externalWorkspace, 'okf')}"`, { cwd: externalWorkspace }).toString()
+  );
+  assert.ok(!extTaxonomy.frontier.some(f => /\.(jpg|png|svg|pdf|xlsx|zip|pkpass)$/i.test(f.path || f)), `wayfinder_taxonomy frontier must exclude static media/office/archive assets, got: ${JSON.stringify(extTaxonomy.frontier)}`);
+
+  // 20d. Unindexed active concept detection & auto-indexing in maintain.js
+  let extMaintainCheckFailed = false;
+  let extMaintainCheckJson = null;
+  try {
+    execSync(`node "${scripts.maintain}" --bundle "${path.join(externalWorkspace, 'okf')}" --check --json`, { cwd: externalWorkspace, stdio: 'pipe' });
+  } catch (err) {
+    extMaintainCheckFailed = true;
+    extMaintainCheckJson = JSON.parse(err.stdout.toString());
+  }
+  assert.strictEqual(extMaintainCheckFailed, true, 'maintain --check must fail when an active concept is unindexed or frontier has stale media bullets');
+  assert.ok(
+    Array.isArray(extMaintainCheckJson.unindexedConcepts) && extMaintainCheckJson.unindexedConcepts.includes('concepts/comma_resource.md'),
+    `maintain --check --json must report unindexedConcepts including concepts/comma_resource.md, got: ${JSON.stringify(extMaintainCheckJson)}`
+  );
+
+  execSync(`node "${scripts.maintain}" --bundle "${path.join(externalWorkspace, 'okf')}"`, { cwd: externalWorkspace });
+  const extIndexAfter = fs.readFileSync(path.join(externalWorkspace, 'okf', 'index.md'), 'utf8');
+  assert.ok(!extIndexAfter.includes('watch.jpg'), 'maintain must remove auto-generated .jpg bullet from ## Not yet specified');
+  assert.ok(!extIndexAfter.includes('catalog.xlsx'), 'maintain must remove auto-generated .xlsx bullet from ## Not yet specified');
+  assert.ok(extIndexAfter.includes('[Comma Resource Feature](/concepts/comma_resource.md)'), 'maintain must auto-index unindexed active concept into index.md');
+
+  const extMaintainAfterJson = JSON.parse(
+    execSync(`node "${scripts.maintain}" --bundle "${path.join(externalWorkspace, 'okf')}" --check --json`, { cwd: externalWorkspace }).toString()
+  );
+  assert.strictEqual(extMaintainAfterJson.inSync, true, 'maintain --check must pass after auto-indexing and media frontier cleanup');
+  assert.strictEqual(extMaintainAfterJson.unindexedConcepts.length, 0, 'unindexedConcepts must be empty after maintain');
+  console.log('✓ Windows ~/ steering fix, static media frontier exclusion, smart comma resource split, and unindexed concept auto-indexing verified.');
+
 } finally {
   // Cleanup temp files
   fs.rmSync(tempDir, { recursive: true, force: true });
