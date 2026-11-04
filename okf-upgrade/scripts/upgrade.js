@@ -226,6 +226,7 @@ function findLogFiles(dir, list = []) {
 function normalizeLogFile(logPath) {
   if (!fs.existsSync(logPath)) return false;
   const content = fs.readFileSync(logPath, 'utf8');
+  const eol = content.includes('\r\n') ? '\r\n' : '\n';
   const lines = content.split(/\r?\n/);
   let modified = false;
 
@@ -236,18 +237,39 @@ function normalizeLogFile(logPath) {
   let inDateSections = false;
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const match = line.match(/^##\s*(\d{4}-\d{2}-\d{2})(?:T[0-9:Z\+\.\-]+)?(.*)$/);
-    if (match) {
+    let line = lines[i];
+    if (/`agent:([^`\s]+)`/.test(line)) {
+      line = line.replace(/`agent:([^`\s]+)`/g, '`$1`');
+      modified = true;
+    }
+
+    const headingMatch = line.match(/^##\s*(\d{4}-\d{2}-\d{2})(?:T[0-9:Z\+\.\-]+)?(.*)$/);
+    const bulletDateMatch = line.match(/^[\-\*]\s*(?:\*\*|\[)?(\d{4}-\d{2}-\d{2})(?:T[0-9:Z\+\.\-]+)?(?:\*\*|\])?\s*(?:—|--|-|:)\s*(.+)$/);
+
+    if (headingMatch) {
       inDateSections = true;
-      if (line !== `## ${match[1]}`) {
+      if (line !== `## ${headingMatch[1]}`) {
         modified = true;
       }
       if (currentDate) {
         dateSections.push({ date: currentDate, items: currentItems });
       }
-      currentDate = match[1];
+      currentDate = headingMatch[1];
       currentItems = [];
+    } else if (bulletDateMatch) {
+      inDateSections = true;
+      modified = true;
+      const bDate = bulletDateMatch[1];
+      const bBody = bulletDateMatch[2].trim();
+      if (currentDate === bDate) {
+        currentItems.push(`- ${bBody}`);
+      } else {
+        if (currentDate) {
+          dateSections.push({ date: currentDate, items: currentItems });
+        }
+        currentDate = bDate;
+        currentItems = [`- ${bBody}`];
+      }
     } else if (inDateSections) {
       currentItems.push(line);
     } else {
@@ -290,7 +312,8 @@ function normalizeLogFile(logPath) {
     }
   }
 
-  fs.writeFileSync(logPath, out.trimEnd() + '\n', 'utf8');
+  const finalOut = out.trimEnd() + '\n';
+  fs.writeFileSync(logPath, eol === '\r\n' ? finalOut.replace(/\n/g, '\r\n') : finalOut, 'utf8');
   return true;
 }
 
@@ -376,19 +399,24 @@ function main() {
     user = args[userIdx + 1];
   }
 
-  const workspaceRoot = process.cwd();
+  const cwd = process.cwd();
   const bundleIdx = args.indexOf('--bundle');
   let bundleRoot = (bundleIdx !== -1 && args[bundleIdx + 1])
-    ? path.resolve(workspaceRoot, args[bundleIdx + 1])
-    : path.join(workspaceRoot, 'docs', 'okf');
+    ? path.resolve(cwd, args[bundleIdx + 1])
+    : path.join(cwd, 'docs', 'okf');
   if (!fs.existsSync(bundleRoot)) {
-    bundleRoot = path.join(workspaceRoot, 'okf');
+    bundleRoot = path.join(cwd, 'okf');
   }
 
   if (!fs.existsSync(bundleRoot)) {
     console.error(`Error: OKF bundle root not found.`);
     process.exit(1);
   }
+
+  const parentDir = path.dirname(bundleRoot);
+  const workspaceRoot = (bundleIdx !== -1 && args[bundleIdx + 1])
+    ? (path.basename(parentDir).toLowerCase() === 'docs' ? path.dirname(parentDir) : parentDir)
+    : cwd;
 
   console.log(`Starting OKF upgrade to Version 0.2 in: ${bundleRoot}`);
   console.log(`Target User Actor: human:${user}`);
@@ -401,6 +429,7 @@ function main() {
   for (const mdPath of mdFiles) {
     const relativePath = path.relative(bundleRoot, mdPath).replace(/\\/g, '/');
     const content = fs.readFileSync(mdPath, 'utf8');
+    const eol = content.includes('\r\n') ? '\r\n' : '\n';
     const fm = parseFrontmatter(content);
     let body = getConceptBody(content);
 
@@ -409,11 +438,13 @@ function main() {
       const isRootIndex = path.resolve(mdPath) === path.resolve(path.join(bundleRoot, 'index.md'));
       if (isRootIndex) {
         const rootFm = fm || {};
-        if (rootFm.okf_version !== '0.2') {
-          rootFm.okf_version = '0.2';
-          const newFmText = serializeFrontmatter(rootFm);
-          fs.writeFileSync(mdPath, newFmText + '\n\n' + body.trim() + '\n', 'utf8');
-          console.log(`[+] Upgraded root index.md with okf_version: "0.2"`);
+        const extraKeys = Object.keys(rootFm).filter(k => k !== 'okf_version');
+        if (rootFm.okf_version !== '0.2' || extraKeys.length > 0) {
+          const cleanRootFm = { okf_version: '0.2' };
+          const newFmText = serializeFrontmatter(cleanRootFm);
+          const outText = newFmText + '\n\n' + body.trim() + '\n';
+          fs.writeFileSync(mdPath, eol === '\r\n' ? outText.replace(/\r?\n/g, '\r\n') : outText, 'utf8');
+          console.log(`[+] Upgraded root index.md with okf_version: "0.2" (§12)`);
           indexUpgraded = true;
         }
       }
@@ -531,9 +562,38 @@ function main() {
       });
     }
 
+    // 5. Split comma-separated local resource paths into resource + sources
+    if (
+      typeof fm.resource === 'string' &&
+      fm.resource.includes(',') &&
+      !/^(?!file:\/\/)[a-zA-Z][a-zA-Z0-9+.-]*:\/\//i.test(fm.resource.trim())
+    ) {
+      const rawRes = fm.resource.trim();
+      const unsplitCandidate = path.join(workspaceRoot, rawRes.replace(/^file:\/\/\/?/, ''));
+      const parts = rawRes.split(',').map(s => s.trim()).filter(Boolean);
+      const anyPartExists = parts.some(p => fs.existsSync(path.join(workspaceRoot, p.replace(/^file:\/\/\/?/, ''))));
+      if (parts.length > 1 && !fs.existsSync(unsplitCandidate) && anyPartExists) {
+        fm.resource = parts[0];
+        let sources = Array.isArray(fm.sources) ? fm.sources : (fm.sources ? [fm.sources] : []);
+        const existingResources = new Set(
+          sources.map(s => (typeof s === 'string' ? s : (s && s.resource))).filter(Boolean)
+        );
+        for (const p of parts) {
+          if (!existingResources.has(p)) {
+            sources.push(p);
+            existingResources.add(p);
+          }
+        }
+        fm.sources = sources;
+        modified = true;
+        console.log(`[+] ${relativePath}: Split comma-separated resource into resource + sources`);
+      }
+    }
+
     if (modified) {
       const newFmText = serializeFrontmatter(fm);
-      fs.writeFileSync(mdPath, newFmText + '\n\n' + body.trim() + '\n', 'utf8');
+      const outText = newFmText + '\n\n' + body.trim() + '\n';
+      fs.writeFileSync(mdPath, eol === '\r\n' ? outText.replace(/\r?\n/g, '\r\n') : outText, 'utf8');
       conceptsUpgraded++;
     }
   }

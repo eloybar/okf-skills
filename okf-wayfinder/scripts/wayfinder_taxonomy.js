@@ -268,45 +268,62 @@ function scanBundleTaxonomy(
   return taxonomy;
 }
 
+const IGNORED_FRONTIER_EXTENSIONS = new Set([
+  '.pyc', '.pyo', '.pyd', '.dll', '.exe', '.so', '.dylib',
+  '.class', '.o', '.obj', '.a', '.lib', '.pdb'
+]);
+
 /**
- * Reads .gitignore file and compiles patterns to RegExp rules.
+ * Reads .gitignore files up to the enclosing Git root and compiles patterns to RegExp rules.
  */
 function loadGitignorePatterns(workspaceRoot) {
   const patterns = [];
-  const gitignorePath = path.join(workspaceRoot, '.gitignore');
-  if (fs.existsSync(gitignorePath)) {
-    try {
-      const content = fs.readFileSync(gitignorePath, 'utf8');
-      const lines = content.split(/\r?\n/);
-      for (let line of lines) {
-        line = line.trim();
-        if (!line || line.startsWith('#')) continue;
-        
-        // Escape regex special chars except * and ?
-        let escaped = line.replace(/[-\/\\^$*+?.()|[\]{}]/g, (match) => {
-          if (match === '*' || match === '?') return match;
-          return '\\' + match;
-        });
-        
-        escaped = escaped.replace(/\*/g, '.*').replace(/\?/g, '.');
-        
-        if (line.endsWith('/')) {
-          escaped = escaped + '?.*';
-        } else {
-          escaped = escaped + '$';
+  const dirsToCheck = [];
+  let curr = path.resolve(workspaceRoot);
+  while (curr) {
+    dirsToCheck.push(curr);
+    if (fs.existsSync(path.join(curr, '.git'))) break;
+    const parent = path.dirname(curr);
+    if (parent === curr) break;
+    curr = parent;
+  }
+
+  for (const dir of dirsToCheck) {
+    const gitignorePath = path.join(dir, '.gitignore');
+    if (fs.existsSync(gitignorePath)) {
+      try {
+        const content = fs.readFileSync(gitignorePath, 'utf8');
+        const lines = content.split(/\r?\n/);
+        for (let line of lines) {
+          line = line.trim();
+          if (!line || line.startsWith('#') || line.startsWith('!')) continue;
+          
+          // Escape regex special chars except * and ?
+          let escaped = line.replace(/[-\/\\^$*+?.()|[\]{}]/g, (match) => {
+            if (match === '*' || match === '?') return match;
+            return '\\' + match;
+          });
+          
+          escaped = escaped.replace(/\*/g, '.*').replace(/\?/g, '.');
+          
+          if (line.endsWith('/')) {
+            escaped = escaped + '?.*';
+          } else {
+            escaped = escaped + '$';
+          }
+          
+          if (line.startsWith('/')) {
+            escaped = '^' + escaped.slice(1);
+          } else {
+            escaped = '(^|/)' + escaped;
+          }
+          
+          try {
+            patterns.push(new RegExp(escaped));
+          } catch (e) {}
         }
-        
-        if (line.startsWith('/')) {
-          escaped = '^' + escaped.slice(1);
-        } else {
-          escaped = '(^|/)' + escaped;
-        }
-        
-        try {
-          patterns.push(new RegExp(escaped));
-        } catch (e) {}
-      }
-    } catch (e) {}
+      } catch (e) {}
+    }
   }
   return patterns;
 }
@@ -350,7 +367,12 @@ function scanWorkspace(dir, workspaceRoot, documentedResources, results = [], gi
   }
   
   const files = fs.readdirSync(dir);
-  const ignores = ['.git', 'node_modules', '.agents', '.claude', 'agent', 'docs', 'tmp', 'temp', '.idea', '.vscode'];
+  const ignores = [
+    '.git', 'node_modules', '.agents', '.claude', '.gemini', 'agent', 'docs',
+    'tmp', 'temp', '.idea', '.vscode', '.superpowers', '__pycache__',
+    '.pytest_cache', '.mypy_cache', '.ruff_cache', '.venv', 'venv',
+    'dist', 'build', 'coverage', '.next', 'target', 'bin', 'obj'
+  ];
   const normBundleRoot = bundleRoot ? path.resolve(bundleRoot).toLowerCase() : null;
   
   for (const file of files) {
@@ -383,6 +405,8 @@ function scanWorkspace(dir, workspaceRoot, documentedResources, results = [], gi
       if (isOkfBundleDir(fullPath)) continue;
       scanWorkspace(fullPath, workspaceRoot, documentedResources, results, gitignorePatterns, bundleRoot);
     } else if (stat.isFile()) {
+      const ext = path.extname(file).toLowerCase();
+      if (IGNORED_FRONTIER_EXTENSIONS.has(ext)) continue;
       const normalized = path.normalize(fullPath);
       if (!isCoveredByResource(relPath, fullPath, documentedResources)) {
         // Skip common auxiliary files that do not warrant dedicated concept maps
@@ -603,7 +627,7 @@ function inspectFileTelemetry(targetFile, workspaceRoot, taxonomy) {
 
 function main() {
   const args = process.argv.slice(2);
-  const workspaceRoot = process.cwd();
+  const cwd = process.cwd();
 
   let bundleArg = null;
   const bundleIdx = args.indexOf('--bundle');
@@ -618,10 +642,18 @@ function main() {
   }
 
   let bundlePath = bundleArg
-    ? path.resolve(workspaceRoot, bundleArg)
-    : path.resolve(workspaceRoot, 'docs/okf');
+    ? path.resolve(cwd, bundleArg)
+    : path.resolve(cwd, 'docs/okf');
   if (!bundleArg && !fs.existsSync(bundlePath)) {
-    bundlePath = path.resolve(workspaceRoot, 'okf');
+    bundlePath = path.resolve(cwd, 'okf');
+  }
+
+  let workspaceRoot = cwd;
+  if (bundleArg && fs.existsSync(bundlePath)) {
+    const parentDir = path.dirname(bundlePath);
+    workspaceRoot = path.basename(parentDir).toLowerCase() === 'docs'
+      ? path.dirname(parentDir)
+      : parentDir;
   }
 
   if (!fs.existsSync(bundlePath)) {

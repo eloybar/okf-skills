@@ -24,6 +24,22 @@ $Paths = @{
     "Universal"   = "$HOME\.agents\skills"
 }
 
+# Discover all Claude profile skill directories ($HOME\.claude\skills, $HOME\.claude-*\skills, and $env:CLAUDE_CONFIG_DIR\skills)
+$ClaudeSkillDirs = [System.Collections.Generic.List[string]]::new()
+$ClaudeSkillDirs.Add($Paths["Claude"])
+if ($env:CLAUDE_CONFIG_DIR) {
+    $envClaudeSkills = Join-Path $env:CLAUDE_CONFIG_DIR "skills"
+    if (-not $ClaudeSkillDirs.Contains($envClaudeSkills)) {
+        $ClaudeSkillDirs.Add($envClaudeSkills)
+    }
+}
+Get-ChildItem -Path $HOME -Directory -Filter ".claude-*" -Force -ErrorAction SilentlyContinue | ForEach-Object {
+    $profSkills = Join-Path $_.FullName "skills"
+    if (-not $ClaudeSkillDirs.Contains($profSkills)) {
+        $ClaudeSkillDirs.Add($profSkills)
+    }
+}
+
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host "     OKF Skills Manager for Windows       " -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
@@ -46,8 +62,11 @@ if (-not $Agent) {
 }
 
 if ($Agent -eq "All") {
-    $TargetDirs = @($Paths["Antigravity"], $Paths["Claude"], $Paths["Universal"])
-    Write-Host "Targeting: All Agents (Antigravity, Claude, and general agents)" -ForegroundColor Green
+    $TargetDirs = @($Paths["Antigravity"]) + @($ClaudeSkillDirs) + @($Paths["Universal"])
+    Write-Host "Targeting: All Agents (Antigravity, Claude profiles, and general agents)" -ForegroundColor Green
+} elseif ($Agent -eq "Claude") {
+    $TargetDirs = @($ClaudeSkillDirs)
+    Write-Host "Targeting: Claude Code ($($TargetDirs -join ', '))" -ForegroundColor Green
 } else {
     $TargetDirs = @($Paths[$Agent])
     $TargetDir = $Paths[$Agent]
