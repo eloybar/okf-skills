@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
 function splitRespectingQuotes(str, delimiter = ',') {
   const result = [];
@@ -208,6 +209,50 @@ function scanConcepts(dir, bundleRoot, workspaceRoot, matches = []) {
   return matches;
 }
 
+function resolveWorkspaceAndBundle(args) {
+  const cwd = process.cwd();
+  const bundleIdx = args.indexOf('--bundle');
+  if (bundleIdx !== -1 && args[bundleIdx + 1]) {
+    const bundleRoot = path.resolve(cwd, args[bundleIdx + 1]);
+    if (fs.existsSync(bundleRoot)) {
+      try {
+        const topLevel = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+          cwd: bundleRoot,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore']
+        }).trim();
+        if (topLevel && fs.existsSync(topLevel)) {
+          return { workspaceRoot: path.normalize(topLevel), bundleRoot };
+        }
+      } catch (e) {}
+      const parentDir = path.dirname(bundleRoot);
+      const derivedRoot = path.basename(parentDir).toLowerCase() === 'docs'
+        ? path.dirname(parentDir)
+        : parentDir;
+      return { workspaceRoot: derivedRoot, bundleRoot };
+    }
+    return { workspaceRoot: cwd, bundleRoot };
+  }
+
+  let bundleRoot = path.join(cwd, 'docs', 'okf');
+  if (!fs.existsSync(bundleRoot)) {
+    bundleRoot = path.join(cwd, 'okf');
+  }
+  return { workspaceRoot: cwd, bundleRoot };
+}
+
+function tokenizeSearchQuery(rawQuery) {
+  if (!rawQuery || typeof rawQuery !== 'string') return [];
+  const rawTokens = rawQuery
+    .toLowerCase()
+    .split(/\s+/)
+    .map(t => t.replace(/^[^a-z0-9_./-]+|[^a-z0-9_./-]+$/g, ''))
+    .filter(Boolean);
+  const stopwords = new Set(['a', 'an', 'the', 'to', 'in', 'on', 'of', 'or', 'and', 'for', 'by', 'is', 'at', 'with', 'from']);
+  const meaningful = rawTokens.filter(t => t.length > 2 || !stopwords.has(t));
+  return meaningful.length > 0 ? meaningful : rawTokens;
+}
+
 function main() {
   const args = process.argv.slice(2);
   const fileIndex = args.indexOf('--file');
@@ -218,14 +263,7 @@ function main() {
     process.exit(1);
   }
 
-  const workspaceRoot = process.cwd();
-  const bundleIdx = args.indexOf('--bundle');
-  let bundleRoot = (bundleIdx !== -1 && args[bundleIdx + 1])
-    ? path.resolve(workspaceRoot, args[bundleIdx + 1])
-    : path.join(workspaceRoot, 'docs', 'okf');
-  if (!fs.existsSync(bundleRoot)) {
-    bundleRoot = path.join(workspaceRoot, 'okf');
-  }
+  const { workspaceRoot, bundleRoot } = resolveWorkspaceAndBundle(args);
 
   if (!fs.existsSync(bundleRoot)) {
     console.error(`Error: OKF bundle not found.`);
@@ -234,9 +272,14 @@ function main() {
 
   const allConcepts = scanConcepts(bundleRoot, bundleRoot, workspaceRoot);
   const matched = [];
+  const searchKeyword = searchIndex !== -1 && args[searchIndex + 1] ? args[searchIndex + 1].toLowerCase().trim() : null;
+  const searchTokens = searchKeyword ? tokenizeSearchQuery(searchKeyword) : [];
 
   if (fileIndex !== -1) {
-    const targetFile = path.resolve(workspaceRoot, args[fileIndex + 1]);
+    const rawFileArg = args[fileIndex + 1];
+    const wsTarget = path.resolve(workspaceRoot, rawFileArg);
+    const cwdTarget = path.resolve(process.cwd(), rawFileArg);
+    const targetFile = fs.existsSync(wsTarget) || !fs.existsSync(cwdTarget) ? wsTarget : cwdTarget;
     const normalizedTarget = path.normalize(targetFile).toLowerCase();
 
     // Tier 1: Exact file match or resource is a directory enclosing target
@@ -273,14 +316,17 @@ function main() {
         }
       }
     }
-  } else if (searchIndex !== -1) {
-    const keyword = args[searchIndex + 1].toLowerCase();
+  } else if (searchIndex !== -1 && searchKeyword) {
+    const exactAndFullMatches = [];
+    const partialMatches = [];
+
     for (const c of allConcepts) {
       const title = (c.frontmatter.title || '').toLowerCase();
       const desc = (c.frontmatter.description || '').toLowerCase();
       const type = (c.frontmatter.type || '').toLowerCase();
       const runtime = (c.frontmatter.runtime || '').toLowerCase();
       const tags = (c.frontmatter.tags || []).map(t => String(t).toLowerCase());
+      const relPath = (c.relativePath || '').toLowerCase();
       const body = c.body.toLowerCase();
       let sourcesText = '';
       for (const uri of collectConceptResourceUris(c.frontmatter)) {
@@ -297,17 +343,41 @@ function main() {
         }
       }
 
-      if (
-        title.includes(keyword) ||
-        desc.includes(keyword) ||
-        type.includes(keyword) ||
-        runtime.includes(keyword) ||
-        tags.some(t => t.includes(keyword)) ||
-        sourcesText.includes(keyword) ||
-        body.includes(keyword)
-      ) {
-        matched.push(c);
+      const headerBlob = [title, desc, type, runtime, tags.join(' '), relPath, sourcesText].join(' ');
+      const fullBlob = headerBlob + '\n' + body;
+
+      const isExactPhrase =
+        title.includes(searchKeyword) ||
+        desc.includes(searchKeyword) ||
+        type.includes(searchKeyword) ||
+        runtime.includes(searchKeyword) ||
+        tags.some(t => t.includes(searchKeyword)) ||
+        sourcesText.includes(searchKeyword) ||
+        body.includes(searchKeyword);
+
+      let tokenHitCount = 0;
+      let weightedScore = isExactPhrase ? 100 : 0;
+      for (const tok of searchTokens) {
+        if (fullBlob.includes(tok)) {
+          tokenHitCount++;
+          if (title.includes(tok)) weightedScore += 5;
+          else if (tags.some(t => t.includes(tok)) || relPath.includes(tok)) weightedScore += 4;
+          else if (desc.includes(tok) || sourcesText.includes(tok)) weightedScore += 3;
+          else weightedScore += 1;
+        }
       }
+
+      if (isExactPhrase || (searchTokens.length > 1 && tokenHitCount === searchTokens.length)) {
+        exactAndFullMatches.push({ concept: c, tokenHitCount, weightedScore });
+      } else if (searchTokens.length >= 2 && tokenHitCount >= Math.max(2, Math.ceil(searchTokens.length * 0.5))) {
+        partialMatches.push({ concept: c, tokenHitCount, weightedScore });
+      }
+    }
+
+    const chosen = exactAndFullMatches.length > 0 ? exactAndFullMatches : partialMatches;
+    chosen.sort((a, b) => (b.tokenHitCount - a.tokenHitCount) || (b.weightedScore - a.weightedScore));
+    for (const item of chosen) {
+      matched.push(item.concept);
     }
   }
 
@@ -325,7 +395,6 @@ function main() {
 
   const forceFull = args.includes('--full');
   const MAX_CONCEPT_CHARS = 12000;
-  const searchKeyword = searchIndex !== -1 && args[searchIndex + 1] ? args[searchIndex + 1].toLowerCase() : null;
 
   function formatConceptBody(concept) {
     const trimmed = concept.body.trim();
@@ -354,10 +423,16 @@ function main() {
       .join('\n');
 
     if (searchKeyword) {
-      const matchingSections = sections.filter(s =>
+      let matchingSections = sections.filter(s =>
         s.heading.toLowerCase().includes(searchKeyword) ||
         s.lines.join('\n').toLowerCase().includes(searchKeyword)
       );
+      if (matchingSections.length === 0 && searchTokens.length > 1) {
+        matchingSections = sections.filter(s => {
+          const secText = (s.heading + '\n' + s.lines.join('\n')).toLowerCase();
+          return searchTokens.some(tok => secText.includes(tok));
+        });
+      }
       if (matchingSections.length > 0) {
         const excerpt = matchingSections.map(s => s.lines.join('\n').trim()).join('\n\n---\n\n');
         if (excerpt.length <= MAX_CONCEPT_CHARS) {

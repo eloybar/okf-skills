@@ -6,7 +6,7 @@ resource: file:///D:/projects/okf-skills/README.md
 tags: [architecture, loop, feedback]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-03T21:42:36.735Z
+  at: 2026-11-04T14:13:56.028Z
 sources:
   - scripts/lib/okf-core.js
   - scripts/sync-skills.js

@@ -2,8 +2,9 @@
 
 Newest changes recorded chronologically.
 
-
-
+## 2026-11-04
+- Synchronized timestamp for 6 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-prune-skill.md, concepts/okf-query-skill.md.
+- Added same-commit timestamp drift tolerance (`getEffectiveConceptTime`) in `okf-lint/scripts/lint.js` and `okf-maintain/scripts/maintain.js`, missing local `resource:`/`sources:` warnings in `okf-lint/scripts/lint.js`, multi-word tokenized `--search` (`tokenizeSearchQuery`) in `okf-query/scripts/query.js`, cross-branch bundle detection hints (`findBundlesOnOtherBranches`) and CRLF steering preservation in `okf-maintain/scripts/maintain.js`, CRLF preservation in `okf-prune/scripts/prune.js`, and external `--bundle <path>` workspace root resolution (`resolveWorkspaceAndBundle`) across `okf-lint`, `okf-maintain`, `okf-query`, and `okf-prune`; added Step 16 regression tests in `scripts/test-lifecycle.js`.
 
 ## 2026-11-03
 - Synchronized timestamp for 4 drifted concept(s): concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-wayfinder-skill.md.

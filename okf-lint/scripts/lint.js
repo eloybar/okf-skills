@@ -257,6 +257,80 @@ function getGitLastModifiedISO(filePath, cwd) {
   return gitIso;
 }
 
+const gitCommitOnlyCache = new Map();
+
+function getGitCommitISO(filePath, cwd) {
+  const absFile = path.resolve(filePath);
+  const cacheKey = absFile.toLowerCase();
+  if (gitCommitOnlyCache.has(cacheKey)) {
+    return gitCommitOnlyCache.get(cacheKey);
+  }
+  const cleanPath = absFile.replace(/\\/g, '/');
+  const execCwd = cwd || path.dirname(absFile);
+  let gitIso = null;
+  try {
+    const stdout = execFileSync('git', ['log', '-1', '--format=%aI', '--', cleanPath], {
+      cwd: execCwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+    if (stdout) gitIso = stdout;
+  } catch (e) {}
+  gitCommitOnlyCache.set(cacheKey, gitIso);
+  return gitIso;
+}
+
+function getEffectiveConceptTime(conceptFilePath, rawLastModified, workspaceRoot) {
+  if (!rawLastModified) return null;
+  const fmDate = new Date(rawLastModified);
+  if (isNaN(fmDate.getTime())) return null;
+
+  const absConcept = path.resolve(conceptFilePath);
+  const dirtySet = getRepoDirtySet(workspaceRoot || path.dirname(absConcept));
+  if (!dirtySet.has(absConcept.toLowerCase())) {
+    const commitIso = getGitCommitISO(absConcept, workspaceRoot);
+    if (commitIso) {
+      const commitDate = new Date(commitIso);
+      if (!isNaN(commitDate.getTime()) && commitDate > fmDate) {
+        return commitDate;
+      }
+    }
+  }
+  return fmDate;
+}
+
+function resolveWorkspaceAndBundle(args) {
+  const cwd = process.cwd();
+  const bundleIdx = args.indexOf('--bundle');
+  if (bundleIdx !== -1 && args[bundleIdx + 1]) {
+    const bundleRoot = path.resolve(cwd, args[bundleIdx + 1]);
+    if (fs.existsSync(bundleRoot)) {
+      try {
+        const topLevel = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+          cwd: bundleRoot,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore']
+        }).trim();
+        if (topLevel && fs.existsSync(topLevel)) {
+          return { workspaceRoot: path.normalize(topLevel), bundleRoot };
+        }
+      } catch (e) {}
+      const parentDir = path.dirname(bundleRoot);
+      const derivedRoot = path.basename(parentDir).toLowerCase() === 'docs'
+        ? path.dirname(parentDir)
+        : parentDir;
+      return { workspaceRoot: derivedRoot, bundleRoot };
+    }
+    return { workspaceRoot: cwd, bundleRoot };
+  }
+
+  let bundleRoot = path.join(cwd, 'docs', 'okf');
+  if (!fs.existsSync(bundleRoot)) {
+    bundleRoot = path.join(cwd, 'okf');
+  }
+  return { workspaceRoot: cwd, bundleRoot };
+}
+
 function resolveResourceLocalPath(resourceUri, workspaceRoot, bundleRoot = null) {
   if (!resourceUri || typeof resourceUri !== 'string') return null;
   const trimmed = resourceUri.trim();
@@ -445,7 +519,7 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
       if (fm.resource) {
         const localRes = resolveResourceLocalPath(fm.resource, workspaceRoot, bundleRoot);
         if (localRes) {
-          resourcesToCheck.push({ path: fm.resource, label: `Resource file '${path.basename(localRes)}'` });
+          resourcesToCheck.push({ path: fm.resource, label: `Resource file '${path.basename(localRes)}'`, checkExists: true });
         }
       }
       if (Array.isArray(fm.sources)) {
@@ -454,7 +528,7 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
           const localSrc = resolveResourceLocalPath(rawResource, workspaceRoot, bundleRoot);
           if (localSrc) {
             const label = (src && typeof src === 'object' && src.title) ? `Source '${src.title}'` : `Source resource [${idx}]`;
-            resourcesToCheck.push({ path: rawResource, label });
+            resourcesToCheck.push({ path: rawResource, label, checkExists: true });
           }
         });
       }
@@ -482,19 +556,24 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
         if (resolvedBound) {
           results.documentedResources.add(path.relative(workspaceRoot, resolvedBound).replace(/\\/g, '/').toLowerCase());
           results.documentedResources.add(path.resolve(resolvedBound).toLowerCase());
+          if (!isDeprecated && item.checkExists && !fs.existsSync(resolvedBound)) {
+            const relMissing = path.relative(workspaceRoot, resolvedBound).replace(/\\/g, '/');
+            results.warnings.push(`[${relativePath}] Warning: Missing local resource. ${item.label} ('${relMissing}') does not exist on disk. Update concept bindings or run okf-prune.`);
+          }
         }
       }
 
       if (checkDrift && lastModified && !isDeprecated) {
+        const effectiveConceptTime = getEffectiveConceptTime(fullPath, lastModified, workspaceRoot);
+        const declaredConceptTime = new Date(lastModified);
         for (const res of resourcesToCheck) {
           const resolvedPath = resolveResourceLocalPath(res.path, workspaceRoot, bundleRoot);
-          if (resolvedPath && fs.existsSync(resolvedPath)) {
+          if (resolvedPath && fs.existsSync(resolvedPath) && effectiveConceptTime) {
             const gitTimeStr = getGitLastModifiedISO(resolvedPath, workspaceRoot);
             if (gitTimeStr) {
               const gitTime = new Date(gitTimeStr);
-              const conceptTime = new Date(lastModified);
-              if (gitTime > conceptTime) {
-                results.warnings.push(`[${relativePath}] Warning: Concept drift detected. ${res.label} was modified on ${gitTime.toISOString()} but the concept's timestamp/generated.at is ${conceptTime.toISOString()}. Run okf-maintain to sync.`);
+              if (gitTime > effectiveConceptTime) {
+                results.warnings.push(`[${relativePath}] Warning: Concept drift detected. ${res.label} was modified on ${gitTime.toISOString()} but the concept's timestamp/generated.at is ${declaredConceptTime.toISOString()}. Run okf-maintain to sync.`);
               }
             }
           }
@@ -696,14 +775,7 @@ async function main() {
   const checkDrift = args.includes('--drift');
   const strictLinks = args.includes('--strict-links') || args.includes('--strict');
   
-  const workspaceRoot = process.cwd();
-  const bundleIdx = args.indexOf('--bundle');
-  let bundleRoot = (bundleIdx !== -1 && args[bundleIdx + 1])
-    ? path.resolve(workspaceRoot, args[bundleIdx + 1])
-    : path.join(workspaceRoot, 'docs', 'okf');
-  if (!fs.existsSync(bundleRoot)) {
-    bundleRoot = path.join(workspaceRoot, 'okf');
-  }
+  const { workspaceRoot, bundleRoot } = resolveWorkspaceAndBundle(args);
 
   if (!fs.existsSync(bundleRoot)) {
     if (outputJson) {

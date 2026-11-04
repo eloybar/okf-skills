@@ -252,6 +252,107 @@ function getGitLastModifiedISO(filePath, cwd) {
   return gitIso;
 }
 
+const gitCommitOnlyCache = new Map();
+
+function getGitCommitISO(filePath, cwd) {
+  const absFile = path.resolve(filePath);
+  const cacheKey = absFile.toLowerCase();
+  if (gitCommitOnlyCache.has(cacheKey)) {
+    return gitCommitOnlyCache.get(cacheKey);
+  }
+  const cleanPath = absFile.replace(/\\/g, '/');
+  const execCwd = cwd || path.dirname(absFile);
+  let gitIso = null;
+  try {
+    const stdout = execFileSync('git', ['log', '-1', '--format=%aI', '--', cleanPath], {
+      cwd: execCwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+    if (stdout) gitIso = stdout;
+  } catch (e) {}
+  gitCommitOnlyCache.set(cacheKey, gitIso);
+  return gitIso;
+}
+
+function getEffectiveConceptTime(conceptFilePath, rawLastModified, workspaceRoot) {
+  if (!rawLastModified) return null;
+  const fmDate = new Date(rawLastModified);
+  if (isNaN(fmDate.getTime())) return null;
+
+  const absConcept = path.resolve(conceptFilePath);
+  const dirtySet = getRepoDirtySet(workspaceRoot || path.dirname(absConcept));
+  if (!dirtySet.has(absConcept.toLowerCase())) {
+    const commitIso = getGitCommitISO(absConcept, workspaceRoot);
+    if (commitIso) {
+      const commitDate = new Date(commitIso);
+      if (!isNaN(commitDate.getTime()) && commitDate > fmDate) {
+        return commitDate;
+      }
+    }
+  }
+  return fmDate;
+}
+
+function resolveWorkspaceAndBundle(args) {
+  const cwd = process.cwd();
+  const bundleIdx = args.indexOf('--bundle');
+  if (bundleIdx !== -1 && args[bundleIdx + 1]) {
+    const bundleRoot = path.resolve(cwd, args[bundleIdx + 1]);
+    if (fs.existsSync(bundleRoot)) {
+      try {
+        const topLevel = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+          cwd: bundleRoot,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore']
+        }).trim();
+        if (topLevel && fs.existsSync(topLevel)) {
+          return { workspaceRoot: path.normalize(topLevel), bundleRoot };
+        }
+      } catch (e) {}
+      const parentDir = path.dirname(bundleRoot);
+      const derivedRoot = path.basename(parentDir).toLowerCase() === 'docs'
+        ? path.dirname(parentDir)
+        : parentDir;
+      return { workspaceRoot: derivedRoot, bundleRoot };
+    }
+    return { workspaceRoot: cwd, bundleRoot };
+  }
+
+  let bundleRoot = path.join(cwd, 'docs', 'okf');
+  if (!fs.existsSync(bundleRoot)) {
+    bundleRoot = path.join(cwd, 'okf');
+  }
+  return { workspaceRoot: cwd, bundleRoot };
+}
+
+function findBundlesOnOtherBranches(workspaceRoot) {
+  const hints = [];
+  try {
+    const branchesOut = execFileSync('git', ['for-each-ref', '--format=%(refname:short)', 'refs/heads/'], {
+      cwd: workspaceRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+    if (!branchesOut) return hints;
+    for (const branch of branchesOut.split(/\r?\n/)) {
+      const b = branch.trim();
+      if (!b) continue;
+      for (const candidate of ['docs/okf/index.md', 'okf/index.md']) {
+        try {
+          execFileSync('git', ['cat-file', '-e', `${b}:${candidate}`], {
+            cwd: workspaceRoot,
+            stdio: ['ignore', 'ignore', 'ignore']
+          });
+          const bundleDir = candidate.replace(/\/index\.md$/, '');
+          hints.push({ branch: b, bundlePath: bundleDir });
+        } catch (e) {}
+      }
+    }
+  } catch (e) {}
+  return hints;
+}
+
 function loadGitignorePatterns(workspaceRoot) {
   const patterns = [];
   const gitignorePath = path.join(workspaceRoot, '.gitignore');
@@ -584,7 +685,9 @@ Before reporting work complete after changing code:
 
 function inspectAndSyncSteeringFile(filePath, workspaceRoot, bundleRoot, targetVersion, dryRun = false) {
   if (!fs.existsSync(filePath)) return { exists: false, outdated: false, updated: false };
-  let content = fs.readFileSync(filePath, 'utf8');
+  const rawContent = fs.readFileSync(filePath, 'utf8');
+  const eol = rawContent.includes('\r\n') ? '\r\n' : '\n';
+  let content = rawContent.replace(/\r\n/g, '\n');
 
   // Check if file is related to OKF
   const isOkfRelated = content.includes('Knowledge Bundle') ||
@@ -635,7 +738,7 @@ function inspectAndSyncSteeringFile(filePath, workspaceRoot, bundleRoot, targetV
     newContent = content.trimEnd() + '\n\n' + newBlock + '\n';
   }
 
-  fs.writeFileSync(filePath, newContent, 'utf8');
+  fs.writeFileSync(filePath, eol === '\r\n' ? newContent.replace(/\n/g, '\r\n') : newContent, 'utf8');
   return { exists: true, outdated: true, updated: true };
 }
 
@@ -644,12 +747,6 @@ async function main() {
   const isCheckMode = args.includes('--check');
   const isJson = args.includes('--json');
   const withViz = args.includes('--viz');
-  
-  let bundleArg = null;
-  const bundleIdx = args.indexOf('--bundle');
-  if (bundleIdx !== -1 && args[bundleIdx + 1]) {
-    bundleArg = args[bundleIdx + 1];
-  }
 
   let actor = 'process:okf-maintain';
   const actorIdx = args.indexOf('--actor');
@@ -657,16 +754,17 @@ async function main() {
     actor = args[actorIdx + 1];
   }
 
-  const workspaceRoot = process.cwd();
-  let bundleRoot = bundleArg ? path.resolve(workspaceRoot, bundleArg) : path.join(workspaceRoot, 'docs', 'okf');
-  if (!fs.existsSync(bundleRoot)) {
-    bundleRoot = path.join(workspaceRoot, 'okf');
-  }
+  const { workspaceRoot, bundleRoot } = resolveWorkspaceAndBundle(args);
 
   if (!fs.existsSync(bundleRoot)) {
-    const err = `Error: OKF bundle not found at docs/okf or okf. Path checked: ${bundleRoot}`;
+    const otherBranches = findBundlesOnOtherBranches(workspaceRoot);
+    let err = `Error: OKF bundle not found at docs/okf or okf. Path checked: ${bundleRoot}`;
+    if (otherBranches.length > 0) {
+      const first = otherBranches[0];
+      err += `\nHint: An OKF bundle exists on branch '${first.branch}' at '${first.bundlePath}/'. To bring it onto this branch, run: git checkout ${first.branch} -- ${first.bundlePath}`;
+    }
     if (isJson) {
-      console.log(JSON.stringify({ success: false, error: err }));
+      console.log(JSON.stringify({ success: false, error: err, otherBranches }));
     } else {
       console.error(err);
     }
@@ -705,7 +803,7 @@ async function main() {
 
     const resourcesToCheck = [];
     if (fm.resource) {
-      const local = resolveResourceLocalPath(fm.resource, workspaceRoot);
+      const local = resolveResourceLocalPath(fm.resource, workspaceRoot, bundleRoot);
       if (local) {
         documentedResources.add(path.relative(workspaceRoot, local).replace(/\\/g, '/').toLowerCase());
         documentedResources.add(path.resolve(local).toLowerCase());
@@ -716,7 +814,7 @@ async function main() {
       fm.sources.forEach(src => {
         const rawResource = typeof src === 'string' ? src : (src && src.resource);
         if (rawResource && !/^https?:\/\//i.test(rawResource)) {
-          const local = resolveResourceLocalPath(rawResource, workspaceRoot);
+          const local = resolveResourceLocalPath(rawResource, workspaceRoot, bundleRoot);
           if (local) {
             documentedResources.add(path.relative(workspaceRoot, local).replace(/\\/g, '/').toLowerCase());
             documentedResources.add(path.resolve(local).toLowerCase());
@@ -753,6 +851,7 @@ async function main() {
 
     const lastModified = fm.timestamp || (fm.generated && fm.generated.at);
     const conceptTime = lastModified ? new Date(lastModified) : null;
+    const effectiveConceptTime = getEffectiveConceptTime(cFile, lastModified, workspaceRoot);
     allConceptRecords.push({
       file: relConcept,
       fullPath: cFile,
@@ -761,13 +860,13 @@ async function main() {
       resourcesToCheck
     });
 
-    if (conceptTime && !isNaN(conceptTime.getTime())) {
+    if (effectiveConceptTime && !isNaN(effectiveConceptTime.getTime())) {
       for (const res of resourcesToCheck) {
         if (fs.existsSync(res.path)) {
           const gitTimeStr = getGitLastModifiedISO(res.path, workspaceRoot);
           if (gitTimeStr) {
             const gitTime = new Date(gitTimeStr);
-            if (gitTime > conceptTime) {
+            if (gitTime > effectiveConceptTime) {
               driftedConcepts.push({
                 file: relConcept,
                 fullPath: cFile,
