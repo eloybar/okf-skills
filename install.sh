@@ -19,6 +19,7 @@ done
 # Define default paths
 ANTIGRAVITY_PATH="$HOME/.gemini/config/skills"
 CLAUDE_PATH="$HOME/.claude/skills"
+CODEX_PATH="$HOME/.codex/skills"
 UNIVERSAL_PATH="$HOME/.agents/skills"
 
 # Discover all Claude profile skill directories ($HOME/.claude/skills, $HOME/.claude-*/skills, and $CLAUDE_CONFIG_DIR/skills)
@@ -42,6 +43,27 @@ for prof_dir in "$HOME"/.claude-*; do
     fi
 done
 
+# Discover all Codex profile skill directories ($HOME/.codex/skills, $HOME/.codex-*/skills, and $CODEX_HOME/skills)
+CODEX_DIRS=("$CODEX_PATH")
+if [ -n "$CODEX_HOME" ] && [ "$CODEX_HOME/skills" != "$CODEX_PATH" ]; then
+    CODEX_DIRS+=("$CODEX_HOME/skills")
+fi
+for prof_dir in "$HOME"/.codex-*; do
+    if [ -d "$prof_dir" ]; then
+        prof_skills="$prof_dir/skills"
+        already_in=0
+        for existing in "${CODEX_DIRS[@]}"; do
+            if [ "$existing" = "$prof_skills" ]; then
+                already_in=1
+                break
+            fi
+        done
+        if [ "$already_in" -eq 0 ]; then
+            CODEX_DIRS+=("$prof_skills")
+        fi
+    fi
+done
+
 echo -e "\033[0;36m==========================================\033[0m"
 echo -e "\033[0;36m     OKF Skills Manager for Unix (Bash)   \033[0m"
 echo -e "\033[0;36m==========================================\033[0m"
@@ -49,20 +71,25 @@ echo -e "\033[0;36m==========================================\033[0m"
 # 1. Select the Agent
 if [ -z "$AGENT" ]; then
     echo -e "\033[0;33mSelect the target AI Agent environment:\033[0m"
-    echo "1) All Agents (Antigravity, Claude, and general agents) [Default]"
+    echo "1) All Agents (Antigravity, Claude, Codex, and general agents) [Default]"
     echo "2) Google Antigravity CLI (agy)"
     echo "3) Claude Code"
-    read -p "Enter choice [1-3]: " choice
+    echo "4) OpenAI Codex CLI"
+    read -p "Enter choice [1-4]: " choice
     if [ "$choice" = "2" ]; then
         AGENT="Antigravity"
     elif [ "$choice" = "3" ]; then
         AGENT="Claude"
+    elif [ "$choice" = "4" ]; then
+        AGENT="Codex"
     else
         AGENT="All"
     fi
 else
     if [ "$AGENT" = "Claude" ] || [ "$AGENT" = "claude" ]; then
         AGENT="Claude"
+    elif [ "$AGENT" = "Codex" ] || [ "$AGENT" = "codex" ]; then
+        AGENT="Codex"
     elif [ "$AGENT" = "All" ] || [ "$AGENT" = "all" ]; then
         AGENT="All"
     else
@@ -72,11 +99,14 @@ fi
 
 TARGET_DIRS=()
 if [ "$AGENT" = "All" ]; then
-    TARGET_DIRS+=("$ANTIGRAVITY_PATH" "${CLAUDE_DIRS[@]}" "$UNIVERSAL_PATH")
-    echo -e "\033[0;32mTargeting: All Agents (Antigravity, Claude profiles, and general agents)\033[0m"
+    TARGET_DIRS+=("$ANTIGRAVITY_PATH" "${CLAUDE_DIRS[@]}" "${CODEX_DIRS[@]}" "$UNIVERSAL_PATH")
+    echo -e "\033[0;32mTargeting: All Agents (Antigravity, Claude profiles, Codex profiles, and general agents)\033[0m"
 elif [ "$AGENT" = "Claude" ]; then
     TARGET_DIRS+=("${CLAUDE_DIRS[@]}")
     echo -e "\033[0;32mTargeting: Claude Code (${CLAUDE_DIRS[*]})\033[0m"
+elif [ "$AGENT" = "Codex" ]; then
+    TARGET_DIRS+=("${CODEX_DIRS[@]}")
+    echo -e "\033[0;32mTargeting: OpenAI Codex CLI (${CODEX_DIRS[*]})\033[0m"
 else
     TARGET_DIRS+=("$ANTIGRAVITY_PATH")
     echo -e "\033[0;32mTargeting: Google Antigravity CLI ($ANTIGRAVITY_PATH)\033[0m"

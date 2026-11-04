@@ -13,14 +13,15 @@ $ErrorActionPreference = "Stop"
 if ($Action -notin @("Install", "Update", "Remove")) {
     throw "Invalid Action: $Action. Must be 'Install', 'Update', or 'Remove'."
 }
-if ($Agent -and $Agent -notin @("Antigravity", "Claude", "All")) {
-    throw "Invalid Agent: $Agent. Must be 'Antigravity', 'Claude', or 'All'."
+if ($Agent -and $Agent -notin @("Antigravity", "Claude", "Codex", "All")) {
+    throw "Invalid Agent: $Agent. Must be 'Antigravity', 'Claude', 'Codex', or 'All'."
 }
 
 # Define default paths
 $Paths = @{
     "Antigravity" = "$HOME\.gemini\config\skills"
     "Claude"      = "$HOME\.claude\skills"
+    "Codex"       = "$HOME\.codex\skills"
     "Universal"   = "$HOME\.agents\skills"
 }
 
@@ -40,6 +41,22 @@ Get-ChildItem -Path $HOME -Directory -Filter ".claude-*" -Force -ErrorAction Sil
     }
 }
 
+# Discover all Codex profile skill directories ($HOME\.codex\skills, $HOME\.codex-*\skills, and $env:CODEX_HOME\skills)
+$CodexSkillDirs = [System.Collections.Generic.List[string]]::new()
+$CodexSkillDirs.Add($Paths["Codex"])
+if ($env:CODEX_HOME) {
+    $envCodexSkills = Join-Path $env:CODEX_HOME "skills"
+    if (-not $CodexSkillDirs.Contains($envCodexSkills)) {
+        $CodexSkillDirs.Add($envCodexSkills)
+    }
+}
+Get-ChildItem -Path $HOME -Directory -Filter ".codex-*" -Force -ErrorAction SilentlyContinue | ForEach-Object {
+    $profSkills = Join-Path $_.FullName "skills"
+    if (-not $CodexSkillDirs.Contains($profSkills)) {
+        $CodexSkillDirs.Add($profSkills)
+    }
+}
+
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host "     OKF Skills Manager for Windows       " -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
@@ -47,26 +64,32 @@ Write-Host "==========================================" -ForegroundColor Cyan
 # 1. Select the Agent
 if (-not $Agent) {
     Write-Host "Select the target AI Agent environment:" -ForegroundColor Yellow
-    Write-Host "1) All Agents (Antigravity, Claude, and general agents) [Default]"
+    Write-Host "1) All Agents (Antigravity, Claude, Codex, and general agents) [Default]"
     Write-Host "2) Google Antigravity CLI (agy)"
     Write-Host "3) Claude Code"
+    Write-Host "4) OpenAI Codex CLI"
     
-    $choice = Read-Host "Enter choice [1-3]"
+    $choice = Read-Host "Enter choice [1-4]"
     if ($choice -eq "2") {
         $Agent = "Antigravity"
     } elseif ($choice -eq "3") {
         $Agent = "Claude"
+    } elseif ($choice -eq "4") {
+        $Agent = "Codex"
     } else {
         $Agent = "All" # Default
     }
 }
 
 if ($Agent -eq "All") {
-    $TargetDirs = @($Paths["Antigravity"]) + @($ClaudeSkillDirs) + @($Paths["Universal"])
-    Write-Host "Targeting: All Agents (Antigravity, Claude profiles, and general agents)" -ForegroundColor Green
+    $TargetDirs = @($Paths["Antigravity"]) + @($ClaudeSkillDirs) + @($CodexSkillDirs) + @($Paths["Universal"])
+    Write-Host "Targeting: All Agents (Antigravity, Claude profiles, Codex profiles, and general agents)" -ForegroundColor Green
 } elseif ($Agent -eq "Claude") {
     $TargetDirs = @($ClaudeSkillDirs)
     Write-Host "Targeting: Claude Code ($($TargetDirs -join ', '))" -ForegroundColor Green
+} elseif ($Agent -eq "Codex") {
+    $TargetDirs = @($CodexSkillDirs)
+    Write-Host "Targeting: OpenAI Codex CLI ($($TargetDirs -join ', '))" -ForegroundColor Green
 } else {
     $TargetDirs = @($Paths[$Agent])
     $TargetDir = $Paths[$Agent]
