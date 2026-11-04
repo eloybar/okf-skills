@@ -878,6 +878,74 @@ ${largeBody}`);
   assert.ok(!wfAfterDirBind.frontier.some(f => f.path.startsWith('subpkg/okf/')), 'wayfinder must exclude nested OKF bundles');
   console.log('✓ Frontier section surgery preserved prose & Provenance, respected directory bindings, and skipped nested bundles.');
 
+  // === STEP 16: TEST SAME-COMMIT DRIFT TOLERANCE, MISSING RESOURCE LINT, MULTI-WORD QUERY, STEERING CRLF & EXTERNAL --bundle ===
+  console.log('Step 16: Testing same-commit drift tolerance, missing-resource lint warning, tokenized search, CRLF steering, and external --bundle...');
+
+  // 16a. Same-commit timestamp drift tolerance: maintain runs before git commit, then commit happens 1s later
+  fs.writeFileSync(shorthandCodeFile, 'export function syncCloud() { return "same-commit-test"; }\n');
+  execSync(`node "${scripts.maintain}"`, { cwd: tempDir, stdio: 'ignore' });
+  execSync('node -e "setTimeout(() => {}, 1100)"');
+  execSync('git add . && git commit -m "feat: commit code and maintained concepts together"', { cwd: tempDir, stdio: 'ignore' });
+
+  const postCommitLintJson = JSON.parse(execSync(`node "${scripts.lint}" --drift --json`, { cwd: tempDir }).toString());
+  assert.equal(postCommitLintJson.driftCount, 0, 'Concepts committed in the same commit as their bound resource must not trigger post-commit drift');
+  execSync(`node "${scripts.maintain}" --check`, { cwd: tempDir, stdio: 'ignore' });
+  console.log('✓ Same-commit timestamp drift tolerance verified across okf-lint and okf-maintain.');
+
+  // 16b. Missing local resource/sources warning in okf-lint
+  const missingResConcept = path.join(bundleRoot, 'concepts', 'missing_res_test.md');
+  fs.writeFileSync(missingResConcept, `---
+type: Subsystem
+title: Missing Resource Test
+resource: src/deleted_on_branch.ts
+generated:
+  by: Antigravity/4.0
+  at: ${new Date().toISOString()}
+---
+Body.
+`);
+  const missingResLint = JSON.parse(execSync(`node "${scripts.lint}" --json`, { cwd: tempDir }).toString());
+  assert.ok(
+    missingResLint.warnings.some(w => w.includes('Warning: Missing local resource') && w.includes('src/deleted_on_branch.ts')),
+    'okf-lint should warn when an active concept binds a non-existent local resource/sources path'
+  );
+  fs.unlinkSync(missingResConcept);
+  console.log('✓ okf-lint warned on missing local resource/sources path.');
+
+  // 16c. Multi-word tokenized --search in okf-query
+  const multiWordOut = execSync(`node "${scripts.query}" --search "cloud storage sync hub"`, { cwd: tempDir }).toString();
+  assert.ok(multiWordOut.includes('Cloud Sync Service'), 'okf-query --search should match multi-word non-contiguous token queries');
+  console.log('✓ okf-query --search matched multi-word tokenized query.');
+
+  // 16d. CRLF preservation in inspectAndSyncSteeringFile and other-branch bundle hint
+  const crlfClaude = path.join(tempDir, 'CLAUDE.md');
+  fs.writeFileSync(crlfClaude, '# Project\r\n\r\n## Knowledge Bundle / OKF\r\nOld notice.\r\n\r\n<!-- okf-steering-version: 1.7.0 -->\r\n', 'utf8');
+  execSync(`node "${scripts.maintain}"`, { cwd: tempDir, stdio: 'ignore' });
+  const healedCrlfClaude = fs.readFileSync(crlfClaude, 'utf8');
+  assert.ok(healedCrlfClaude.includes('\r\n'), 'inspectAndSyncSteeringFile must preserve CRLF line endings');
+  assert.ok(!healedCrlfClaude.replace(/\r\n/g, '').includes('\n'), 'inspectAndSyncSteeringFile must not introduce bare LF into a CRLF file');
+  fs.unlinkSync(crlfClaude);
+
+  let branchHintCaught = false;
+  try {
+    execSync(`node "${scripts.maintain}" --bundle "${path.join(tempDir, 'nonexistent_okf')}" --json`, { cwd: tempDir, stdio: 'pipe' });
+  } catch (e) {
+    const errJson = JSON.parse(e.stdout.toString());
+    assert.ok(Array.isArray(errJson.otherBranches) && errJson.otherBranches.length > 0, 'maintain should report otherBranches when bundle is missing at target path');
+    assert.ok(errJson.error.includes('Hint: An OKF bundle exists on branch'), 'maintain error message should include branch checkout hint');
+    branchHintCaught = true;
+  }
+  assert.ok(branchHintCaught, 'maintain should exit 1 with branch hint when bundle is missing');
+  console.log('✓ CRLF steering sync and missing-bundle branch hint verified.');
+
+  // 16e. External --bundle workspaceRoot resolution when invoked from outside the repo
+  const externalCwd = os.tmpdir();
+  const extPruneJson = JSON.parse(execSync(`node "${scripts.prune}" --check --ghosts --json --bundle "${bundleRoot}"`, { cwd: externalCwd }).toString());
+  assert.equal(extPruneJson.totalPrunable, 0, 'okf-prune with external --bundle must resolve workspaceRoot to target repo root');
+  const extQueryOut = execSync(`node "${scripts.query}" --file "src/shorthand_sync.ts" --bundle "${bundleRoot}"`, { cwd: externalCwd }).toString();
+  assert.ok(extQueryOut.includes('Cloud Sync Service'), 'okf-query --file with external --bundle must resolve against target repo root');
+  console.log('✓ External --bundle workspaceRoot resolution verified across tools.');
+
   console.log('\n======================================');
   console.log('🎉 ALL LIFE CYCLE TEST CASES PASSED SUCCESSFULLY!');
   console.log('======================================');
