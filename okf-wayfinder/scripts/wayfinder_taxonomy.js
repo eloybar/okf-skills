@@ -274,7 +274,12 @@ function scanBundleTaxonomy(
 
 const IGNORED_FRONTIER_EXTENSIONS = new Set([
   '.pyc', '.pyo', '.pyd', '.dll', '.exe', '.so', '.dylib',
-  '.class', '.o', '.obj', '.a', '.lib', '.pdb'
+  '.class', '.o', '.obj', '.a', '.lib', '.pdb',
+  '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico', '.bmp', '.tiff', '.avif',
+  '.mp4', '.webm', '.mov', '.avi', '.mkv', '.mp3', '.wav', '.ogg',
+  '.woff', '.woff2', '.ttf', '.otf', '.eot',
+  '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+  '.zip', '.tar', '.gz', '.tgz', '.7z', '.rar', '.pkpass'
 ]);
 
 const IGNORED_FRONTIER_FILES = new Set([

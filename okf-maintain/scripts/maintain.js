@@ -360,7 +360,12 @@ function findBundlesOnOtherBranches(workspaceRoot) {
 
 const IGNORED_FRONTIER_EXTENSIONS = new Set([
   '.pyc', '.pyo', '.pyd', '.dll', '.exe', '.so', '.dylib',
-  '.class', '.o', '.obj', '.a', '.lib', '.pdb'
+  '.class', '.o', '.obj', '.a', '.lib', '.pdb',
+  '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico', '.bmp', '.tiff', '.avif',
+  '.mp4', '.webm', '.mov', '.avi', '.mkv', '.mp3', '.wav', '.ogg',
+  '.woff', '.woff2', '.ttf', '.otf', '.eot',
+  '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+  '.zip', '.tar', '.gz', '.tgz', '.7z', '.rar', '.pkpass'
 ]);
 
 const IGNORED_FRONTIER_FILES = new Set([
@@ -740,24 +745,103 @@ function compareVersions(v1, v2) {
   return 0;
 }
 
+function extractIndexedConceptPaths(indexContent) {
+  const indexedSet = new Set();
+  const linkRe = /\[[^\]]*\]\(([^)]+)\)/g;
+  let m;
+  while ((m = linkRe.exec(indexContent)) !== null) {
+    let raw = m[1].replace(/[?#].*$/, '').trim();
+    if (!raw || /^(?:https?:|mailto:|file:|git:)/i.test(raw)) continue;
+    try {
+      raw = decodeURIComponent(raw);
+    } catch (e) {}
+    const norm = raw.replace(/\\/g, '/').replace(/^(?:\.\/|\/)+/, '').toLowerCase();
+    if (norm) indexedSet.add(norm);
+  }
+  return indexedSet;
+}
+
+function findUnindexedConcepts(indexPath, allConceptRecords) {
+  if (!fs.existsSync(indexPath) || !Array.isArray(allConceptRecords)) return [];
+  const indexContent = fs.readFileSync(indexPath, 'utf8');
+  const indexedSet = extractIndexedConceptPaths(indexContent);
+  return allConceptRecords.filter(rec => {
+    if (String(rec.status || '').toLowerCase() === 'deprecated') return false;
+    return !indexedSet.has(rec.file.toLowerCase());
+  });
+}
+
+function updateIndexConcepts(indexPath, unindexedRecords) {
+  if (!fs.existsSync(indexPath) || !Array.isArray(unindexedRecords) || unindexedRecords.length === 0) {
+    return false;
+  }
+  const rawContent = fs.readFileSync(indexPath, 'utf8');
+  const eol = rawContent.includes('\r\n') ? '\r\n' : '\n';
+  const content = rawContent.replace(/\r\n/g, '\n');
+
+  const newBullets = unindexedRecords
+    .slice()
+    .sort((a, b) => a.file.localeCompare(b.file))
+    .map(rec => `- [${rec.title}](/${rec.file})`)
+    .join('\n');
+
+  let newContent;
+  const conceptHeadingMatch = content.match(/^##\s+(?!Archived\s+Concepts\b).*concepts.*$/im);
+  if (conceptHeadingMatch) {
+    const headingEnd = conceptHeadingMatch.index + conceptHeadingMatch[0].length;
+    const rest = content.slice(headingEnd);
+    const nextHeadingMatch = rest.match(/\n##\s+/);
+    const sectionEnd = nextHeadingMatch ? headingEnd + nextHeadingMatch.index : content.length;
+    const beforeSectionEnd = content.slice(0, sectionEnd).trimEnd();
+    const afterSectionEnd = content.slice(sectionEnd);
+    newContent =
+      beforeSectionEnd +
+      '\n' +
+      newBullets +
+      '\n' +
+      (afterSectionEnd ? '\n' + afterSectionEnd.replace(/^\n+/, '') : '');
+  } else {
+    const specialHeadingMatch = content.match(/^##\s+(?:Not yet specified|Archived Concepts|Provenance)\b/im);
+    if (specialHeadingMatch) {
+      const insertIdx = specialHeadingMatch.index;
+      const before = content.slice(0, insertIdx).trimEnd();
+      const after = content.slice(insertIdx);
+      newContent = before + '\n\n## Concepts\n' + newBullets + '\n\n' + after;
+    } else {
+      newContent = content.trimEnd() + '\n\n## Concepts\n' + newBullets + '\n';
+    }
+  }
+
+  fs.writeFileSync(indexPath, eol === '\r\n' ? newContent.replace(/\n/g, '\r\n') : newContent, 'utf8');
+  return true;
+}
+
 // Path prefix for invoking the OKF skill scripts, as seen from the workspace root:
-// workspace-relative when the skills live inside the repo, `~/`-relative when under
-// the user's home directory, absolute otherwise. Always ends with '/' (or is '').
-function resolveSkillsBase(workspaceRoot) {
+// workspace-relative when the skills live inside the repo, `~/`-relative on POSIX when
+// under the user's home directory, forward-slash absolute on Windows (PowerShell does not
+// expand `~/` when passed as an argument to `node`). Always ends with '/' (or is '').
+function resolveSkillsBase(workspaceRoot, options = {}) {
+  const skillsRoot = options.skillsRoot || path.resolve(__dirname, '..', '..');
+  const homeDir = options.homeDir || os.homedir();
+  const platform = options.platform || process.platform;
   if (
     workspaceRoot &&
+    !options.skillsRoot &&
     fs.existsSync(path.join(workspaceRoot, 'okf-query', 'scripts', 'query.js')) &&
     fs.existsSync(path.join(workspaceRoot, 'okf-maintain', 'scripts', 'maintain.js'))
   ) {
     return '';
   }
-  const skillsRoot = path.resolve(__dirname, '..', '..');
   const isInside = (rel) => rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
-  const relWs = path.relative(workspaceRoot, skillsRoot);
+  const relWs = workspaceRoot ? path.relative(workspaceRoot, skillsRoot) : skillsRoot;
   if (relWs === '') return '';
-  if (isInside(relWs) && !relWs.startsWith('.')) return relWs.replace(/\\/g, '/') + '/';
-  const relHome = path.relative(os.homedir(), skillsRoot);
-  if (isInside(relHome)) return '~/' + relHome.replace(/\\/g, '/') + '/';
+  if (isInside(relWs) && (!relWs.startsWith('.') || path.resolve(workspaceRoot) !== path.resolve(homeDir))) {
+    return relWs.replace(/\\/g, '/') + '/';
+  }
+  if (platform !== 'win32') {
+    const relHome = path.relative(homeDir, skillsRoot);
+    if (isInside(relHome)) return '~/' + relHome.replace(/\\/g, '/') + '/';
+  }
   if (isInside(relWs)) return relWs.replace(/\\/g, '/') + '/';
   return skillsRoot.replace(/\\/g, '/') + '/';
 }
@@ -784,7 +868,7 @@ Before reporting work complete after changing code:
 <!-- okf-steering-version: ${targetVersion} -->`;
 }
 
-function inspectAndSyncSteeringFile(filePath, workspaceRoot, bundleRoot, targetVersion, dryRun = false) {
+function inspectAndSyncSteeringFile(filePath, workspaceRoot, bundleRoot, targetVersion, dryRun = false, options = {}) {
   if (!fs.existsSync(filePath)) return { exists: false, outdated: false, updated: false };
   const rawContent = fs.readFileSync(filePath, 'utf8');
   const eol = rawContent.includes('\r\n') ? '\r\n' : '\n';
@@ -814,6 +898,11 @@ function inspectAndSyncSteeringFile(filePath, workspaceRoot, bundleRoot, targetV
     isOutdated = true;
   }
 
+  const platform = options.platform || process.platform;
+  if (platform === 'win32' && /\bnode\s+~\//.test(content)) {
+    isOutdated = true;
+  }
+
   if (!isOutdated) {
     return { exists: true, outdated: false, updated: false };
   }
@@ -823,7 +912,7 @@ function inspectAndSyncSteeringFile(filePath, workspaceRoot, bundleRoot, targetV
   }
 
   const bundleRel = path.relative(workspaceRoot, bundleRoot).replace(/\\/g, '/') || '.';
-  const newBlock = buildSteeringDirectivesBlock(bundleRel, targetVersion, resolveSkillsBase(workspaceRoot));
+  const newBlock = buildSteeringDirectivesBlock(bundleRel, targetVersion, resolveSkillsBase(workspaceRoot, options));
 
   let newContent = content;
   const startRegex = /(## (?:⚡ )?Pre-Work Grounding Gate[\s\S]*?|## (?:⚡ )?Pre-Completion Verification Gate[\s\S]*?|## (?:📂 )?Knowledge Bundle \/ OKF[\s\S]*?)(?:<!-- okf-steering-version:\s*[0-9.]+\s*-->)/;
@@ -956,6 +1045,8 @@ async function main() {
     allConceptRecords.push({
       file: relConcept,
       fullPath: cFile,
+      title: fm.title || path.basename(cFile, '.md'),
+      status: fm.status || 'stable',
       absKey: path.resolve(cFile).toLowerCase(),
       conceptTimeIso: (conceptTime && !isNaN(conceptTime.getTime())) ? conceptTime.toISOString() : null,
       resourcesToCheck
@@ -1013,7 +1104,7 @@ async function main() {
   // 2. Scan workspace for undocumented frontier files
   const frontierList = scanWorkspaceFiles(workspaceRoot, workspaceRoot, documentedResources, [], null, bundleRoot);
 
-  // Check if index.md has unlisted frontier files
+  // Check if index.md has unlisted frontier files or unindexed active concepts
   const indexPath = path.join(bundleRoot, 'index.md');
   const missingFrontierInIndex = [];
   if (fs.existsSync(indexPath)) {
@@ -1024,6 +1115,8 @@ async function main() {
       }
     }
   }
+  const unindexedRecords = findUnindexedConcepts(indexPath, allConceptRecords);
+  const unindexedConcepts = unindexedRecords.map(r => r.file);
 
   // 3. Inspect steering notice files across all supported agents
   const steeringFilesToCheck = ['AGENTS.md', 'CLAUDE.md', '.cursorrules', '.windsurfrules', '.clinerules', 'GEMINI.md'];
@@ -1037,14 +1130,20 @@ async function main() {
   }
 
   if (isCheckMode) {
-    const clean = driftedConcepts.length === 0 && missingFrontierInIndex.length === 0 && outdatedSteeringFiles.length === 0;
+    const clean =
+      driftedConcepts.length === 0 &&
+      missingFrontierInIndex.length === 0 &&
+      unindexedConcepts.length === 0 &&
+      outdatedSteeringFiles.length === 0;
     if (isJson) {
       console.log(JSON.stringify({
         success: clean,
+        inSync: clean,
         bundleRoot,
         drifted: driftedConcepts,
         stale: staleConcepts,
         unindexedFrontier: missingFrontierInIndex,
+        unindexedConcepts,
         outdatedSteering: outdatedSteeringFiles
       }, null, 2));
     } else {
@@ -1053,12 +1152,17 @@ async function main() {
       console.log(`Concepts checked:    ${conceptFiles.length}`);
       console.log(`Drifted concepts:    ${driftedConcepts.length}`);
       console.log(`Stale concepts:      ${staleConcepts.length}`);
+      console.log(`Unindexed concepts:  ${unindexedConcepts.length}`);
       console.log(`Unindexed frontier:  ${missingFrontierInIndex.length}`);
       console.log(`Outdated steering:   ${outdatedSteeringFiles.length}`);
       console.log(`----------------------------------------`);
       if (driftedConcepts.length > 0) {
         console.log(`Drifted concepts:`);
         driftedConcepts.forEach(d => console.log(`  - ${d.file} (resource ${d.resource} updated on ${d.gitTime})`));
+      }
+      if (unindexedConcepts.length > 0) {
+        console.log(`Unindexed active concepts:`);
+        unindexedConcepts.forEach(c => console.log(`  - ${c}`));
       }
       if (missingFrontierInIndex.length > 0) {
         console.log(`Unindexed frontier files:`);
@@ -1104,9 +1208,14 @@ async function main() {
     logEntries.push(`Synchronized timestamp for ${updatedFiles.length} drifted concept(s): ${updatedFiles.join(', ')}.`);
   }
 
-  // 3c. Update index.md frontier
+  // 3c. Auto-index unindexed active concepts and update index.md frontier
+  let conceptsIndexed = false;
   let indexUpdated = false;
   if (fs.existsSync(indexPath)) {
+    conceptsIndexed = updateIndexConcepts(indexPath, unindexedRecords);
+    if (conceptsIndexed) {
+      logEntries.push(`Indexed ${unindexedRecords.length} active concept(s) in \`index.md\`: ${unindexedConcepts.join(', ')}.`);
+    }
     indexUpdated = updateIndexFrontier(indexPath, frontierList, documentedResources, workspaceRoot);
     if (indexUpdated) {
       logEntries.push(`Synchronized workspace frontier mapping in \`index.md\` (${frontierList.length} undocumented files mapped).`);
@@ -1157,6 +1266,7 @@ async function main() {
       success: true,
       bundleRoot,
       updatedConcepts: updatedFiles,
+      indexedConcepts: conceptsIndexed ? unindexedConcepts : [],
       indexFrontierUpdated: indexUpdated,
       steeringUpdated: updatedSteering,
       logUpdated,
@@ -1167,6 +1277,7 @@ async function main() {
     console.log(`OKF Maintenance Sync Complete 🎉`);
     console.log(`----------------------------------------`);
     console.log(`Concepts synchronized: ${updatedFiles.length}`);
+    console.log(`Concepts indexed:      ${conceptsIndexed ? unindexedConcepts.length : 'Up to date'}`);
     console.log(`Frontier updated:       ${indexUpdated ? 'Yes' : 'Up to date'}`);
     console.log(`Steering updated:       ${updatedSteering.length > 0 ? updatedSteering.join(', ') : 'Up to date'}`);
     console.log(`Log recorded:           ${logUpdated ? 'Yes' : 'Up to date'}`);
@@ -1184,5 +1295,7 @@ module.exports = {
   parseFrontmatter,
   inspectAndSyncSteeringFile,
   buildSteeringDirectivesBlock,
-  resolveSkillsBase
+  resolveSkillsBase,
+  findUnindexedConcepts,
+  updateIndexConcepts
 };
