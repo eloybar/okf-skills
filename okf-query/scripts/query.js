@@ -137,14 +137,18 @@ function resolveResourceLocalPath(resourceUri, workspaceRoot, bundleRoot = null)
   if (!resourceUri || typeof resourceUri !== 'string') return null;
   const trimmed = resourceUri.trim();
   if (/^(?!file:\/\/)[a-zA-Z][a-zA-Z0-9+.-]*:\/\//i.test(trimmed)) return null;
+  if (/^(?!file:)[a-zA-Z][a-zA-Z0-9+.-]+:/i.test(trimmed)) return null;
   if (!/^file:\/\//i.test(trimmed) && /\s/.test(trimmed) && !/[\/\\]/.test(trimmed)) return null;
 
   const isFileUri = /^file:\/\//i.test(trimmed);
-  let localPath = trimmed.replace(/^file:\/\/\/?/, '');
+  let localPath = trimmed.replace(/^file:\/\/\/?/, '').replace(/[?#].*$/, '');
+  try {
+    localPath = decodeURIComponent(localPath);
+  } catch (e) {}
   if (!isFileUri && trimmed.startsWith('/') && bundleRoot) {
-    const bundleCandidate = path.normalize(path.join(bundleRoot, trimmed.slice(1)));
+    const bundleCandidate = path.normalize(path.join(bundleRoot, localPath.slice(1)));
     if (fs.existsSync(bundleCandidate)) return bundleCandidate;
-    const workspaceCandidate = path.normalize(path.join(workspaceRoot, trimmed.slice(1)));
+    const workspaceCandidate = path.normalize(path.join(workspaceRoot, localPath.slice(1)));
     if (fs.existsSync(workspaceCandidate)) return workspaceCandidate;
   }
   if (path.isAbsolute(localPath)) {

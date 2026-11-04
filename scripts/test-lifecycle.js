@@ -1060,6 +1060,131 @@ Body.
   assert.equal(subDriftLintJson.warnings.length, 0, 'Sub-package lint --drift after maintain should have 0 warnings');
   console.log('✓ Monorepo sub-package --bundle resolution, upgrade §12/bullet-log/comma-resource, and frontier cleanup verified.');
 
+  // === STEP 18: PERCENT-ENCODED (%20) & FRAGMENT (#) FILE URIS, GIT: URIS, BACKTICK LINK LABELS, AND HAND-WRITTEN FRONTIER NOTES ===
+  console.log('Step 18: Testing %20/fragment/git: URIs, backtick link labels, and multi-line hand-written frontier notes...');
+
+  const spaceWorkspaceDir = path.join(tempDir, 'Acme Cloud Integrations', 'GatewayAuditor');
+  const spaceBundleDir = path.join(spaceWorkspaceDir, 'okf');
+  fs.mkdirSync(spaceBundleDir, { recursive: true });
+
+  const spaceCodeFile = path.join(spaceWorkspaceDir, 'GatewayComms.cs');
+  const spaceCompanionFile = path.join(spaceWorkspaceDir, 'gateway_journal_parse.py');
+  const spaceEllipsisSqlFile = path.join(spaceWorkspaceDir, 'GetAuthorizedEndpointsWithRouting_2026_09_28_patch.sql');
+  const childSubPkgOkfDir = path.join(spaceWorkspaceDir, 'troubleshoot_gateway_access', 'okf');
+  fs.mkdirSync(childSubPkgOkfDir, { recursive: true });
+  fs.writeFileSync(path.join(childSubPkgOkfDir, 'index.md'), '---\r\nokf_version: 0.2\r\n---\r\n# Nested Bundle\r\n');
+  fs.writeFileSync(path.join(spaceWorkspaceDir, 'troubleshoot_gateway_access', 'gateway_access_check.py'), 'def check(): pass\r\n');
+  fs.writeFileSync(spaceCodeFile, 'class GatewayComms {}\r\n');
+  fs.writeFileSync(spaceCompanionFile, 'def parse(): pass\r\n');
+  fs.writeFileSync(spaceEllipsisSqlFile, 'ALTER PROCEDURE Core.GetAuthorizedEndpointsWithRouting AS RETURN;\r\n');
+  fs.writeFileSync(path.join(spaceWorkspaceDir, 'README.md'), '# GatewayAuditor\r\n');
+  fs.writeFileSync(path.join(spaceWorkspaceDir, 'CLAUDE.md'), '# Non-OKF notes\r\n');
+
+  const encodedWorkspaceUri = 'file:///' + spaceWorkspaceDir.replace(/\\/g, '/').replace(/ /g, '%20');
+  const spaceLogPath = path.join(spaceBundleDir, 'log.md');
+  fs.writeFileSync(
+    spaceLogPath,
+    [
+      '# OKF Bundle Update Log',
+      '',
+      '- 2026-09-29 — Recorded initial journal anatomy.'
+    ].join('\r\n') + '\r\n',
+    'utf8'
+  );
+
+  const spaceConceptPath = path.join(spaceBundleDir, 'interface-journal.md');
+  const spaceNowISO = new Date(Date.now() + 2000).toISOString();
+  fs.writeFileSync(
+    spaceConceptPath,
+    [
+      '---',
+      'type: Log Format',
+      'title: GatewayService Journal Anatomy',
+      'description: How to read an GatewayService.service journald capture.',
+      `resource: ${encodedWorkspaceUri}/GatewayComms.cs`,
+      'generated:',
+      '  by: claude-code/opus-5.5',
+      `  at: ${spaceNowISO}`,
+      'sources:',
+      '  - id: field-confirmation',
+      `    resource: ${encodedWorkspaceUri}/okf/log.md#2026-09-29`,
+      '    title: "Log confirmation entry"',
+      '    author: human:jdoe',
+      '  - id: historical-git-source',
+      '    resource: git:323eae6:GatewayService/LegacyGatewayComms.cs',
+      '    title: "Historical LegacyGatewayComms.cs removed after 323eae6"',
+      '---',
+      '',
+      '# GatewayService Journal Anatomy',
+      'Cross-references [`GatewayComms.cs`](/interface-journal.md), parses with `gateway_journal_parse.py`, and applies `…_2026_09_28_denialfix.sql`.'
+    ].join('\r\n') + '\r\n',
+    'utf8'
+  );
+
+  const handWrittenIndex = [
+    '---',
+    'okf_version: 0.2',
+    '---',
+    '',
+    '# GatewayAuditor Knowledge Bundle',
+    '',
+    '## Concepts',
+    '- [GatewayService Journal Anatomy](/interface-journal.md)',
+    '',
+    '## Not yet specified',
+    '',
+    'Observed in this directory tree, not yet captured as concepts:',
+    '',
+    '- `192.0.2.10` — the upstream gateway peer that emitted every duplicate-packet NAK. Which',
+    '  device it is, and whether the retransmissions matter, is unestablished.',
+    '- `RpcClient.SimulateRouteRequest` — an operator-triggered simulated floor request, observed failing with',
+    '  `Can not find a keypad for the swiped card.` Its keypad-resolution path is undocumented.',
+    '- `GatewayComms.cs` — the UDP loop side is still unread in detail,',
+    '  only the card lookup lines are covered.',
+    '- `stale_deleted_auto.py` — Undocumented codebase file.'
+  ].join('\r\n') + '\r\n';
+  fs.writeFileSync(path.join(spaceBundleDir, 'index.md'), handWrittenIndex, 'utf8');
+
+  execSync('git add . && git commit -m "feat: add space-path bundle with %20 URIs and hand-written frontier notes"', { cwd: tempDir, stdio: 'ignore' });
+
+  // 18a. Lint should report 0 errors and 0 warnings (no false missing resource on %20, #fragment, or git:, and no empty link label '')
+  const spaceLintBefore = JSON.parse(execSync(`node "${scripts.lint}" --drift --json`, { cwd: spaceWorkspaceDir }).toString());
+  assert.equal(spaceLintBefore.errors.length, 0, 'Lint on %20/fragment/git: bundle must report 0 errors');
+  assert.equal(spaceLintBefore.warnings.length, 0, `Lint must report 0 warnings, got: ${JSON.stringify(spaceLintBefore.warnings)}`);
+
+  // 18b. Query --file should resolve %20 resource binding
+  const spaceQueryOut = execSync(`node "${scripts.query}" --file GatewayComms.cs`, { cwd: spaceWorkspaceDir }).toString();
+  assert.ok(spaceQueryOut.includes('GatewayService Journal Anatomy'), 'okf-query --file must match concept bound via %20-encoded file:// URI');
+
+  // 18c. Maintain must remove only the stale auto-generated bullet, preserve all 3 multi-line hand-written notes intact,
+  //      not add README.md/CLAUDE.md or concept-acknowledged gateway_journal_parse.py, and insert log entry at top of bullet-dated log.md
+  execSync(`node "${scripts.maintain}"`, { cwd: spaceWorkspaceDir, stdio: 'ignore' });
+  const spaceIndexAfter = fs.readFileSync(path.join(spaceBundleDir, 'index.md'), 'utf8');
+  assert.ok(!spaceIndexAfter.includes('stale_deleted_auto.py'), 'Maintain must remove stale auto-generated bullet');
+  assert.ok(
+    spaceIndexAfter.includes('- `192.0.2.10` — the upstream gateway peer that emitted every duplicate-packet NAK. Which\r\n  device it is, and whether the retransmissions matter, is unestablished.'),
+    'Maintain must preserve multi-line hand-written note starting with IP address'
+  );
+  assert.ok(
+    spaceIndexAfter.includes('- `RpcClient.SimulateRouteRequest` — an operator-triggered simulated floor request, observed failing with\r\n  `Can not find a keypad for the swiped card.` Its keypad-resolution path is undocumented.'),
+    'Maintain must preserve multi-line hand-written note starting with symbol name'
+  );
+  assert.ok(
+    spaceIndexAfter.includes('- `GatewayComms.cs` — the UDP loop side is still unread in detail,\r\n  only the card lookup lines are covered.'),
+    'Maintain must preserve multi-line hand-written note starting with covered file path'
+  );
+  assert.ok(!spaceIndexAfter.includes('Undocumented codebase file.'), 'Maintain must not add %20-bound, concept-mentioned, or README/CLAUDE files as undocumented');
+
+  const spaceLogAfter = fs.readFileSync(spaceLogPath, 'utf8');
+  const newHeadingPos = spaceLogAfter.indexOf('## 20');
+  const oldBulletPos = spaceLogAfter.indexOf('- 2026-09-29');
+  assert.ok(newHeadingPos !== -1 && newHeadingPos < oldBulletPos, 'Maintain must insert new date heading before older bullet-dated log entries');
+
+  // 18d. Subsequent lint --drift must still have 0 warnings (appending to log.md must not cause drift on log.md#2026-09-29 source)
+  const spaceLintAfter = JSON.parse(execSync(`node "${scripts.lint}" --drift --json`, { cwd: spaceWorkspaceDir }).toString());
+  assert.equal(spaceLintAfter.warnings.length, 0, `Lint after maintain must still have 0 warnings, got: ${JSON.stringify(spaceLintAfter.warnings)}`);
+  console.log('✓ %20/fragment/git: URIs, backtick link labels, and hand-written frontier notes verified.');
+
 } finally {
   // Cleanup temp files
   fs.rmSync(tempDir, { recursive: true, force: true });
