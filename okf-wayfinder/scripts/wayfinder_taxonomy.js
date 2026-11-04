@@ -136,14 +136,18 @@ function resolveResourceLocalPath(resourceUri, workspaceRoot, bundleRoot = null)
   if (!resourceUri || typeof resourceUri !== 'string') return null;
   const trimmed = resourceUri.trim();
   if (/^(?!file:\/\/)[a-zA-Z][a-zA-Z0-9+.-]*:\/\//i.test(trimmed)) return null;
+  if (/^(?!file:)[a-zA-Z][a-zA-Z0-9+.-]+:/i.test(trimmed)) return null;
   if (!/^file:\/\//i.test(trimmed) && /\s/.test(trimmed) && !/[\/\\]/.test(trimmed)) return null;
 
   const isFileUri = /^file:\/\//i.test(trimmed);
-  let localPath = trimmed.replace(/^file:\/\/\/?/, '');
+  let localPath = trimmed.replace(/^file:\/\/\/?/, '').replace(/[?#].*$/, '');
+  try {
+    localPath = decodeURIComponent(localPath);
+  } catch (e) {}
   if (!isFileUri && trimmed.startsWith('/') && bundleRoot) {
-    const bundleCandidate = path.normalize(path.join(bundleRoot, trimmed.slice(1)));
+    const bundleCandidate = path.normalize(path.join(bundleRoot, localPath.slice(1)));
     if (fs.existsSync(bundleCandidate)) return bundleCandidate;
-    const workspaceCandidate = path.normalize(path.join(workspaceRoot, trimmed.slice(1)));
+    const workspaceCandidate = path.normalize(path.join(workspaceRoot, localPath.slice(1)));
     if (fs.existsSync(workspaceCandidate)) return workspaceCandidate;
   }
   if (path.isAbsolute(localPath)) {
@@ -273,6 +277,19 @@ const IGNORED_FRONTIER_EXTENSIONS = new Set([
   '.class', '.o', '.obj', '.a', '.lib', '.pdb'
 ]);
 
+const IGNORED_FRONTIER_FILES = new Set([
+  'skills-lock.json',
+  '.gitignore',
+  'license',
+  'readme.md',
+  'agents.md',
+  'claude.md',
+  'gemini.md',
+  '.cursorrules',
+  '.windsurfrules',
+  '.clinerules'
+]);
+
 /**
  * Reads .gitignore files up to the enclosing Git root and compiles patterns to RegExp rules.
  */
@@ -400,17 +417,25 @@ function scanWorkspace(dir, workspaceRoot, documentedResources, results = [], gi
     if (stat.isDirectory()) {
       // Skip nested git repositories / submodules / worktrees
       if (fs.existsSync(path.join(fullPath, '.git'))) continue;
-      // Skip active or nested OKF bundles
+      // Skip active or nested OKF bundles and child sub-packages that host their own OKF bundle
       if (normBundleRoot && path.resolve(fullPath).toLowerCase() === normBundleRoot) continue;
       if (isOkfBundleDir(fullPath)) continue;
+      const childOkf = path.join(fullPath, 'okf');
+      const childDocsOkf = path.join(fullPath, 'docs', 'okf');
+      if (
+        (isOkfBundleDir(childOkf) && path.resolve(childOkf).toLowerCase() !== normBundleRoot) ||
+        (isOkfBundleDir(childDocsOkf) && path.resolve(childDocsOkf).toLowerCase() !== normBundleRoot)
+      ) {
+        continue;
+      }
       scanWorkspace(fullPath, workspaceRoot, documentedResources, results, gitignorePatterns, bundleRoot);
     } else if (stat.isFile()) {
       const ext = path.extname(file).toLowerCase();
       if (IGNORED_FRONTIER_EXTENSIONS.has(ext)) continue;
       const normalized = path.normalize(fullPath);
       if (!isCoveredByResource(relPath, fullPath, documentedResources)) {
-        // Skip common auxiliary files that do not warrant dedicated concept maps
-        if (file !== 'skills-lock.json' && file !== '.gitignore' && file !== 'LICENSE') {
+        // Skip common auxiliary and agent-steering files that do not warrant dedicated concept maps
+        if (!IGNORED_FRONTIER_FILES.has(file.toLowerCase())) {
           results.push({
             path: relPath,
             absolutePath: normalized

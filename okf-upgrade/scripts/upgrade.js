@@ -352,14 +352,15 @@ function autoFixBareLinks(body, bundleRoot, currentFilePath) {
 
     // Replace links in non-code parts
     parts[i] = parts[i].replace(/\[([^\]]*)\]\(([^)\s]+\.md)(#[A-Za-z0-9_\-]*)?\)/g, (match, label, target, hash) => {
-      const labelLower = label.trim().toLowerCase();
+      const cleanLabel = label.replace(/`/g, '').trim();
+      const labelLower = cleanLabel.toLowerCase();
       const targetName = path.basename(target).toLowerCase();
-      const isBare = !label.trim() ||
+      const isBare = !cleanLabel ||
                      labelLower === targetName ||
                      labelLower === target.toLowerCase() ||
                      labelLower.endsWith('.md') ||
                      labelLower.startsWith('/') ||
-                     /^https?:\/\//i.test(label);
+                     /^https?:\/\//i.test(cleanLabel);
       
       if (isBare) {
         let targetPath;

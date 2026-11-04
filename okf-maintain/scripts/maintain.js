@@ -134,14 +134,20 @@ function resolveResourceLocalPath(resourceUri, workspaceRoot, bundleRoot = null)
   if (!resourceUri || typeof resourceUri !== 'string') return null;
   const trimmed = resourceUri.trim();
   if (/^(?!file:\/\/)[a-zA-Z][a-zA-Z0-9+.-]*:\/\//i.test(trimmed)) return null;
+  if (/^(?!file:)[a-zA-Z][a-zA-Z0-9+.-]+:/i.test(trimmed)) return null;
   if (!/^file:\/\//i.test(trimmed) && /\s/.test(trimmed) && !/[\/\\]/.test(trimmed)) return null;
 
   const isFileUri = /^file:\/\//i.test(trimmed);
-  let localPath = trimmed.replace(/^file:\/\/\/?/, '');
-  if (!isFileUri && trimmed.startsWith('/') && bundleRoot) {
-    const bundleCandidate = path.normalize(path.join(bundleRoot, trimmed.slice(1)));
+  let localPath = trimmed.replace(/^file:\/\/\/?/, '').replace(/[?#].*$/, '');
+  if (/%[0-9A-Fa-f]{2}/.test(localPath)) {
+    try {
+      localPath = decodeURIComponent(localPath);
+    } catch (e) {}
+  }
+  if (!isFileUri && localPath.startsWith('/') && bundleRoot) {
+    const bundleCandidate = path.normalize(path.join(bundleRoot, localPath.slice(1)));
     if (fs.existsSync(bundleCandidate)) return bundleCandidate;
-    const workspaceCandidate = path.normalize(path.join(workspaceRoot, trimmed.slice(1)));
+    const workspaceCandidate = path.normalize(path.join(workspaceRoot, localPath.slice(1)));
     if (fs.existsSync(workspaceCandidate)) return workspaceCandidate;
   }
   if (path.isAbsolute(localPath)) {
@@ -159,6 +165,15 @@ function resolveResourceLocalPath(resourceUri, workspaceRoot, bundleRoot = null)
     }
   }
   return path.normalize(path.join(workspaceRoot, localPath));
+}
+
+function isReservedBundleFile(filePath, bundleRoot) {
+  if (!filePath || !bundleRoot) return false;
+  const absFile = path.resolve(filePath).toLowerCase();
+  const absBundle = path.resolve(bundleRoot).toLowerCase();
+  if (!absFile.startsWith(absBundle + path.sep)) return false;
+  const base = path.basename(absFile);
+  return base === 'log.md' || base === 'index.md' || base === 'viz.html';
 }
 
 const gitModifiedCache = new Map();
@@ -348,6 +363,12 @@ const IGNORED_FRONTIER_EXTENSIONS = new Set([
   '.class', '.o', '.obj', '.a', '.lib', '.pdb'
 ]);
 
+const IGNORED_FRONTIER_FILES = new Set([
+  'skills-lock.json', '.gitignore', 'license', 'readme.md',
+  'agents.md', 'claude.md', 'gemini.md',
+  '.cursorrules', '.windsurfrules', '.clinerules'
+]);
+
 function loadGitignorePatterns(workspaceRoot) {
   const patterns = [];
   const dirsToCheck = [];
@@ -457,15 +478,24 @@ function scanWorkspaceFiles(dir, workspaceRoot, documentedResources, results = [
     if (stat.isDirectory()) {
       if (fs.existsSync(path.join(fullPath, '.git'))) continue;
       // An OKF bundle's own files (concepts, index.md, log.md, viz.html) are the
-      // documentation, not undocumented workspace files. Skip the active bundle and
-      // any nested bundle (a directory whose index.md declares okf_version).
+      // documentation, not undocumented workspace files. Skip the active bundle,
+      // any nested bundle directory, and any child sub-package that hosts its own
+      // nested OKF bundle (okf/ or docs/okf/).
       if (normBundleRoot && path.resolve(fullPath).toLowerCase() === normBundleRoot) continue;
       if (isOkfBundleDir(fullPath)) continue;
+      const childOkf = path.join(fullPath, 'okf');
+      const childDocsOkf = path.join(fullPath, 'docs', 'okf');
+      if (
+        (isOkfBundleDir(childOkf) && path.resolve(childOkf).toLowerCase() !== normBundleRoot) ||
+        (isOkfBundleDir(childDocsOkf) && path.resolve(childDocsOkf).toLowerCase() !== normBundleRoot)
+      ) {
+        continue;
+      }
       scanWorkspaceFiles(fullPath, workspaceRoot, documentedResources, results, gitignorePatterns, bundleRoot);
     } else if (stat.isFile()) {
       const ext = path.extname(file).toLowerCase();
       if (IGNORED_FRONTIER_EXTENSIONS.has(ext)) continue;
-      if (file !== 'skills-lock.json' && file !== '.gitignore' && file !== 'LICENSE') {
+      if (!IGNORED_FRONTIER_FILES.has(file.toLowerCase())) {
         if (!isCoveredByResource(relPath, fullPath, documentedResources)) {
           results.push({ path: relPath, absolutePath: fullPath });
         }
@@ -530,6 +560,35 @@ function updateConceptTimestamp(filePath, nowISO, actor, syncDate = null) {
   return true;
 }
 
+function collectBundleMarkdownLower(bundleRoot) {
+  if (!bundleRoot || !fs.existsSync(bundleRoot)) return '';
+  const chunks = [];
+  for (const name of ['index.md', 'log.md']) {
+    const p = path.join(bundleRoot, name);
+    if (fs.existsSync(p)) chunks.push(fs.readFileSync(p, 'utf8').toLowerCase());
+  }
+  for (const cFile of walkConceptFiles(bundleRoot)) {
+    try {
+      chunks.push(fs.readFileSync(cFile, 'utf8').toLowerCase());
+    } catch (e) {}
+  }
+  return chunks.join('\n');
+}
+
+function isAcknowledgedInBundle(relPath, bundleMarkdownLower) {
+  const norm = relPath.replace(/\\/g, '/').toLowerCase();
+  const base = path.basename(norm);
+  if (bundleMarkdownLower.includes(norm) || bundleMarkdownLower.includes('`' + base + '`')) {
+    return true;
+  }
+  const ellipsisRe = /`(?:\u2026|\.{3})([^`\r\n]{8,})`/g;
+  let m;
+  while ((m = ellipsisRe.exec(bundleMarkdownLower)) !== null) {
+    if (base.endsWith(m[1])) return true;
+  }
+  return false;
+}
+
 function updateIndexFrontier(indexPath, frontierList, documentedResources, workspaceRoot = null) {
   if (!fs.existsSync(indexPath)) return false;
   let content = fs.readFileSync(indexPath, 'utf8');
@@ -565,39 +624,45 @@ function updateIndexFrontier(indexPath, frontierList, documentedResources, works
   const frontierSet = new Set(frontierList.map(f => f.path.replace(/\\/g, '/').toLowerCase()));
 
   // 1. Drop managed bullet items whose file is now documented, deleted, or excluded.
+  //    Hand-written notes (custom prose after `—` or multi-line indented continuations)
+  //    are never deleted by maintain.
   const kept = [];
   const listed = new Set();
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const m = line.match(itemRe);
     if (m) {
       const key = m[1].replace(/\\/g, '/').toLowerCase();
-      // Also self-heal entries that point inside this bundle; earlier versions
-      // listed the bundle's own files as frontier.
-      const inBundle = bundleRel !== '' && key.startsWith(bundleRel + '/');
-      const isAutoGeneratedBullet = !m[2] || m[2].trim() === 'Undocumented codebase file.';
-      const existsOnDisk = !workspaceRoot || fs.existsSync(path.join(workspaceRoot, m[1]));
-      if (
-        inBundle ||
-        isCoveredByResource(key, key, documentedResources) ||
-        !existsOnDisk ||
-        (isAutoGeneratedBullet && !frontierSet.has(key))
-      ) {
-        modified = true;
-        continue;
+      const hasContinuation = (i + 1 < lines.length) && /^\s+\S/.test(lines[i + 1]);
+      const isAutoGeneratedBullet = !hasContinuation && (!m[2] || m[2].trim() === 'Undocumented codebase file.');
+      if (isAutoGeneratedBullet) {
+        // Also self-heal auto-generated entries that point inside this bundle;
+        // earlier versions listed the bundle's own files as frontier.
+        const inBundle = bundleRel !== '' && key.startsWith(bundleRel + '/');
+        const existsOnDisk = !workspaceRoot || fs.existsSync(path.join(workspaceRoot, m[1]));
+        if (
+          inBundle ||
+          isCoveredByResource(key, key, documentedResources) ||
+          !existsOnDisk ||
+          !frontierSet.has(key)
+        ) {
+          modified = true;
+          continue;
+        }
       }
       listed.add(key);
     }
     kept.push(line);
   }
 
-  // 2. Add frontier files not already acknowledged anywhere in the index. A path
-  //    the author already explains in prose counts as listed, which matches how
-  //    `--check` decides what is unindexed.
-  const lowerContent = content.toLowerCase();
+  // 2. Add frontier files not already acknowledged anywhere in the bundle. A path
+  //    or backtick-quoted filename the author already explains in prose counts as
+  //    listed, which matches how `--check` decides what is unindexed.
+  const bundleMarkdownLower = content.toLowerCase() + '\n' + collectBundleMarkdownLower(path.dirname(indexPath));
   const additions = frontierList
     .filter(f => {
       const norm = f.path.toLowerCase();
-      return !listed.has(norm) && !isCoveredByResource(norm, f.absolutePath || norm, documentedResources) && !lowerContent.includes(norm);
+      return !listed.has(norm) && !isCoveredByResource(norm, f.absolutePath || norm, documentedResources) && !isAcknowledgedInBundle(norm, bundleMarkdownLower);
     })
     .sort((a, b) => a.path.localeCompare(b.path))
     .map(f => `- \`${f.path}\` — Undocumented codebase file.`);
@@ -606,10 +671,16 @@ function updateIndexFrontier(indexPath, frontierList, documentedResources, works
 
   if (additions.length > 0) {
     modified = true;
-    // Insert after the last existing managed bullet, or directly under the heading.
+    // Insert after the last existing bullet (and any indented continuation lines),
+    // or directly under the heading.
     let insertAt = 1;
     for (let i = 0; i < kept.length; i++) {
-      if (itemRe.test(kept[i])) insertAt = i + 1;
+      if (itemRe.test(kept[i])) {
+        insertAt = i + 1;
+        while (insertAt < kept.length && /^\s+\S/.test(kept[insertAt])) {
+          insertAt++;
+        }
+      }
     }
     kept.splice(insertAt, 0, ...additions);
   }
@@ -637,10 +708,15 @@ function appendLogEntry(logPath, entries, dateStr) {
     const parts = content.split(dateHeading);
     newContent = parts[0] + dateHeading + '\n' + newEntriesText + '\n' + parts[1].replace(/^\n/, '');
   } else {
-    const firstHeadingMatch = content.match(/\n(## \d{4}-\d{2}-\d{2})/);
+    const firstHeadingMatch = content.match(/\n(## \d{4}-\d{2}-\d{2}|[-\*]\s+(?:\*\*|\[)?\d{4}-\d{2}-\d{2})/);
     if (firstHeadingMatch) {
       const idx = firstHeadingMatch.index;
-      newContent = content.slice(0, idx) + `\n\n${dateHeading}\n${newEntriesText}\n` + content.slice(idx);
+      const isBullet = firstHeadingMatch[1].startsWith('-') || firstHeadingMatch[1].startsWith('*');
+      if (isBullet) {
+        newContent = content.slice(0, idx).trimEnd() + `\n\n${dateHeading}\n${newEntriesText}\n\n` + content.slice(idx + 1);
+      } else {
+        newContent = content.slice(0, idx) + `\n\n${dateHeading}\n${newEntriesText}\n` + content.slice(idx);
+      }
     } else {
       newContent = content.trimEnd() + `\n\n${dateHeading}\n${newEntriesText}\n`;
     }
@@ -887,7 +963,7 @@ async function main() {
 
     if (effectiveConceptTime && !isNaN(effectiveConceptTime.getTime())) {
       for (const res of resourcesToCheck) {
-        if (fs.existsSync(res.path)) {
+        if (fs.existsSync(res.path) && !isReservedBundleFile(res.path, bundleRoot)) {
           const gitTimeStr = getGitLastModifiedISO(res.path, workspaceRoot);
           if (gitTimeStr) {
             const gitTime = new Date(gitTimeStr);
@@ -941,9 +1017,9 @@ async function main() {
   const indexPath = path.join(bundleRoot, 'index.md');
   const missingFrontierInIndex = [];
   if (fs.existsSync(indexPath)) {
-    const indexContent = fs.readFileSync(indexPath, 'utf8').toLowerCase();
+    const bundleMarkdownLower = collectBundleMarkdownLower(bundleRoot);
     for (const f of frontierList) {
-      if (!indexContent.includes(f.path.toLowerCase())) {
+      if (!isAcknowledgedInBundle(f.path, bundleMarkdownLower)) {
         missingFrontierInIndex.push(f.path);
       }
     }
