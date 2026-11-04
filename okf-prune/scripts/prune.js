@@ -254,9 +254,10 @@ function buildInboundLinkCounts(concepts, bundleRoot) {
 }
 
 function updateFrontmatterStatus(content, newStatus, archivedAtISO) {
+  const eol = content.includes('\r\n') ? '\r\n' : '\n';
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!match) return content;
-  let fmText = match[1];
+  let fmText = match[1].replace(/\r\n/g, '\n');
 
   if (/status:\s*[^\r\n]+/.test(fmText)) {
     fmText = fmText.replace(/status:\s*[^\r\n]+/, `status: ${newStatus}`);
@@ -272,12 +273,16 @@ function updateFrontmatterStatus(content, newStatus, archivedAtISO) {
     }
   }
 
-  return content.replace(match[0], `---\n${fmText.trim()}\n---`);
+  const normalizedBlock = `---\n${fmText.trim()}\n---`;
+  const finalBlock = eol === '\r\n' ? normalizedBlock.replace(/\n/g, '\r\n') : normalizedBlock;
+  return content.replace(match[0], finalBlock);
 }
 
 function updateIndexForArchived(indexPath, conceptRelPath, newRelPath, title, desc) {
   if (!fs.existsSync(indexPath)) return;
-  let content = fs.readFileSync(indexPath, 'utf8');
+  const rawContent = fs.readFileSync(indexPath, 'utf8');
+  const eol = rawContent.includes('\r\n') ? '\r\n' : '\n';
+  let content = rawContent.replace(/\r\n/g, '\n');
 
   // Remove existing link referencing conceptRelPath
   const targetPattern1 = `/${conceptRelPath}`;
@@ -304,44 +309,80 @@ function updateIndexForArchived(indexPath, conceptRelPath, newRelPath, title, de
     content = content.trimEnd() + `\n\n${archiveHeading}\n${newLink}\n`;
   }
 
-  fs.writeFileSync(indexPath, content, 'utf8');
+  fs.writeFileSync(indexPath, eol === '\r\n' ? content.replace(/\n/g, '\r\n') : content, 'utf8');
 }
 
 function updateIndexForDeleted(indexPath, conceptRelPath) {
   if (!fs.existsSync(indexPath)) return;
-  const content = fs.readFileSync(indexPath, 'utf8');
+  const rawContent = fs.readFileSync(indexPath, 'utf8');
+  const eol = rawContent.includes('\r\n') ? '\r\n' : '\n';
+  const content = rawContent.replace(/\r\n/g, '\n');
   const targetPattern1 = `/${conceptRelPath}`;
   const targetPattern2 = conceptRelPath;
   const lines = content.split(/\r?\n/);
   const remainingLines = lines.filter(line => {
     return !line.includes(`(${targetPattern1})`) && !line.includes(`(${targetPattern2})`);
   });
-  fs.writeFileSync(indexPath, remainingLines.join('\n'), 'utf8');
+  const out = remainingLines.join('\n');
+  fs.writeFileSync(indexPath, eol === '\r\n' ? out.replace(/\n/g, '\r\n') : out, 'utf8');
 }
 
 function appendLogEntry(logPath, entries, dateStr) {
   if (!fs.existsSync(logPath)) return false;
-  const content = fs.readFileSync(logPath, 'utf8');
+  const rawContent = fs.readFileSync(logPath, 'utf8');
+  const eol = rawContent.includes('\r\n') ? '\r\n' : '\n';
+  const content = rawContent.replace(/\r\n/g, '\n');
   const dateHeading = `## ${dateStr}`;
   const newEntriesText = entries.map(e => `- ${e}`).join('\n');
+  let newContent;
 
   if (content.includes(dateHeading)) {
     const parts = content.split(dateHeading);
-    const newContent = parts[0] + dateHeading + '\n' + newEntriesText + '\n' + parts[1].replace(/^\r?\n/, '');
-    fs.writeFileSync(logPath, newContent, 'utf8');
-    return true;
+    newContent = parts[0] + dateHeading + '\n' + newEntriesText + '\n' + parts[1].replace(/^\r?\n/, '');
+  } else {
+    const firstHeadingMatch = content.match(/\n(## \d{4}-\d{2}-\d{2})/);
+    if (firstHeadingMatch) {
+      const idx = firstHeadingMatch.index;
+      newContent = content.slice(0, idx) + `\n\n${dateHeading}\n${newEntriesText}\n` + content.slice(idx);
+    } else {
+      newContent = content.trimEnd() + `\n\n${dateHeading}\n${newEntriesText}\n`;
+    }
   }
 
-  const firstHeadingMatch = content.match(/\n(## \d{4}-\d{2}-\d{2})/);
-  if (firstHeadingMatch) {
-    const idx = firstHeadingMatch.index;
-    const newContent = content.slice(0, idx) + `\n\n${dateHeading}\n${newEntriesText}\n` + content.slice(idx);
-    fs.writeFileSync(logPath, newContent, 'utf8');
-    return true;
-  }
-
-  fs.writeFileSync(logPath, content.trimEnd() + `\n\n${dateHeading}\n${newEntriesText}\n`, 'utf8');
+  fs.writeFileSync(logPath, eol === '\r\n' ? newContent.replace(/\n/g, '\r\n') : newContent, 'utf8');
   return true;
+}
+
+function resolveWorkspaceAndBundle(args) {
+  const cwd = process.cwd();
+  const bundleIdx = args.indexOf('--bundle');
+  if (bundleIdx !== -1 && args[bundleIdx + 1]) {
+    const bundleRoot = path.resolve(cwd, args[bundleIdx + 1]);
+    if (fs.existsSync(bundleRoot)) {
+      try {
+        const topLevel = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+          cwd: bundleRoot,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore']
+        }).trim();
+        if (topLevel && fs.existsSync(topLevel)) {
+          return { workspaceRoot: path.normalize(topLevel), bundleRoot };
+        }
+      } catch (e) {}
+      const parentDir = path.dirname(bundleRoot);
+      const derivedRoot = path.basename(parentDir).toLowerCase() === 'docs'
+        ? path.dirname(parentDir)
+        : parentDir;
+      return { workspaceRoot: derivedRoot, bundleRoot };
+    }
+    return { workspaceRoot: cwd, bundleRoot };
+  }
+
+  let bundleRoot = path.join(cwd, 'docs', 'okf');
+  if (!fs.existsSync(bundleRoot)) {
+    bundleRoot = path.join(cwd, 'okf');
+  }
+  return { workspaceRoot: cwd, bundleRoot };
 }
 
 function printHelp() {
@@ -396,14 +437,7 @@ async function main() {
     filterOrphans = true;
   }
 
-  const workspaceRoot = process.cwd();
-  let bundleRoot = path.join(workspaceRoot, 'docs', 'okf');
-  const bundleIdx = args.indexOf('--bundle');
-  if (bundleIdx !== -1 && args[bundleIdx + 1]) {
-    bundleRoot = path.resolve(workspaceRoot, args[bundleIdx + 1]);
-  } else if (!fs.existsSync(bundleRoot)) {
-    bundleRoot = path.join(workspaceRoot, 'okf');
-  }
+  const { workspaceRoot, bundleRoot } = resolveWorkspaceAndBundle(args);
 
   if (!fs.existsSync(bundleRoot)) {
     if (outputJson) {
