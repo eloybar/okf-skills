@@ -950,6 +950,116 @@ Body.
   console.log('🎉 ALL LIFE CYCLE TEST CASES PASSED SUCCESSFULLY!');
   console.log('======================================');
 
+  // === STEP 17: MONOREPO SUB-PACKAGE BUNDLES, UPGRADE §12/BULLET-LOG/COMMA-RESOURCE, AND FRONTIER CLEANUP ===
+  console.log('Step 17: Testing monorepo sub-package bundles, okf-upgrade §12/bullet-log/comma-resource, and frontier cleanup...');
+
+  const subPkgDir = path.join(tempDir, 'packages', 'keepalive-helper');
+  const subBundleDir = path.join(subPkgDir, 'okf');
+  fs.mkdirSync(path.join(subPkgDir, 'nodeA'), { recursive: true });
+  fs.mkdirSync(path.join(subPkgDir, 'nodeB'), { recursive: true });
+  fs.mkdirSync(path.join(subPkgDir, '__pycache__'), { recursive: true });
+  fs.mkdirSync(subBundleDir, { recursive: true });
+
+  fs.writeFileSync(path.join(subPkgDir, 'deploy.py'), 'print("deploy")\n');
+  fs.writeFileSync(path.join(subPkgDir, 'nodeA', 'cfg.conf'), 'state MASTER\n');
+  fs.writeFileSync(path.join(subPkgDir, 'nodeB', 'cfg.conf'), 'state BACKUP\n');
+  fs.writeFileSync(path.join(subPkgDir, '__pycache__', 'deploy.cpython-311.pyc'), 'bytecode');
+  fs.writeFileSync(path.join(tempDir, '.gitignore'), 'ignored_by_root.txt\n');
+  fs.writeFileSync(path.join(subPkgDir, 'ignored_by_root.txt'), 'should be ignored via parent gitignore\n');
+
+  // Sub-package index.md with extra legacy frontmatter keys and CRLF
+  fs.writeFileSync(
+    path.join(subBundleDir, 'index.md'),
+    [
+      '---',
+      'okf_version: 0.2',
+      'type: Index',
+      'title: KeepAlive Index',
+      'generated:',
+      '  by: agent:claude-code/okf-bootstrap',
+      '  at: 2026-03-08T00:00:00Z',
+      '---',
+      '',
+      '# KeepAlive Bundle',
+      '',
+      '- [Live Configs](live-configs.md)'
+    ].join('\r\n') + '\r\n',
+    'utf8'
+  );
+
+  // Sub-package concept with comma-separated resource: and agent: prefix and CRLF
+  fs.writeFileSync(
+    path.join(subBundleDir, 'live-configs.md'),
+    [
+      '---',
+      'type: Configuration',
+      'title: Live Configs',
+      'description: Node A and Node B live configs.',
+      'resource: nodeA/, nodeB/',
+      'generated:',
+      '  by: agent:claude-code/okf-bootstrap',
+      '  at: 2026-03-08T00:00:00Z',
+      'sources:',
+      '  - deploy.py',
+      '---',
+      '',
+      '# Live Configs',
+      'Covers [Live Configs](live-configs.md).'
+    ].join('\r\n') + '\r\n',
+    'utf8'
+  );
+
+  // Sub-package log.md with bullet-style dates and CRLF
+  fs.writeFileSync(
+    path.join(subBundleDir, 'log.md'),
+    [
+      '# Log',
+      '',
+      'Chronological record.',
+      '',
+      '- **2026-03-08** — Bundle bootstrapped by `agent:claude-code/okf-bootstrap`.',
+      '- **2026-03-08** — Visualization generated (`viz.html`).'
+    ].join('\r\n') + '\r\n',
+    'utf8'
+  );
+
+  // 17a. Run okf-upgrade with --bundle okf from inside sub-package
+  execSync(`node "${scripts.upgrade}" --bundle okf --user jdoe`, { cwd: subPkgDir, stdio: 'ignore' });
+
+  const upgradedSubIndex = fs.readFileSync(path.join(subBundleDir, 'index.md'), 'utf8');
+  assert.ok(upgradedSubIndex.includes('\r\n'), 'okf-upgrade must preserve CRLF in root index.md');
+  assert.ok(!upgradedSubIndex.includes('type: Index'), 'okf-upgrade must strip non-okf_version keys from root index.md (§12)');
+
+  const upgradedSubConcept = fs.readFileSync(path.join(subBundleDir, 'live-configs.md'), 'utf8');
+  assert.ok(upgradedSubConcept.includes('\r\n'), 'okf-upgrade must preserve CRLF in concept files');
+  assert.ok(upgradedSubConcept.includes('resource: nodeA/'), 'okf-upgrade must split comma-separated resource into primary resource');
+  assert.ok(upgradedSubConcept.includes('- nodeB/'), 'okf-upgrade must add split comma-separated paths to sources');
+  assert.ok(upgradedSubConcept.includes('by: claude-code/okf-bootstrap'), 'okf-upgrade must strip agent: prefix');
+
+  const upgradedSubLog = fs.readFileSync(path.join(subBundleDir, 'log.md'), 'utf8');
+  assert.ok(upgradedSubLog.includes('\r\n'), 'okf-upgrade must preserve CRLF in log.md');
+  assert.ok(upgradedSubLog.includes('## 2026-03-08\r\n- Bundle bootstrapped by `claude-code/okf-bootstrap`.\r\n- Visualization generated (`viz.html`).'), 'okf-upgrade must normalize bullet-dated log entries into ## YYYY-MM-DD sections');
+
+  // 17b. Verify lint --bundle okf inside sub-package resolves workspaceRoot to subPkgDir (0 warnings!)
+  const subLintJson = JSON.parse(execSync(`node "${scripts.lint}" --bundle okf --json`, { cwd: subPkgDir }).toString());
+  assert.equal(subLintJson.errors.length, 0, 'Sub-package lint with --bundle okf should have 0 errors');
+  assert.equal(subLintJson.warnings.length, 0, 'Sub-package lint with --bundle okf should have 0 warnings (no false missing-resource warnings)');
+
+  // 17c. Inject a stale __pycache__ bullet into index.md and run maintain inside sub-package
+  fs.writeFileSync(
+    path.join(subBundleDir, 'index.md'),
+    upgradedSubIndex.trimEnd() + '\r\n\r\n## Not yet specified\r\n- `__pycache__/deploy.cpython-311.pyc` — Undocumented codebase file.\r\n- `deleted_ghost.py` — Undocumented codebase file.\r\n',
+    'utf8'
+  );
+  execSync(`node "${scripts.maintain}"`, { cwd: subPkgDir, stdio: 'ignore' });
+  const maintainedSubIndex = fs.readFileSync(path.join(subBundleDir, 'index.md'), 'utf8');
+  assert.ok(!maintainedSubIndex.includes('__pycache__'), 'okf-maintain must remove excluded __pycache__/*.pyc bullets from ## Not yet specified');
+  assert.ok(!maintainedSubIndex.includes('deleted_ghost.py'), 'okf-maintain must remove deleted file bullets from ## Not yet specified');
+  assert.ok(!maintainedSubIndex.includes('ignored_by_root.txt'), 'okf-maintain must inherit ancestor .gitignore rules from monorepo root');
+  const subDriftLintJson = JSON.parse(execSync(`node "${scripts.lint}" --bundle okf --drift --json`, { cwd: subPkgDir }).toString());
+  assert.equal(subDriftLintJson.warnings.length, 0, 'Sub-package lint --drift after maintain should have 0 warnings');
+  console.log('✓ Monorepo sub-package --bundle resolution, upgrade §12/bullet-log/comma-resource, and frontier cleanup verified.');
+
 } finally {
   // Cleanup temp files
   fs.rmSync(tempDir, { recursive: true, force: true });

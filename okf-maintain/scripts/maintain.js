@@ -300,16 +300,6 @@ function resolveWorkspaceAndBundle(args) {
   if (bundleIdx !== -1 && args[bundleIdx + 1]) {
     const bundleRoot = path.resolve(cwd, args[bundleIdx + 1]);
     if (fs.existsSync(bundleRoot)) {
-      try {
-        const topLevel = execFileSync('git', ['rev-parse', '--show-toplevel'], {
-          cwd: bundleRoot,
-          encoding: 'utf8',
-          stdio: ['ignore', 'pipe', 'ignore']
-        }).trim();
-        if (topLevel && fs.existsSync(topLevel)) {
-          return { workspaceRoot: path.normalize(topLevel), bundleRoot };
-        }
-      } catch (e) {}
       const parentDir = path.dirname(bundleRoot);
       const derivedRoot = path.basename(parentDir).toLowerCase() === 'docs'
         ? path.dirname(parentDir)
@@ -353,37 +343,54 @@ function findBundlesOnOtherBranches(workspaceRoot) {
   return hints;
 }
 
+const IGNORED_FRONTIER_EXTENSIONS = new Set([
+  '.pyc', '.pyo', '.pyd', '.dll', '.exe', '.so', '.dylib',
+  '.class', '.o', '.obj', '.a', '.lib', '.pdb'
+]);
+
 function loadGitignorePatterns(workspaceRoot) {
   const patterns = [];
-  const gitignorePath = path.join(workspaceRoot, '.gitignore');
-  if (fs.existsSync(gitignorePath)) {
-    try {
-      const content = fs.readFileSync(gitignorePath, 'utf8');
-      const lines = content.split(/\r?\n/);
-      for (let line of lines) {
-        line = line.trim();
-        if (!line || line.startsWith('#')) continue;
-        
-        let escaped = line.replace(/[-\/\\^$*+?.()|[\]{}]/g, (match) => {
-          if (match === '*' || match === '?') return match;
-          return '\\' + match;
-        });
-        escaped = escaped.replace(/\*/g, '.*').replace(/\?/g, '.');
-        if (line.endsWith('/')) {
-          escaped = escaped + '?.*';
-        } else {
-          escaped = escaped + '$';
+  const dirsToCheck = [];
+  let curr = path.resolve(workspaceRoot);
+  while (curr) {
+    dirsToCheck.push(curr);
+    if (fs.existsSync(path.join(curr, '.git'))) break;
+    const parent = path.dirname(curr);
+    if (parent === curr) break;
+    curr = parent;
+  }
+
+  for (const dir of dirsToCheck) {
+    const gitignorePath = path.join(dir, '.gitignore');
+    if (fs.existsSync(gitignorePath)) {
+      try {
+        const content = fs.readFileSync(gitignorePath, 'utf8');
+        const lines = content.split(/\r?\n/);
+        for (let line of lines) {
+          line = line.trim();
+          if (!line || line.startsWith('#') || line.startsWith('!')) continue;
+          
+          let escaped = line.replace(/[-\/\\^$*+?.()|[\]{}]/g, (match) => {
+            if (match === '*' || match === '?') return match;
+            return '\\' + match;
+          });
+          escaped = escaped.replace(/\*/g, '.*').replace(/\?/g, '.');
+          if (line.endsWith('/')) {
+            escaped = escaped + '?.*';
+          } else {
+            escaped = escaped + '$';
+          }
+          if (line.startsWith('/')) {
+            escaped = '^' + escaped.slice(1);
+          } else {
+            escaped = '(^|/)' + escaped;
+          }
+          try {
+            patterns.push(new RegExp(escaped));
+          } catch (e) {}
         }
-        if (line.startsWith('/')) {
-          escaped = '^' + escaped.slice(1);
-        } else {
-          escaped = '(^|/)' + escaped;
-        }
-        try {
-          patterns.push(new RegExp(escaped));
-        } catch (e) {}
-      }
-    } catch (e) {}
+      } catch (e) {}
+    }
   }
   return patterns;
 }
@@ -418,7 +425,12 @@ function scanWorkspaceFiles(dir, workspaceRoot, documentedResources, results = [
     gitignorePatterns = loadGitignorePatterns(workspaceRoot);
   }
   const files = fs.readdirSync(dir);
-  const ignores = ['.git', 'node_modules', '.agents', '.claude', 'agent', 'docs', 'tmp', 'temp', '.idea', '.vscode'];
+  const ignores = [
+    '.git', 'node_modules', '.agents', '.claude', '.gemini', 'agent', 'docs',
+    'tmp', 'temp', '.idea', '.vscode', '.superpowers', '__pycache__',
+    '.pytest_cache', '.mypy_cache', '.ruff_cache', '.venv', 'venv',
+    'dist', 'build', 'coverage', '.next', 'target', 'bin', 'obj'
+  ];
   const normBundleRoot = bundleRoot ? path.resolve(bundleRoot).toLowerCase() : null;
   
   for (const file of files) {
@@ -451,6 +463,8 @@ function scanWorkspaceFiles(dir, workspaceRoot, documentedResources, results = [
       if (isOkfBundleDir(fullPath)) continue;
       scanWorkspaceFiles(fullPath, workspaceRoot, documentedResources, results, gitignorePatterns, bundleRoot);
     } else if (stat.isFile()) {
+      const ext = path.extname(file).toLowerCase();
+      if (IGNORED_FRONTIER_EXTENSIONS.has(ext)) continue;
       if (file !== 'skills-lock.json' && file !== '.gitignore' && file !== 'LICENSE') {
         if (!isCoveredByResource(relPath, fullPath, documentedResources)) {
           results.push({ path: relPath, absolutePath: fullPath });
@@ -537,6 +551,7 @@ function updateIndexFrontier(indexPath, frontierList, documentedResources, works
     section = content.slice(start, end);
     after = content.slice(end);
   } else {
+    if (frontierList.length === 0) return false;
     before = content.trimEnd() + eol + eol;
     section = '## Not yet specified' + eol;
     after = '';
@@ -547,8 +562,9 @@ function updateIndexFrontier(indexPath, frontierList, documentedResources, works
   const bundleRel = workspaceRoot
     ? path.relative(workspaceRoot, path.dirname(indexPath)).replace(/\\/g, '/').toLowerCase()
     : '';
+  const frontierSet = new Set(frontierList.map(f => f.path.replace(/\\/g, '/').toLowerCase()));
 
-  // 1. Drop managed bullet items whose file is now documented.
+  // 1. Drop managed bullet items whose file is now documented, deleted, or excluded.
   const kept = [];
   const listed = new Set();
   for (const line of lines) {
@@ -558,7 +574,14 @@ function updateIndexFrontier(indexPath, frontierList, documentedResources, works
       // Also self-heal entries that point inside this bundle; earlier versions
       // listed the bundle's own files as frontier.
       const inBundle = bundleRel !== '' && key.startsWith(bundleRel + '/');
-      if (inBundle || isCoveredByResource(key, key, documentedResources)) {
+      const isAutoGeneratedBullet = !m[2] || m[2].trim() === 'Undocumented codebase file.';
+      const existsOnDisk = !workspaceRoot || fs.existsSync(path.join(workspaceRoot, m[1]));
+      if (
+        inBundle ||
+        isCoveredByResource(key, key, documentedResources) ||
+        !existsOnDisk ||
+        (isAutoGeneratedBullet && !frontierSet.has(key))
+      ) {
         modified = true;
         continue;
       }
@@ -578,6 +601,8 @@ function updateIndexFrontier(indexPath, frontierList, documentedResources, works
     })
     .sort((a, b) => a.path.localeCompare(b.path))
     .map(f => `- \`${f.path}\` — Undocumented codebase file.`);
+
+  if (!headingMatch && additions.length === 0) return false;
 
   if (additions.length > 0) {
     modified = true;

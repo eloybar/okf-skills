@@ -21,6 +21,27 @@ ANTIGRAVITY_PATH="$HOME/.gemini/config/skills"
 CLAUDE_PATH="$HOME/.claude/skills"
 UNIVERSAL_PATH="$HOME/.agents/skills"
 
+# Discover all Claude profile skill directories ($HOME/.claude/skills, $HOME/.claude-*/skills, and $CLAUDE_CONFIG_DIR/skills)
+CLAUDE_DIRS=("$CLAUDE_PATH")
+if [ -n "$CLAUDE_CONFIG_DIR" ] && [ "$CLAUDE_CONFIG_DIR/skills" != "$CLAUDE_PATH" ]; then
+    CLAUDE_DIRS+=("$CLAUDE_CONFIG_DIR/skills")
+fi
+for prof_dir in "$HOME"/.claude-*; do
+    if [ -d "$prof_dir" ]; then
+        prof_skills="$prof_dir/skills"
+        already_in=0
+        for existing in "${CLAUDE_DIRS[@]}"; do
+            if [ "$existing" = "$prof_skills" ]; then
+                already_in=1
+                break
+            fi
+        done
+        if [ "$already_in" -eq 0 ]; then
+            CLAUDE_DIRS+=("$prof_skills")
+        fi
+    fi
+done
+
 echo -e "\033[0;36m==========================================\033[0m"
 echo -e "\033[0;36m     OKF Skills Manager for Unix (Bash)   \033[0m"
 echo -e "\033[0;36m==========================================\033[0m"
@@ -51,11 +72,11 @@ fi
 
 TARGET_DIRS=()
 if [ "$AGENT" = "All" ]; then
-    TARGET_DIRS+=("$ANTIGRAVITY_PATH" "$CLAUDE_PATH" "$UNIVERSAL_PATH")
-    echo -e "\033[0;32mTargeting: All Agents (Antigravity, Claude, and general agents)\033[0m"
+    TARGET_DIRS+=("$ANTIGRAVITY_PATH" "${CLAUDE_DIRS[@]}" "$UNIVERSAL_PATH")
+    echo -e "\033[0;32mTargeting: All Agents (Antigravity, Claude profiles, and general agents)\033[0m"
 elif [ "$AGENT" = "Claude" ]; then
-    TARGET_DIRS+=("$CLAUDE_PATH")
-    echo -e "\033[0;32mTargeting: Claude Code ($CLAUDE_PATH)\033[0m"
+    TARGET_DIRS+=("${CLAUDE_DIRS[@]}")
+    echo -e "\033[0;32mTargeting: Claude Code (${CLAUDE_DIRS[*]})\033[0m"
 else
     TARGET_DIRS+=("$ANTIGRAVITY_PATH")
     echo -e "\033[0;32mTargeting: Google Antigravity CLI ($ANTIGRAVITY_PATH)\033[0m"

@@ -7,7 +7,7 @@ tags: [upgrade, migration, automation]
 status: stable
 generated:
   by: Antigravity/4.0
-  at: 2026-11-02T17:38:56.619Z
+  at: 2026-11-04T15:12:32.351Z
 sources:
   - okf-upgrade/scripts/upgrade.js
 ---
@@ -17,6 +17,6 @@ The `okf-upgrade` skill automates the migration of legacy OKF bundles to the v0.
 
 # Key Functions
 - Converts legacy `timestamp` keys into structured `generated: { by, at }` properties and normalizes actor strings (stripping prohibited `agent:` prefixes in `generated.by`, `verified.by`, `executor.by`, `attester.by`, and `sources[].author` per §5.1, §7).
-- Migrates inline body `# Citations` lists to frontmatter `sources` lists while preserving both v0.2 shorthand string sources and structured source objects (`id`, `resource`, `title`, `author`, `usage_count`, `last_modified`).
-- Adds the root `okf_version: "0.2"` compatibility flag to `index.md` and normalizes `log.md` date headings to `## YYYY-MM-DD`.
-- Supports custom bundle paths via `--bundle <path>`, skips archived concepts under `archive/`, and triggers post-migration lint validation.
+- Migrates inline body `# Citations` lists to frontmatter `sources` lists while preserving both v0.2 shorthand string sources and structured source objects (`id`, `resource`, `title`, `author`, `usage_count`, `last_modified`), and automatically splits comma-separated local `resource:` paths into `resource` + `sources`.
+- Enforces `okf_version: "0.2"` on root `index.md` while stripping legacy frontmatter keys (`type`, `title`, `description`, `generated`) per §12, normalizes both `## YYYY-MM-DD` and bullet-dated (`- **YYYY-MM-DD** — ...`) `log.md` entries to `## YYYY-MM-DD` sections, and preserves native CRLF/LF line endings across all files.
+- Supports custom and sub-package bundle paths via `--bundle <path>`, skips archived concepts under `archive/`, and triggers post-migration lint validation.
