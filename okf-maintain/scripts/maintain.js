@@ -244,8 +244,8 @@ function evaluateSkillsPerformance(options = {}) {
             if (fs.existsSync(localOutPath)) {
               try {
                 const stat = fs.statSync(localOutPath);
-                const head = fs.readFileSync(localOutPath, 'utf8').slice(0, 512);
-                if (head.includes('OKF CONTEXT BLOCK') || stat.size > 40000) {
+                const head = fs.readFileSync(localOutPath, 'utf8').slice(0, 2048);
+                if (head.includes('OKF CONTEXT BLOCK') && stat.size > 40000) {
                   conversation.friction.contextBloat.push({
                     step: step.step_index,
                     bytes: stat.size,

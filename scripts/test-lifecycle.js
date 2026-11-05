@@ -1449,7 +1449,12 @@ Body.
   fs.mkdirSync(path.join(mockConvDir, 'steps', '3'), { recursive: true });
 
   // Write a >50KB step output file to simulate context bloat truncation
+  // Write a >50KB step output file to simulate context bloat truncation, plus a >50KB non-OKF test log and a 15KB sub-threshold OKF block
   fs.writeFileSync(path.join(mockConvDir, 'steps', '3', 'output.txt'), '=== OKF CONTEXT BLOCK (15 concept(s) found) ===\n' + 'X'.repeat(55000));
+  fs.mkdirSync(path.join(mockConvDir, 'steps', '8'), { recursive: true });
+  fs.writeFileSync(path.join(mockConvDir, 'steps', '8', 'output.txt'), 'PASS tests/batch-import.test.js\n' + 'J'.repeat(60000));
+  fs.mkdirSync(path.join(mockConvDir, 'steps', '9'), { recursive: true });
+  fs.writeFileSync(path.join(mockConvDir, 'steps', '9', 'output.txt'), '=== OKF CONTEXT BLOCK (2 concept(s) found) ===\n' + 'Y'.repeat(15000));
 
   const mockTranscriptSteps = [
     {
@@ -1530,6 +1535,22 @@ Body.
       cache_read_tokens: 20000,
       output_tokens: 250,
       content: '**OKF Check:** Cited concepts `frontend/admin-dashboard.md`.'
+    },
+    {
+      step_index: 8,
+      source: 'MODEL',
+      type: 'GENERIC',
+      status: 'DONE',
+      created_at: '2026-11-04T20:02:05Z',
+      content: `The tool's output was truncated due to being too long. You can find the full output in a file at file:///${path.join(mockConvDir, 'steps', '8', 'output.txt').replace(/\\/g, '/')}.`
+    },
+    {
+      step_index: 9,
+      source: 'MODEL',
+      type: 'GENERIC',
+      status: 'DONE',
+      created_at: '2026-11-04T20:02:10Z',
+      content: `The tool's output was truncated due to being too long. You can find the full output in a file at file:///${path.join(mockConvDir, 'steps', '9', 'output.txt').replace(/\\/g, '/')}.`
     }
   ];
   fs.writeFileSync(
@@ -1562,7 +1583,27 @@ Body.
 
   // 22d. --evaluate --reset clears telemetry log
   execSync(`node "${scripts.maintain}" --evaluate --reset`, { cwd: queryPerfWorkspace, env: telEnv });
+  // 22d. --evaluate --reset clears telemetry log
+  execSync(`node "${scripts.maintain}" --evaluate --reset`, { cwd: queryPerfWorkspace, env: telEnv });
   assert.strictEqual(fs.readFileSync(customTelemetryPath, 'utf8').trim(), '', '--evaluate --reset must clear telemetry.jsonl');
+
+  // 22e. Multi-file --file deduplication and cumulative total output budget (<32KB default vs >40KB --full)
+  const multiFileOut = execSync(`node "${scripts.query}" --file admin_panel.js,src/routes/settings_route.js`, { cwd: queryPerfWorkspace, env: telEnv }).toString();
+  assert.ok(multiFileOut.includes('[Concept: Primary Admin Panel Module]'), 'Multi-file query must include Primary Admin Panel Module');
+  assert.ok(multiFileOut.includes('[Concept: Secondary Spec 1]'), 'Multi-file query must include Secondary Spec 1');
+  const spec1Occurrences = multiFileOut.split('[Concept: Secondary Spec 1]').length - 1;
+  assert.strictEqual(spec1Occurrences, 1, 'Multi-file query must deduplicate concepts matching multiple queried files');
+
+  for (let i = 1; i <= 4; i++) {
+    fs.writeFileSync(
+      path.join(queryPerfBundle, 'specs', `a_spec_${i}.md`),
+      `---\ntype: Specification\ntitle: Secondary Spec ${i}\ndescription: Heavy spec ${i}.\nresource: src/routes/settings_route.js\nsources:\n  - admin_panel.js\ngenerated:\n  by: Antigravity/4.0\n  at: 2026-11-04T00:00:00Z\n---\n# Secondary Spec ${i}\n\n` + `HEAVY_SECTION_${i}_`.repeat(600) + '\n'
+    );
+  }
+  const budgetedHeavyOut = execSync(`node "${scripts.query}" --file src/routes/settings_route.js`, { cwd: queryPerfWorkspace, env: telEnv }).toString();
+  assert.ok(Buffer.byteLength(budgetedHeavyOut, 'utf8') < 32000, 'Default cumulative query budget must keep multi-concept output well under the 40KB bloat threshold');
+  const fullHeavyOut = execSync(`node "${scripts.query}" --file src/routes/settings_route.js --full`, { cwd: queryPerfWorkspace, env: telEnv }).toString();
+  assert.ok(Buffer.byteLength(fullHeavyOut, 'utf8') > 40000, '--full must bypass cumulative output budget and print all concept bodies');
   console.log('✓ Skill self-improvement telemetry, pre-completion nudge, and --evaluate transcript analyzer verified.');
   console.log('✓ okf-query primary ranking, basename fallback, search output budgeting, and batched git log verified.');
   console.log('✓ Windows ~/ steering fix, static media frontier exclusion, smart comma resource split, and unindexed concept auto-indexing verified.');

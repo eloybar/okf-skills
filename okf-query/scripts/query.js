@@ -307,129 +307,164 @@ function main() {
   const searchTokens = searchKeyword ? tokenizeSearchQuery(searchKeyword) : [];
 
   if (fileIndex !== -1) {
-    const rawFileArg = args[fileIndex + 1];
-    const wsTarget = path.resolve(workspaceRoot, rawFileArg);
-    const cwdTarget = path.resolve(process.cwd(), rawFileArg);
-    const targetFile = fs.existsSync(wsTarget) || !fs.existsSync(cwdTarget) ? wsTarget : cwdTarget;
-    const targetExists = fs.existsSync(targetFile);
-    const normalizedTarget = path.normalize(targetFile).toLowerCase();
-
-    // Tier 1A (primary resource) & Tier 1B (secondary sources): Exact file match or enclosing directory resource
-    const tier1Primary = [];
-    const tier1Secondary = [];
-    for (const c of allConcepts) {
-      let matchedPrimary = false;
-      for (const uri of collectPrimaryResourceUris(c.frontmatter)) {
-        const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
-        if (resPath) {
-          const normalizedRes = path.normalize(resPath).toLowerCase();
-          if (normalizedTarget === normalizedRes || normalizedTarget.startsWith(normalizedRes + path.sep)) {
-            tier1Primary.push({ concept: c, matchTier: 'primary' });
-            matchedPrimary = true;
-            break;
-          }
-        }
-      }
-      if (matchedPrimary) continue;
-
-      for (const uri of collectSecondarySourceUris(c.frontmatter)) {
-        const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
-        if (resPath) {
-          const normalizedRes = path.normalize(resPath).toLowerCase();
-          if (normalizedTarget === normalizedRes || normalizedTarget.startsWith(normalizedRes + path.sep)) {
-            tier1Secondary.push({ concept: c, matchTier: 'secondary' });
-            break;
-          }
-        }
-      }
-    }
-    matchedEntries.push(...tier1Primary, ...tier1Secondary);
-
-    // Tier 1C: Suffix / Basename fallback when the queried path does not exist at that exact relative location
-    if (matchedEntries.length === 0 && !targetExists) {
-      const rawRelNorm = rawFileArg.replace(/\\/g, '/').replace(/^\.?\//, '').toLowerCase();
-      const targetBase = path.basename(normalizedTarget);
-      const suffixPrimary = [];
-      const suffixSecondary = [];
-      const basePrimary = [];
-      const baseSecondary = [];
-
-      for (const c of allConcepts) {
-        let hitPrimarySuffix = false;
-        let hitPrimaryBase = false;
-        for (const uri of collectPrimaryResourceUris(c.frontmatter)) {
-          const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
-          if (!resPath) continue;
-          const resRel = path.relative(workspaceRoot, resPath).replace(/\\/g, '/').toLowerCase();
-          const resBase = path.basename(resPath).toLowerCase();
-          if (rawRelNorm.includes('/') && (resRel === rawRelNorm || resRel.endsWith('/' + rawRelNorm))) {
-            suffixPrimary.push({ concept: c, matchTier: 'primary', fallback: 'fallback-suffix' });
-            hitPrimarySuffix = true;
-            break;
-          }
-          if (targetBase && resBase === targetBase) {
-            basePrimary.push({ concept: c, matchTier: 'primary', fallback: 'fallback-basename' });
-            hitPrimaryBase = true;
-          }
-        }
-        if (hitPrimarySuffix) continue;
-
-        for (const uri of collectSecondarySourceUris(c.frontmatter)) {
-          const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
-          if (!resPath) continue;
-          const resRel = path.relative(workspaceRoot, resPath).replace(/\\/g, '/').toLowerCase();
-          const resBase = path.basename(resPath).toLowerCase();
-          if (rawRelNorm.includes('/') && (resRel === rawRelNorm || resRel.endsWith('/' + rawRelNorm))) {
-            suffixSecondary.push({ concept: c, matchTier: 'secondary', fallback: 'fallback-suffix' });
-            break;
-          }
-          if (!hitPrimaryBase && targetBase && resBase === targetBase) {
-            baseSecondary.push({ concept: c, matchTier: 'secondary', fallback: 'fallback-basename' });
-            break;
-          }
-        }
-      }
-
-      if (suffixPrimary.length > 0 || suffixSecondary.length > 0) {
-        matchedEntries.push(...suffixPrimary, ...suffixSecondary);
-      } else if (basePrimary.length > 0 || baseSecondary.length > 0) {
-        matchedEntries.push(...basePrimary, ...baseSecondary);
+    const rawFileArgs = [];
+    for (let i = 0; i < args.length; i++) {
+      if (args[i] === '--file' && args[i + 1]) {
+        const parts = args[i + 1].split(',').map(s => s.trim()).filter(Boolean);
+        rawFileArgs.push(...parts);
       }
     }
 
-    // Tier 2: Directory / Subsystem match (target resides in the same directory as a documented resource)
-    if (matchedEntries.length === 0) {
-      const wsNorm = path.normalize(workspaceRoot).toLowerCase();
-      const tier2Primary = [];
-      const tier2Secondary = [];
+    function matchSingleFile(rawFileArg) {
+      const fileMatches = [];
+      const wsTarget = path.resolve(workspaceRoot, rawFileArg);
+      const cwdTarget = path.resolve(process.cwd(), rawFileArg);
+      const targetFile = fs.existsSync(wsTarget) || !fs.existsSync(cwdTarget) ? wsTarget : cwdTarget;
+      const targetExists = fs.existsSync(targetFile);
+      const normalizedTarget = path.normalize(targetFile).toLowerCase();
+
+      // Tier 1A (primary resource) & Tier 1B (secondary sources): Exact file match or enclosing directory resource
+      const tier1Primary = [];
+      const tier1Secondary = [];
       for (const c of allConcepts) {
-        let matchedDirPrimary = false;
+        let matchedPrimary = false;
         for (const uri of collectPrimaryResourceUris(c.frontmatter)) {
           const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
           if (resPath) {
-            const resDir = path.dirname(path.normalize(resPath)).toLowerCase();
-            if (resDir !== wsNorm && (normalizedTarget === resDir || normalizedTarget.startsWith(resDir + path.sep))) {
-              tier2Primary.push({ concept: c, matchTier: 'directory' });
-              matchedDirPrimary = true;
+            const normalizedRes = path.normalize(resPath).toLowerCase();
+            if (normalizedTarget === normalizedRes || normalizedTarget.startsWith(normalizedRes + path.sep)) {
+              tier1Primary.push({ concept: c, matchTier: 'primary' });
+              matchedPrimary = true;
               break;
             }
           }
         }
-        if (matchedDirPrimary) continue;
+        if (matchedPrimary) continue;
 
         for (const uri of collectSecondarySourceUris(c.frontmatter)) {
           const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
           if (resPath) {
-            const resDir = path.dirname(path.normalize(resPath)).toLowerCase();
-            if (resDir !== wsNorm && (normalizedTarget === resDir || normalizedTarget.startsWith(resDir + path.sep))) {
-              tier2Secondary.push({ concept: c, matchTier: 'directory' });
+            const normalizedRes = path.normalize(resPath).toLowerCase();
+            if (normalizedTarget === normalizedRes || normalizedTarget.startsWith(normalizedRes + path.sep)) {
+              tier1Secondary.push({ concept: c, matchTier: 'secondary' });
               break;
             }
           }
         }
       }
-      matchedEntries.push(...tier2Primary, ...tier2Secondary);
+      fileMatches.push(...tier1Primary, ...tier1Secondary);
+
+      // Tier 1C: Suffix / Basename fallback when the queried path does not exist at that exact relative location
+      if (fileMatches.length === 0 && !targetExists) {
+        const rawRelNorm = rawFileArg.replace(/\\/g, '/').replace(/^\.?\//, '').toLowerCase();
+        const targetBase = path.basename(normalizedTarget);
+        const suffixPrimary = [];
+        const suffixSecondary = [];
+        const basePrimary = [];
+        const baseSecondary = [];
+
+        for (const c of allConcepts) {
+          let hitPrimarySuffix = false;
+          let hitPrimaryBase = false;
+          for (const uri of collectPrimaryResourceUris(c.frontmatter)) {
+            const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
+            if (!resPath) continue;
+            const resRel = path.relative(workspaceRoot, resPath).replace(/\\/g, '/').toLowerCase();
+            const resBase = path.basename(resPath).toLowerCase();
+            if (rawRelNorm.includes('/') && (resRel === rawRelNorm || resRel.endsWith('/' + rawRelNorm))) {
+              suffixPrimary.push({ concept: c, matchTier: 'primary', fallback: 'fallback-suffix' });
+              hitPrimarySuffix = true;
+              break;
+            }
+            if (targetBase && resBase === targetBase) {
+              basePrimary.push({ concept: c, matchTier: 'primary', fallback: 'fallback-basename' });
+              hitPrimaryBase = true;
+            }
+          }
+          if (hitPrimarySuffix) continue;
+
+          for (const uri of collectSecondarySourceUris(c.frontmatter)) {
+            const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
+            if (!resPath) continue;
+            const resRel = path.relative(workspaceRoot, resPath).replace(/\\/g, '/').toLowerCase();
+            const resBase = path.basename(resPath).toLowerCase();
+            if (rawRelNorm.includes('/') && (resRel === rawRelNorm || resRel.endsWith('/' + rawRelNorm))) {
+              suffixSecondary.push({ concept: c, matchTier: 'secondary', fallback: 'fallback-suffix' });
+              break;
+            }
+            if (!hitPrimaryBase && targetBase && resBase === targetBase) {
+              baseSecondary.push({ concept: c, matchTier: 'secondary', fallback: 'fallback-basename' });
+              break;
+            }
+          }
+        }
+
+        if (suffixPrimary.length > 0 || suffixSecondary.length > 0) {
+          fileMatches.push(...suffixPrimary, ...suffixSecondary);
+        } else if (basePrimary.length > 0 || baseSecondary.length > 0) {
+          fileMatches.push(...basePrimary, ...baseSecondary);
+        }
+      }
+
+      // Tier 2: Directory / Subsystem match (target resides in the same directory as a documented resource)
+      if (fileMatches.length === 0) {
+        const wsNorm = path.normalize(workspaceRoot).toLowerCase();
+        const tier2Primary = [];
+        const tier2Secondary = [];
+        for (const c of allConcepts) {
+          let matchedDirPrimary = false;
+          for (const uri of collectPrimaryResourceUris(c.frontmatter)) {
+            const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
+            if (resPath) {
+              const resDir = path.dirname(path.normalize(resPath)).toLowerCase();
+              if (resDir !== wsNorm && (normalizedTarget === resDir || normalizedTarget.startsWith(resDir + path.sep))) {
+                tier2Primary.push({ concept: c, matchTier: 'directory' });
+                matchedDirPrimary = true;
+                break;
+              }
+            }
+          }
+          if (matchedDirPrimary) continue;
+
+          for (const uri of collectSecondarySourceUris(c.frontmatter)) {
+            const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
+            if (resPath) {
+              const resDir = path.dirname(path.normalize(resPath)).toLowerCase();
+              if (resDir !== wsNorm && (normalizedTarget === resDir || normalizedTarget.startsWith(resDir + path.sep))) {
+                tier2Secondary.push({ concept: c, matchTier: 'directory' });
+                break;
+              }
+            }
+          }
+        }
+        fileMatches.push(...tier2Primary, ...tier2Secondary);
+      }
+
+      return fileMatches;
     }
+
+    const byRelPath = new Map();
+    const tierPriority = { primary: 3, secondary: 2, directory: 1 };
+    for (const rawFileArg of rawFileArgs) {
+      for (const entry of matchSingleFile(rawFileArg)) {
+        const key = entry.concept.relativePath;
+        if (!byRelPath.has(key)) {
+          byRelPath.set(key, { ...entry });
+        } else {
+          const existing = byRelPath.get(key);
+          if ((tierPriority[entry.matchTier] || 0) > (tierPriority[existing.matchTier] || 0)) {
+            existing.matchTier = entry.matchTier;
+          }
+          if (!existing.fallback && entry.fallback) {
+            existing.fallback = entry.fallback;
+          }
+        }
+      }
+    }
+    const deduped = Array.from(byRelPath.values());
+    const primaries = deduped.filter(e => e.matchTier === 'primary');
+    const others = deduped.filter(e => e.matchTier !== 'primary');
+    matchedEntries.push(...primaries, ...others);
   } else if (searchIndex !== -1 && searchKeyword) {
     const exactAndFullMatches = [];
     const partialMatches = [];
@@ -543,12 +578,14 @@ function main() {
 
   const forceFull = args.includes('--full');
   const MAX_CONCEPT_CHARS = 12000;
+  const MAX_TOTAL_BODY_CHARS = 24000;
   const MAX_FILE_FULL_CONCEPTS = 3;
   const MAX_SEARCH_FULL_CONCEPTS = 5;
+  let totalBodyCharsPrinted = 0;
 
-  function formatConceptBody(concept) {
+  function formatConceptBody(concept, maxChars = MAX_CONCEPT_CHARS) {
     const trimmed = concept.body.trim();
-    if (forceFull || trimmed.length <= MAX_CONCEPT_CHARS) {
+    if (forceFull || trimmed.length <= maxChars) {
       return trimmed;
     }
 
@@ -585,13 +622,13 @@ function main() {
       }
       if (matchingSections.length > 0) {
         const excerpt = matchingSections.map(s => s.lines.join('\n').trim()).join('\n\n---\n\n');
-        if (excerpt.length <= MAX_CONCEPT_CHARS) {
+        if (excerpt.length <= maxChars) {
           return `[Concept Outline (${concept.relativePath})]\n${toc}\n\n[Matching Sections for "${args[searchIndex + 1]}"]\n${excerpt}\n\n(Note: Showing matching sections from ${concept.relativePath} [${trimmed.length} chars total]. Pass --full to print entire concept.)`;
         }
       }
     }
 
-    return `${trimmed.slice(0, MAX_CONCEPT_CHARS)}\n\n... [Truncated at ${MAX_CONCEPT_CHARS} of ${trimmed.length} chars from ${concept.relativePath}. Pass --full or read ${concept.relativePath} directly for remaining sections]\nSection Outline:\n${toc}`;
+    return `${trimmed.slice(0, maxChars)}\n\n... [Truncated at ${maxChars} of ${trimmed.length} chars from ${concept.relativePath}. Pass --full or read ${concept.relativePath} directly for remaining sections]\nSection Outline:\n${toc}`;
   }
 
   // Format and output matched concepts
@@ -625,18 +662,27 @@ function main() {
     console.log(`Trust Tier:  ${trustTier}`);
     
     console.log(`----------------------------------------`);
-    const shouldPrintFull =
-      forceFull ||
-      (entry.matchTier === 'search'
+    const remainingBudget = MAX_TOTAL_BODY_CHARS - totalBodyCharsPrinted;
+    const withinCountBudget =
+      entry.matchTier === 'search'
         ? idx < MAX_SEARCH_FULL_CONCEPTS
-        : (entry.matchTier === 'primary' || idx < MAX_FILE_FULL_CONCEPTS));
+        : (entry.matchTier === 'primary' || idx < MAX_FILE_FULL_CONCEPTS);
+    const shouldPrintFull =
+      forceFull || (withinCountBudget && (idx === 0 || remainingBudget >= 1500));
 
     if (shouldPrintFull) {
-      console.log(formatConceptBody(c));
-    } else if (entry.matchTier === 'search') {
+      const perConceptBudget = forceFull
+        ? MAX_CONCEPT_CHARS
+        : (idx === 0 ? MAX_CONCEPT_CHARS : Math.min(MAX_CONCEPT_CHARS, Math.max(2000, remainingBudget)));
+      const renderedBody = formatConceptBody(c, perConceptBudget);
+      totalBodyCharsPrinted += renderedBody.length;
+      console.log(renderedBody);
+    } else if (!withinCountBudget && entry.matchTier === 'search') {
       console.log(`(Additional search match [${idx + 1} of ${matchedEntries.length}]. Read ${c.relativePath} or pass --full for full concept body.)`);
-    } else {
+    } else if (!withinCountBudget) {
       console.log(`(Matched via secondary sources: binding [${idx + 1} of ${matchedEntries.length}]. Read ${c.relativePath} or pass --full for full concept body.)`);
+    } else {
+      console.log(`(Omitted full body to stay within cumulative context budget [${idx + 1} of ${matchedEntries.length}]. Read ${c.relativePath} or pass --full for full concept body.)`);
     }
     console.log(`\n========================================\n`);
   }
