@@ -7,7 +7,7 @@
 
 ## 1. The Architect's Playbook: Greenfield vs. Brownfield Rollout
 
-Congratulations on reaching the final module of the OKF Academy! You now understand the **Open Knowledge Format (OKF v0.2)** specification and all 8 skills in the **Closed-Loop Agentic Knowledge Pipeline**.
+Congratulations on reaching the final module of the OKF Academy! You now understand the **Open Knowledge Format (OKF v0.2)** specification and all 9 skills in the **Closed-Loop Agentic Knowledge Pipeline**.
 
 How you roll out OKF across a real engineering organization depends on whether you are starting a **Greenfield** project or onboarding a **Brownfield** (legacy) codebase:
 

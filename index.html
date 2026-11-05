@@ -3611,7 +3611,7 @@ node okf-upgrade/scripts/upgrade.js --user "ahormati"
 ## Migration &amp; Self-Update Actions Performed
 
 0. **Multi-Agent Skill Self-Update (`--skills` / `--self` / `--all`)**:
-   - Fast-forwards `~/okf-skills` (if present) or fetches the latest `okf-skills` repository from GitHub, and copies all 8 skills (`okf`, `okf-maintain`, `okf-visualize`, `okf-wayfinder`, `okf-lint`, `okf-query`, `okf-upgrade`, `okf-prune`) into `~/.gemini/config/skills`, `~/.claude/skills`, `~/.claude-*/skills`, `$CLAUDE_CONFIG_DIR/skills`, `~/.codex/skills`, `~/.codex-*/skills`, `$CODEX_HOME/skills`, and `~/.agents/skills`.
+   - Fast-forwards `~/okf-skills` (if present) or fetches the latest `okf-skills` repository from GitHub, and copies all 9 skills (`okf`, `okf-maintain`, `okf-visualize`, `okf-wayfinder`, `okf-lint`, `okf-query`, `okf-upgrade`, `okf-prune`, `okf-learn`) into `~/.gemini/config/skills`, `~/.claude/skills`, `~/.claude-*/skills`, `$CLAUDE_CONFIG_DIR/skills`, `~/.codex/skills`, `~/.codex-*/skills`, `$CODEX_HOME/skills`, and `~/.agents/skills`.
 
 1. **Frontmatter Upgrade (§5.2, §13.1)**:
    - Replaces the legacy `timestamp: &lt;time&gt;` frontmatter property with the structured `generated` mapping:

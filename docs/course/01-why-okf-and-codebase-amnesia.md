@@ -83,7 +83,7 @@ Notice how `docs/okf/index.md` maps the entire repository's architecture in unde
 ```bash
 node okf-query/scripts/query.js --search "lifecycle"
 ```
-**What to observe:** Instead of reading 3,000+ lines of JavaScript across 8 skill directories, `okf-query` returns a compact `=== OKF CONTEXT BLOCK ===` containing the exact architectural overview, metadata, and trust tier in ~350 tokens.
+**What to observe:** Instead of reading 3,000+ lines of JavaScript across 9 skill directories, `okf-query` returns a compact `=== OKF CONTEXT BLOCK ===` containing the exact architectural overview, metadata, and trust tier in ~350 tokens.
 
 ---
 
