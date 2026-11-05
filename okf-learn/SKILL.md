@@ -19,6 +19,8 @@ Close the self-improvement feedback loop across coding sessions by auditing pass
 
 ## Usage
 
+> **Path Resolution:** When running outside the `okf-skills` repository, use the installed skills base path configured in the workspace's `AGENTS.md` (on Windows PowerShell, use `$HOME/...` or `C:/Users/<user>/...` rather than `~/`, as `node.exe` does not expand `~`).
+
 ```bash
 # 1. Evaluate the most recent substantive coding session & passive telemetry
 node okf-learn/scripts/learn.js --latest [--recent 5] [--bundle <path>]
@@ -71,6 +73,6 @@ node okf-learn/scripts/learn.js --reset
      - Implement code/prompt fixes for `skillLearningsQueue`, `telemetry` anomalies, and `recentSessions` friction directly in `okf-*/scripts/*.js` and `okf-*/SKILL.md`.
      - Add regression tests to `scripts/test-lifecycle.js`.
 
-4. **Verify, Deploy & Clear Queue**
+4. **Verify, Commit via Git PR Workflow, Deploy & Clear Queue**
    - Run `node okf-maintain/scripts/maintain.js` and `node okf-lint/scripts/lint.js --drift` (must report 0 errors and 0 warnings).
-   - When modifying `okf-skills`, run `npm test`, deploy updated skills to all local agent directories via `node okf-upgrade/scripts/upgrade.js --skills`, and clear processed notes via `node okf-learn/scripts/learn.js --clear-notes`.
+   - When modifying `okf-skills`, run `npm test`, follow the Git PR workflow (`git checkout -b feat/...`, commit, `git push -u origin HEAD`, `gh pr create`, `gh pr merge --rebase --delete-branch`, `git checkout main && git pull --ff-only`), deploy updated skills to all local agent directories via `node okf-upgrade/scripts/upgrade.js --skills`, and clear processed notes via `node okf-learn/scripts/learn.js --clear-notes`.

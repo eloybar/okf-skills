@@ -215,7 +215,11 @@ function evaluateSkillsPerformance(options = {}) {
           }
           if (Array.isArray(step.tool_calls)) {
             for (const tc of step.tool_calls) {
-              const cmd = tc && tc.args && tc.args.CommandLine ? String(tc.args.CommandLine) : '';
+              const tcArgs = (tc && tc.args) || {};
+              if (tc && tc.name === 'read_file' && tcArgs.Path && /(?:^|[\/\\])okf[\/\\]index\.md["']*$/i.test(String(tcArgs.Path))) {
+                conversation.gateCompliance.preWorkQueries++;
+              }
+              const cmd = tcArgs.CommandLine ? String(tcArgs.CommandLine) : '';
               if (/lint\.js\b/.test(cmd) && /--drift\b/.test(cmd)) {
                 conversation.gateCompliance.sessionStartLint = true;
               }
@@ -231,36 +235,40 @@ function evaluateSkillsPerformance(options = {}) {
         }
 
         const stepContent = String(step.content || '');
-        const missFileMatch = stepContent.match(/No matching OKF concepts found for file:\s*([^\r\n]+)/);
-        if (missFileMatch && !missFileMatch[1].includes('${') && !missFileMatch[1].includes('`')) {
-          conversation.friction.queryMisses.push({
-            step: step.step_index,
-            missedTarget: missFileMatch[1].trim()
-          });
-        } else if (stepContent.includes('No matching OKF concepts found.')) {
-          conversation.friction.queryMisses.push({
-            step: step.step_index,
-            missedTarget: '(search query)'
-          });
-        }
+        const isReadFileOutput = /\n(?:Showing lines \d+-\d+ of \d+|Partial read \(lines \d+-\d+ of \d+\))\r?\n/.test(stepContent);
+        if (!isReadFileOutput) {
+          const missFileMatch = stepContent.match(/^No matching OKF concepts found for file:\s*([^\r\n]+)$/m);
+          if (missFileMatch && !/[$`/*?<>|();]/.test(missFileMatch[1])) {
+            conversation.friction.queryMisses.push({
+              step: step.step_index,
+              missedTarget: missFileMatch[1].trim()
+            });
+          } else if (/^No matching OKF concepts found\.$/m.test(stepContent)) {
+            conversation.friction.queryMisses.push({
+              step: step.step_index,
+              missedTarget: '(search query)'
+            });
+          }
 
-        if (stepContent.includes('output was truncated due to being too long')) {
-          const uriMatch = stepContent.match(/file:\/\/\/[^\s)"']+/);
-          if (uriMatch) {
-            const cleanedUri = uriMatch[0].replace(/\.$/, '');
-            const localOutPath = fileUriToPath(cleanedUri);
-            if (fs.existsSync(localOutPath)) {
-              try {
-                const stat = fs.statSync(localOutPath);
-                const head = fs.readFileSync(localOutPath, 'utf8').slice(0, 2048);
-                if (head.includes('OKF CONTEXT BLOCK') && stat.size > 40000) {
-                  conversation.friction.contextBloat.push({
-                    step: step.step_index,
-                    bytes: stat.size,
-                    file: localOutPath
-                  });
-                }
-              } catch (e) {}
+          if (stepContent.includes('output was truncated due to being too long')) {
+            const uriMatch = stepContent.match(/file:\/\/\/[^\s)"']+/);
+            if (uriMatch) {
+              const cleanedUri = uriMatch[0].replace(/\.$/, '');
+              const localOutPath = fileUriToPath(cleanedUri);
+              const belongsToConv = !targetConvId || localOutPath.toLowerCase().includes(String(targetConvId).toLowerCase());
+              if (belongsToConv && fs.existsSync(localOutPath)) {
+                try {
+                  const stat = fs.statSync(localOutPath);
+                  const head = fs.readFileSync(localOutPath, 'utf8').slice(0, 2048);
+                  if (head.includes('OKF CONTEXT BLOCK') && stat.size > 40000) {
+                    conversation.friction.contextBloat.push({
+                      step: step.step_index,
+                      bytes: stat.size,
+                      file: localOutPath
+                    });
+                  }
+                } catch (e) {}
+              }
             }
           }
         }
@@ -772,12 +780,66 @@ function findBundlesOnOtherBranches(workspaceRoot) {
 const IGNORED_FRONTIER_EXTENSIONS = new Set([
   '.pyc', '.pyo', '.pyd', '.dll', '.exe', '.so', '.dylib',
   '.class', '.o', '.obj', '.a', '.lib', '.pdb',
+  '.bin', '.rdb', '.elf', '.hex', '.uf2', '.map',
   '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico', '.bmp', '.tiff', '.avif',
   '.mp4', '.webm', '.mov', '.avi', '.mkv', '.mp3', '.wav', '.ogg',
   '.woff', '.woff2', '.ttf', '.otf', '.eot',
   '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
   '.zip', '.tar', '.gz', '.tgz', '.7z', '.rar', '.pkpass'
 ]);
+
+function isHashedBuildAsset(relPath) {
+  const norm = String(relPath || '').replace(/\\/g, '/');
+  const m = norm.match(/(?:^|\/)assets\/([a-zA-Z0-9_.-]+?)-([a-zA-Z0-9_-]{8,})(\.(?:js|mjs|cjs|css))$/i);
+  if (!m) return false;
+  const hash = m[2];
+  return /\d/.test(hash) || (/[a-z]/.test(hash) && /[A-Z]/.test(hash));
+}
+
+function healStaleHashedAssetBindings(conceptFiles, workspaceRoot, bundleRoot) {
+  const healed = [];
+  for (const cFile of conceptFiles) {
+    let content;
+    try { content = fs.readFileSync(cFile, 'utf8'); } catch (e) { continue; }
+    const fm = parseFrontmatter(content);
+    if (!fm || !Array.isArray(fm.sources)) continue;
+    let modified = false;
+    let updatedContent = content;
+    for (const src of fm.sources) {
+      const rawResource = typeof src === 'string' ? src : (src && src.resource);
+      if (!rawResource || /^https?:\/\//i.test(rawResource)) continue;
+      if (!isHashedBuildAsset(rawResource)) continue;
+      const local = resolveResourceLocalPath(rawResource, workspaceRoot, bundleRoot);
+      if (!local || fs.existsSync(local)) continue;
+      const assetDir = path.dirname(local);
+      if (!fs.existsSync(assetDir)) continue;
+      const base = path.basename(local);
+      const m = base.match(/^([a-zA-Z0-9_.-]+?)-([a-zA-Z0-9_-]{8,})(\.(?:js|mjs|cjs|css))$/i);
+      if (!m) continue;
+      const [, stem, , ext] = m;
+      const candidates = fs.readdirSync(assetDir).filter(f => {
+        if (!f.startsWith(stem + '-') || !f.endsWith(ext)) return false;
+        return isHashedBuildAsset('assets/' + f);
+      });
+      if (candidates.length === 1) {
+        const newRawResource = rawResource.slice(0, rawResource.length - base.length) + candidates[0];
+        if (updatedContent.includes(rawResource)) {
+          updatedContent = updatedContent.split(rawResource).join(newRawResource);
+          modified = true;
+        }
+      }
+    }
+    if (modified) {
+      fs.writeFileSync(cFile, updatedContent, 'utf8');
+      healed.push({
+        file: path.relative(bundleRoot, cFile).replace(/\\/g, '/'),
+        fullPath: cFile,
+        resource: 'hashed-asset'
+      });
+    }
+  }
+  return healed;
+}
 
 const IGNORED_FRONTIER_FILES = new Set([
   'skills-lock.json', '.gitignore', 'license', 'readme.md',
@@ -864,7 +926,7 @@ function scanWorkspaceFiles(dir, workspaceRoot, documentedResources, results = [
   const files = fs.readdirSync(dir);
   const ignores = [
     '.git', 'node_modules', '.agents', '.claude', '.gemini', 'agent', 'docs',
-    'tmp', 'temp', '.idea', '.vscode', '.superpowers', '__pycache__',
+    'tmp', 'temp', 'scratch', '.scratch', '.idea', '.vscode', '.superpowers', '__pycache__',
     '.pytest_cache', '.mypy_cache', '.ruff_cache', '.venv', 'venv',
     'dist', 'build', 'coverage', '.next', 'target', 'bin', 'obj'
   ];
@@ -911,6 +973,7 @@ function scanWorkspaceFiles(dir, workspaceRoot, documentedResources, results = [
     } else if (stat.isFile()) {
       const ext = path.extname(file).toLowerCase();
       if (IGNORED_FRONTIER_EXTENSIONS.has(ext)) continue;
+      if (isHashedBuildAsset(relPath)) continue;
       if (!IGNORED_FRONTIER_FILES.has(file.toLowerCase())) {
         if (!isCoveredByResource(relPath, fullPath, documentedResources)) {
           results.push({ path: relPath, absolutePath: fullPath });
@@ -1445,6 +1508,7 @@ async function main() {
   }
 
   const conceptFiles = walkConceptFiles(bundleRoot);
+  const healedAssetConcepts = !isCheckMode ? healStaleHashedAssetBindings(conceptFiles, workspaceRoot, bundleRoot) : [];
   const documentedResources = new Set();
   const driftedConcepts = [];
   const staleConcepts = [];
@@ -1550,6 +1614,17 @@ async function main() {
   }
 
   // Propagate drift transitively when Concept B references Concept A in resource/sources and Concept A is drifted
+  for (const hc of healedAssetConcepts) {
+    if (!driftedConcepts.some(d => d.file === hc.file)) {
+      driftedConcepts.push({
+        file: hc.file,
+        fullPath: hc.fullPath,
+        resource: hc.resource,
+        gitTime: new Date().toISOString(),
+        conceptTime: new Date(0).toISOString()
+      });
+    }
+  }
   const driftedByAbsKey = new Map(driftedConcepts.map(d => [path.resolve(d.fullPath).toLowerCase(), d]));
   let addedTransitive = true;
   while (addedTransitive) {

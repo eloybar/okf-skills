@@ -7,7 +7,7 @@ status: stable
 tags: [self-improvement, telemetry, evaluation, learning]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-05T21:22:27.343Z
+  at: 2026-11-05T21:53:21.642Z
 sources:
   - okf-learn/scripts/learn.js
   - scripts/test-lifecycle.js
@@ -19,9 +19,9 @@ The `okf-learn` skill closes the retrospective self-improvement loop in [The Kno
 # Architecture & CLI Modes
 - **Script**: Located at [`okf-learn/scripts/learn.js`](/okf-learn/scripts/learn.js).
 - **Session & Telemetry Audit (`node okf-learn/scripts/learn.js [<conversation-id> | --latest] [--recent [N]] [--exclude <id>] [--brain-dir <path>] [--json]`)**:
-  - **Smart `--latest` & Multi-Session `--recent [N]` Discovery**: When `--latest` is passed without an explicit conversation ID, `evaluateSkillsPerformance` automatically skips short `<6` step meta-sessions (such as a newly opened `/okf-learn` chat) in favor of the most recent substantive coding session (`>= 6` steps), and `--recent [N]` summarizes the last `N` (default `5`) substantive sessions across all workspaces (`inferredWorkspace`, gate score, and friction).
-  - **Gate Compliance**: Scores adherence to the 4 mandatory OKF Steering Gates (`sessionStartLint`, `preWorkQueries`, `conceptCitations`, `preCompletionMaintain`).
-  - **Quantitative Friction**: Detects `queryMisses` (from both transcript outputs and `telemetry.jsonl`), `fallbacksUsed` (suffix/basename/directory rescues), `contextBloat` (`OKF CONTEXT BLOCK` outputs exceeding 40 KB), `slowCommands` (backgrounded OKF CLI commands), and `toolErrors` (`edit_file` target-not-found vs. missing files).
+  - **Smart `--latest` & Multi-Session `--recent [N]` Discovery**: When `--latest` is passed without an explicit conversation ID, `evaluateSkillsPerformance` automatically skips short `<6` step meta-sessions (such as a newly opened `/okf-learn` chat) in favor of the most recent substantive coding session (`>= 6` steps), and `--recent [N]` summarizes the last `N` (default `5`) substantive sessions across all workspaces (`inferredWorkspace` resolved via `inferWorkspaceFromPath`, gate score, and friction).
+  - **Gate Compliance**: Scores adherence to the 4 mandatory OKF Steering Gates (`sessionStartLint`, `preWorkQueries` including `okf/index.md` reads, `conceptCitations`, `preCompletionMaintain`).
+  - **Quantitative Friction**: Detects `queryMisses` (from both transcript command outputs and `telemetry.jsonl`, excluding `read_file` outputs), `fallbacksUsed` (suffix/basename/directory rescues), `contextBloat` (conversation-scoped `OKF CONTEXT BLOCK` outputs exceeding 40 KB), `slowCommands` (backgrounded OKF CLI commands), and `toolErrors` (`edit_file` target-not-found vs. missing files).
   - **Qualitative Learning Signals (`learningSignals`)**: Extracts corrective user turns (`userCorrections`) and identifies oversized active concepts (`oversizedConcepts` with body > 12 KB) in the bundle.
   - **Cross-Repo Skill Learnings Queue (`skillLearningsQueue`)**: Reads queued skill-level findings from `~/.okf/skill-learnings.jsonl` (overridable via `OKF_SKILL_LEARNINGS_PATH` or `--learnings`) and synthesizes a `HIGH` priority `skill-backlog` recommendation when entries exist.
   - **Actionable Recommendations**: Synthesizes prioritized (`HIGH` / `MED` / `LOW`) remediation steps.

@@ -320,6 +320,41 @@ function bindSourceToConcept({ workspaceRoot, bundleRoot, filePath, conceptRelPa
   };
 }
 
+function inferWorkspaceFromPath(rawPath) {
+  if (!rawPath || typeof rawPath !== 'string') return null;
+  const normP = rawPath.replace(/^["']+|["']+$/g, '').replace(/\\+/g, '/').replace(/\/+/g, '/');
+  if (normP.includes('/.gemini/') || normP.includes('/AppData/Local/Temp/') || normP.startsWith('/tmp/')) {
+    return null;
+  }
+  const okfBundleIdx = normP.search(/\/(?:docs\/)?okf(?=\/|$)/i);
+  if (okfBundleIdx > 0) {
+    return normP.slice(0, okfBundleIdx);
+  }
+  let curr = path.dirname(normP);
+  for (let depth = 0; depth < 5; depth++) {
+    const cleanCurr = curr.replace(/\\+/g, '/');
+    const parts = cleanCurr.split('/').filter(Boolean);
+    if (parts.length < 2) break;
+    try {
+      if (
+        fs.existsSync(path.join(cleanCurr, '.git')) ||
+        fs.existsSync(path.join(cleanCurr, 'docs', 'okf')) ||
+        fs.existsSync(path.join(cleanCurr, 'okf'))
+      ) {
+        return cleanCurr;
+      }
+    } catch (e) {}
+    const parent = path.dirname(cleanCurr).replace(/\\+/g, '/');
+    if (parent === cleanCurr) break;
+    curr = parent;
+  }
+  const parts = normP.split('/');
+  if (parts.length >= 2) {
+    return parts.slice(0, Math.min(parts.length - 1, 3)).join('/');
+  }
+  return null;
+}
+
 function analyzeSingleTranscript(transcriptPath, convId) {
   const conversation = {
     conversationId: convId,
@@ -392,13 +427,13 @@ function analyzeSingleTranscript(transcriptPath, convId) {
       if (Array.isArray(step.tool_calls)) {
         for (const tc of step.tool_calls) {
           const tcArgs = (tc && tc.args) || {};
-          if (!conversation.inferredWorkspace && tcArgs.Path && typeof tcArgs.Path === 'string') {
-            const normP = tcArgs.Path.replace(/^["']+|["']+$/g, '').replace(/\\+/g, '/').replace(/\/+/g, '/');
-            if (!normP.includes('/.gemini/') && !normP.includes('/AppData/Local/Temp/')) {
-              const parts = normP.split('/');
-              if (parts.length >= 2) {
-                conversation.inferredWorkspace = parts.slice(0, Math.min(parts.length - 1, 3)).join('/');
-              }
+          if (tcArgs.Path && typeof tcArgs.Path === 'string') {
+            if (!conversation.inferredWorkspace) {
+              const inferred = inferWorkspaceFromPath(tcArgs.Path);
+              if (inferred) conversation.inferredWorkspace = inferred;
+            }
+            if (tc.name === 'read_file' && /(?:^|[\/\\])okf[\/\\]index\.md["']*$/i.test(tcArgs.Path)) {
+              conversation.gateCompliance.preWorkQueries++;
             }
           }
           const cmd = tcArgs.CommandLine ? String(tcArgs.CommandLine) : '';
@@ -417,36 +452,40 @@ function analyzeSingleTranscript(transcriptPath, convId) {
     }
 
     const stepContent = String(step.content || '');
-    const missFileMatch = stepContent.match(/No matching OKF concepts found for file:\s*([^\r\n]+)/);
-    if (missFileMatch && !missFileMatch[1].includes('${') && !missFileMatch[1].includes('`')) {
-      conversation.friction.queryMisses.push({
-        step: step.step_index,
-        missedTarget: missFileMatch[1].trim()
-      });
-    } else if (stepContent.includes('No matching OKF concepts found.')) {
-      conversation.friction.queryMisses.push({
-        step: step.step_index,
-        missedTarget: '(search query)'
-      });
-    }
+    const isReadFileOutput = /\n(?:Showing lines \d+-\d+ of \d+|Partial read \(lines \d+-\d+ of \d+\))\r?\n/.test(stepContent);
+    if (!isReadFileOutput) {
+      const missFileMatch = stepContent.match(/^No matching OKF concepts found for file:\s*([^\r\n]+)$/m);
+      if (missFileMatch && !/[$`/*?<>|();]/.test(missFileMatch[1])) {
+        conversation.friction.queryMisses.push({
+          step: step.step_index,
+          missedTarget: missFileMatch[1].trim()
+        });
+      } else if (/^No matching OKF concepts found\.$/m.test(stepContent)) {
+        conversation.friction.queryMisses.push({
+          step: step.step_index,
+          missedTarget: '(search query)'
+        });
+      }
 
-    if (stepContent.includes('output was truncated due to being too long')) {
-      const uriMatch = stepContent.match(/file:\/\/\/[^\s)"']+/);
-      if (uriMatch) {
-        const cleanedUri = uriMatch[0].replace(/\.$/, '');
-        const localOutPath = fileUriToPath(cleanedUri);
-        if (fs.existsSync(localOutPath)) {
-          try {
-            const stat = fs.statSync(localOutPath);
-            const head = fs.readFileSync(localOutPath, 'utf8').slice(0, 2048);
-            if (head.includes('OKF CONTEXT BLOCK') && stat.size > 40000) {
-              conversation.friction.contextBloat.push({
-                step: step.step_index,
-                bytes: stat.size,
-                file: localOutPath
-              });
-            }
-          } catch (e) {}
+      if (stepContent.includes('output was truncated due to being too long')) {
+        const uriMatch = stepContent.match(/file:\/\/\/[^\s)"']+/);
+        if (uriMatch) {
+          const cleanedUri = uriMatch[0].replace(/\.$/, '');
+          const localOutPath = fileUriToPath(cleanedUri);
+          const belongsToConv = !convId || localOutPath.toLowerCase().includes(String(convId).toLowerCase());
+          if (belongsToConv && fs.existsSync(localOutPath)) {
+            try {
+              const stat = fs.statSync(localOutPath);
+              const head = fs.readFileSync(localOutPath, 'utf8').slice(0, 2048);
+              if (head.includes('OKF CONTEXT BLOCK') && stat.size > 40000) {
+                conversation.friction.contextBloat.push({
+                  step: step.step_index,
+                  bytes: stat.size,
+                  file: localOutPath
+                });
+              }
+            } catch (e) {}
+          }
         }
       }
     }
@@ -547,13 +586,13 @@ function evaluateSkillsPerformance(options = {}) {
             telemetry.queryMisses.push({ timestamp: ev.timestamp, query: ev.query, workspaceRoot: ev.workspaceRoot });
           }
           if (anoms.includes('fallback_used')) {
-            telemetry.fallbacksUsed.push({ timestamp: ev.timestamp, query: ev.query, matchTiers: ev.matchTiers });
+            telemetry.fallbacksUsed.push({ timestamp: ev.timestamp, query: ev.query, matchTiers: ev.matchTiers, workspaceRoot: ev.workspaceRoot });
           }
           if (anoms.includes('context_bloat')) {
-            telemetry.contextBloats.push({ timestamp: ev.timestamp, query: ev.query, outputBytes: ev.outputBytes });
+            telemetry.contextBloats.push({ timestamp: ev.timestamp, query: ev.query, outputBytes: ev.outputBytes, workspaceRoot: ev.workspaceRoot });
           }
           if (anoms.includes('slow_exec')) {
-            telemetry.slowRuns.push({ timestamp: ev.timestamp, skill: ev.skill, durationMs: ev.durationMs });
+            telemetry.slowRuns.push({ timestamp: ev.timestamp, skill: ev.skill, durationMs: ev.durationMs, workspaceRoot: ev.workspaceRoot });
           }
         }
       }
