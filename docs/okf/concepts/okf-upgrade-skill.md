@@ -7,7 +7,7 @@ tags: [upgrade, migration, automation]
 status: stable
 generated:
   by: Antigravity/4.0
-  at: 2026-11-05T21:22:27.343Z
+  at: 2026-11-05T21:47:01.673Z
 sources:
   - okf-upgrade/scripts/upgrade.js
 ---

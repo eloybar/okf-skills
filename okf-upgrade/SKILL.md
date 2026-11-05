@@ -9,6 +9,8 @@ Migrate an existing **OKF bundle** from Version 0.1 to Version 0.2 format, or se
 
 ## Usage
 
+> **Path Resolution:** When running outside the `okf-skills` repository, use the installed skills base path configured in the workspace's `AGENTS.md` (on Windows PowerShell, use `$HOME/...` or `C:/Users/<user>/...` rather than `~/`, as `node.exe` does not expand `~`).
+
 ```bash
 # Upgrade the local bundle in the workspace
 node okf-upgrade/scripts/upgrade.js [--bundle <path>]

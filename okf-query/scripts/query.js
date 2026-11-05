@@ -303,15 +303,29 @@ function main() {
 
   const allConcepts = scanConcepts(bundleRoot, bundleRoot, workspaceRoot);
   const matchedEntries = [];
-  const searchKeyword = searchIndex !== -1 && args[searchIndex + 1] ? args[searchIndex + 1].toLowerCase().trim() : null;
+  const rawSearchArgs = [];
+  if (searchIndex !== -1) {
+    for (let i = searchIndex + 1; i < args.length; i++) {
+      if (String(args[i]).startsWith('--')) break;
+      rawSearchArgs.push(String(args[i]).trim());
+    }
+  }
+  const rawSearchString = rawSearchArgs.filter(Boolean).join(' ');
+  const searchKeyword = rawSearchString ? rawSearchString.toLowerCase().trim() : null;
   const searchTokens = searchKeyword ? tokenizeSearchQuery(searchKeyword) : [];
+  const rawFileArgs = [];
 
   if (fileIndex !== -1) {
-    const rawFileArgs = [];
     for (let i = 0; i < args.length; i++) {
-      if (args[i] === '--file' && args[i + 1]) {
-        const parts = args[i + 1].split(',').map(s => s.trim()).filter(Boolean);
-        rawFileArgs.push(...parts);
+      if (args[i] === '--file') {
+        let j = i + 1;
+        while (j < args.length && !String(args[j]).startsWith('--')) {
+          const val = Array.isArray(args[j]) ? args[j].join(',') : String(args[j]);
+          const parts = val.split(',').map(s => s.trim()).filter(Boolean);
+          rawFileArgs.push(...parts);
+          j++;
+        }
+        i = j - 1;
       }
     }
 
@@ -319,14 +333,22 @@ function main() {
       const fileMatches = [];
       const wsTarget = path.resolve(workspaceRoot, rawFileArg);
       const cwdTarget = path.resolve(process.cwd(), rawFileArg);
-      const targetFile = fs.existsSync(wsTarget) || !fs.existsSync(cwdTarget) ? wsTarget : cwdTarget;
+      const strippedBundleRel = rawFileArg.replace(/^[\/\\]+/, '').replace(/^(?:docs[\/\\])?okf[\/\\]/i, '');
+      const bundleTarget = path.resolve(bundleRoot, strippedBundleRel);
+      const targetFile = fs.existsSync(wsTarget)
+        ? wsTarget
+        : (fs.existsSync(cwdTarget) ? cwdTarget : (fs.existsSync(bundleTarget) ? bundleTarget : wsTarget));
       const targetExists = fs.existsSync(targetFile);
       const normalizedTarget = path.normalize(targetFile).toLowerCase();
 
-      // Tier 1A (primary resource) & Tier 1B (secondary sources): Exact file match or enclosing directory resource
+      // Tier 1A (primary resource / direct concept file) & Tier 1B (secondary sources): Exact file match or enclosing directory resource
       const tier1Primary = [];
       const tier1Secondary = [];
       for (const c of allConcepts) {
+        if (path.normalize(c.absolutePath).toLowerCase() === normalizedTarget) {
+          tier1Primary.push({ concept: c, matchTier: 'primary' });
+          continue;
+        }
         let matchedPrimary = false;
         for (const uri of collectPrimaryResourceUris(c.frontmatter)) {
           const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
@@ -550,9 +572,10 @@ function main() {
     }
   }
 
+  const effectiveQueryLabel = fileIndex !== -1 ? rawFileArgs.join(',') : rawSearchString;
   if (matchedEntries.length === 0) {
     if (fileIndex !== -1) {
-      const relTarget = path.relative(workspaceRoot, path.resolve(workspaceRoot, args[fileIndex + 1]));
+      const relTarget = path.relative(workspaceRoot, path.resolve(workspaceRoot, rawFileArgs[0] || args[fileIndex + 1] || ''));
       console.log(`No matching OKF concepts found for file: ${relTarget}`);
       console.log(`Tip: Try searching by keyword: node okf-query/scripts/query.js --search <module-or-topic>`);
       console.log(`Or inspect the catalog index at: ${fs.existsSync(path.join(bundleRoot, 'index.md')) ? path.relative(workspaceRoot, path.join(bundleRoot, 'index.md')).replace(/\\/g, '/') : 'docs/okf/index.md'}`);
@@ -566,7 +589,7 @@ function main() {
       skill: 'okf-query',
       workspaceRoot,
       mode: fileIndex !== -1 ? 'file' : 'search',
-      query: fileIndex !== -1 ? args[fileIndex + 1] : args[searchIndex + 1],
+      query: effectiveQueryLabel,
       matchCount: 0,
       matchTiers: [],
       outputBytes: 0,
@@ -623,7 +646,7 @@ function main() {
       if (matchingSections.length > 0) {
         const excerpt = matchingSections.map(s => s.lines.join('\n').trim()).join('\n\n---\n\n');
         if (excerpt.length <= maxChars) {
-          return `[Concept Outline (${concept.relativePath})]\n${toc}\n\n[Matching Sections for "${args[searchIndex + 1]}"]\n${excerpt}\n\n(Note: Showing matching sections from ${concept.relativePath} [${trimmed.length} chars total]. Pass --full to print entire concept.)`;
+          return `[Concept Outline (${concept.relativePath})]\n${toc}\n\n[Matching Sections for "${rawSearchString}"]\n${excerpt}\n\n(Note: Showing matching sections from ${concept.relativePath} [${trimmed.length} chars total]. Pass --full to print entire concept.)`;
         }
       }
     }
@@ -700,7 +723,7 @@ function main() {
     skill: 'okf-query',
     workspaceRoot,
     mode: fileIndex !== -1 ? 'file' : 'search',
-    query: fileIndex !== -1 ? args[fileIndex + 1] : args[searchIndex + 1],
+    query: effectiveQueryLabel,
     matchCount: matchedEntries.length,
     matchTiers,
     outputBytes,
