@@ -3,6 +3,353 @@ const path = require('path');
 const os = require('os');
 const { execSync, execFileSync } = require('child_process');
 
+function resolveTelemetryPath(args = []) {
+  if (process.env.OKF_DISABLE_TELEMETRY === '1' || process.env.OKF_INTERNAL_CALL === '1') return null;
+  const idx = args.indexOf('--telemetry');
+  if (idx !== -1 && args[idx + 1]) return path.resolve(args[idx + 1]);
+  if (process.env.OKF_TELEMETRY_PATH) return path.resolve(process.env.OKF_TELEMETRY_PATH);
+  try {
+    const cwdNorm = path.resolve(process.cwd()).toLowerCase();
+    const tmpNorm = path.resolve(os.tmpdir()).toLowerCase();
+    if (cwdNorm.startsWith(tmpNorm)) return null;
+  } catch (e) {}
+  return path.join(os.homedir(), '.okf', 'telemetry.jsonl');
+}
+
+function recordTelemetry(entry, args = []) {
+  const telPath = resolveTelemetryPath(args);
+  if (!telPath) return;
+  try {
+    const dir = path.dirname(telPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const payload = {
+      timestamp: new Date().toISOString(),
+      ...entry
+    };
+    fs.appendFileSync(telPath, JSON.stringify(payload) + '\n', 'utf8');
+  } catch (e) {}
+}
+
+function checkSessionAnomaliesForNudge(workspaceRoot, args = []) {
+  const telPath = resolveTelemetryPath(args);
+  if (!telPath || !fs.existsSync(telPath)) return null;
+  try {
+    const raw = fs.readFileSync(telPath, 'utf8').trim();
+    if (!raw) return null;
+    const wsNorm = path.resolve(workspaceRoot).toLowerCase();
+    const entries = raw
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map(line => {
+        try { return JSON.parse(line); } catch (e) { return null; }
+      })
+      .filter(e => e && e.workspaceRoot && path.resolve(e.workspaceRoot).toLowerCase() === wsNorm);
+
+    let lastMaintainIdx = -1;
+    for (let i = entries.length - 1; i >= 0; i--) {
+      if (entries[i].skill === 'okf-maintain' && entries[i].mode === 'sync') {
+        lastMaintainIdx = i;
+        break;
+      }
+    }
+
+    const recentWindowMs = 60 * 60 * 1000;
+    const nowMs = Date.now();
+    const slice = entries.slice(lastMaintainIdx + 1).filter(e => {
+      const t = e.timestamp ? new Date(e.timestamp).getTime() : nowMs;
+      return isNaN(t) || (nowMs - t <= recentWindowMs);
+    });
+    if (slice.length === 0) return null;
+
+    let queryMisses = 0;
+    let contextBloats = 0;
+    let slowRuns = 0;
+    for (const e of slice) {
+      const anoms = Array.isArray(e.anomalies) ? e.anomalies : [];
+      if (anoms.includes('query_miss')) queryMisses++;
+      if (anoms.includes('context_bloat')) contextBloats++;
+      if (anoms.includes('slow_exec')) slowRuns++;
+    }
+
+    if (queryMisses === 0 && contextBloats === 0 && slowRuns === 0) return null;
+    const parts = [];
+    if (queryMisses > 0) parts.push(`${queryMisses} query miss${queryMisses === 1 ? '' : 'es'}`);
+    if (contextBloats > 0) parts.push(`${contextBloats} bloated output${contextBloats === 1 ? '' : 's'}`);
+    if (slowRuns > 0) parts.push(`${slowRuns} slow run${slowRuns === 1 ? '' : 's'}`);
+    return `💡 [OKF Self-Improvement] Session telemetry recorded ${parts.join(', ')} (run "node okf-maintain/scripts/maintain.js --evaluate --latest" to inspect).`;
+  } catch (e) {
+    return null;
+  }
+}
+
+function fileUriToPath(uri) {
+  let cleaned = uri.replace(/^file:\/\/\/?/, '');
+  try { cleaned = decodeURIComponent(cleaned); } catch (e) {}
+  if (process.platform !== 'win32' && !cleaned.startsWith('/')) {
+    cleaned = '/' + cleaned;
+  }
+  return path.normalize(cleaned);
+}
+
+function evaluateSkillsPerformance(options = {}) {
+  const brainDir = options.brainDir || process.env.OKF_BRAIN_DIR || path.join(os.homedir(), '.gemini', 'antigravity-cli', 'brain');
+  const telemetryPath = options.telemetryPath;
+  let targetConvId = options.conversationId || null;
+
+  if (!targetConvId && fs.existsSync(brainDir)) {
+    const candidates = [];
+    for (const entry of fs.readdirSync(brainDir)) {
+      const tPath = path.join(brainDir, entry, '.system_generated', 'logs', 'transcript.jsonl');
+      if (fs.existsSync(tPath)) {
+        try {
+          candidates.push({ id: entry, mtimeMs: fs.statSync(tPath).mtimeMs });
+        } catch (e) {}
+      }
+    }
+    candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    if (candidates.length > 0) {
+      targetConvId = candidates[0].id;
+    }
+  }
+
+  const telemetry = {
+    totalEvents: 0,
+    bySkill: {},
+    queryMisses: [],
+    fallbacksUsed: [],
+    contextBloats: [],
+    slowRuns: []
+  };
+
+  if (telemetryPath && fs.existsSync(telemetryPath)) {
+    try {
+      const rawTel = fs.readFileSync(telemetryPath, 'utf8').trim();
+      if (rawTel) {
+        for (const line of rawTel.split(/\r?\n/)) {
+          if (!line.trim()) continue;
+          const ev = JSON.parse(line);
+          telemetry.totalEvents++;
+          telemetry.bySkill[ev.skill] = (telemetry.bySkill[ev.skill] || 0) + 1;
+          const anoms = Array.isArray(ev.anomalies) ? ev.anomalies : [];
+          if (anoms.includes('query_miss')) {
+            telemetry.queryMisses.push({ timestamp: ev.timestamp, query: ev.query, workspaceRoot: ev.workspaceRoot });
+          }
+          if (anoms.includes('fallback_used')) {
+            telemetry.fallbacksUsed.push({ timestamp: ev.timestamp, query: ev.query, matchTiers: ev.matchTiers });
+          }
+          if (anoms.includes('context_bloat')) {
+            telemetry.contextBloats.push({ timestamp: ev.timestamp, query: ev.query, outputBytes: ev.outputBytes });
+          }
+          if (anoms.includes('slow_exec')) {
+            telemetry.slowRuns.push({ timestamp: ev.timestamp, skill: ev.skill, durationMs: ev.durationMs });
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  const conversation = {
+    conversationId: targetConvId,
+    found: false,
+    stepCount: 0,
+    userTurnCount: 0,
+    durationMinutes: 0,
+    tokens: { inputTokens: 0, cacheReadTokens: 0, outputTokens: 0 },
+    gateCompliance: {
+      sessionStartLint: false,
+      preWorkQueries: 0,
+      conceptCitations: 0,
+      preCompletionMaintain: false,
+      scorePercent: 0
+    },
+    friction: {
+      queryMisses: [],
+      contextBloat: [],
+      slowCommands: [],
+      toolErrors: {
+        total: 0,
+        editFileTargetNotFound: 0,
+        fileDoesNotExist: 0,
+        other: 0
+      }
+    }
+  };
+
+  if (targetConvId) {
+    const transcriptPath = path.join(brainDir, targetConvId, '.system_generated', 'logs', 'transcript.jsonl');
+    if (fs.existsSync(transcriptPath)) {
+      conversation.found = true;
+      const lines = fs.readFileSync(transcriptPath, 'utf8').split(/\r?\n/).filter(Boolean);
+      let firstTimeMs = null;
+      let lastTimeMs = null;
+
+      for (const line of lines) {
+        let step;
+        try { step = JSON.parse(line); } catch (e) { continue; }
+        conversation.stepCount++;
+        if (step.created_at) {
+          const ms = new Date(step.created_at).getTime();
+          if (!isNaN(ms)) {
+            if (firstTimeMs === null || ms < firstTimeMs) firstTimeMs = ms;
+            if (lastTimeMs === null || ms > lastTimeMs) lastTimeMs = ms;
+          }
+        }
+        if (step.type === 'USER_INPUT') {
+          conversation.userTurnCount++;
+        }
+        if (step.type === 'PLANNER_RESPONSE') {
+          conversation.tokens.inputTokens += Number(step.input_tokens || 0);
+          conversation.tokens.cacheReadTokens += Number(step.cache_read_tokens || 0);
+          conversation.tokens.outputTokens += Number(step.output_tokens || 0);
+          const content = String(step.content || '');
+          if (/OKF Check|OKF Citations|docs\/okf\/|\/okf\/concepts\//i.test(content)) {
+            conversation.gateCompliance.conceptCitations++;
+          }
+          if (Array.isArray(step.tool_calls)) {
+            for (const tc of step.tool_calls) {
+              const cmd = tc && tc.args && tc.args.CommandLine ? String(tc.args.CommandLine) : '';
+              if (/lint\.js\b/.test(cmd) && /--drift\b/.test(cmd)) {
+                conversation.gateCompliance.sessionStartLint = true;
+              }
+              const qMatches = cmd.match(/query\.js\b/g);
+              if (qMatches) {
+                conversation.gateCompliance.preWorkQueries += qMatches.length;
+              }
+              if (/maintain\.js\b/.test(cmd)) {
+                conversation.gateCompliance.preCompletionMaintain = true;
+              }
+            }
+          }
+        }
+
+        const stepContent = String(step.content || '');
+        const missFileMatch = stepContent.match(/No matching OKF concepts found for file:\s*([^\r\n]+)/);
+        if (missFileMatch) {
+          conversation.friction.queryMisses.push({
+            step: step.step_index,
+            missedTarget: missFileMatch[1].trim()
+          });
+        } else if (stepContent.includes('No matching OKF concepts found.')) {
+          conversation.friction.queryMisses.push({
+            step: step.step_index,
+            missedTarget: '(search query)'
+          });
+        }
+
+        if (stepContent.includes('output was truncated due to being too long')) {
+          const uriMatch = stepContent.match(/file:\/\/\/[^\s)"']+/);
+          if (uriMatch) {
+            const cleanedUri = uriMatch[0].replace(/\.$/, '');
+            const localOutPath = fileUriToPath(cleanedUri);
+            if (fs.existsSync(localOutPath)) {
+              try {
+                const stat = fs.statSync(localOutPath);
+                const head = fs.readFileSync(localOutPath, 'utf8').slice(0, 512);
+                if (head.includes('OKF CONTEXT BLOCK') || stat.size > 40000) {
+                  conversation.friction.contextBloat.push({
+                    step: step.step_index,
+                    bytes: stat.size,
+                    file: localOutPath
+                  });
+                }
+              } catch (e) {}
+            }
+          }
+        }
+
+        if (stepContent.includes('Tool is running as a background task')) {
+          const descMatch = stepContent.match(/Task Description:\s*([^\r\n]+)/);
+          if (descMatch && /okf-(?:query|maintain|lint|prune|visualize|wayfinder)|(?:query|maintain|lint)\.js/i.test(descMatch[1])) {
+            conversation.friction.slowCommands.push({
+              step: step.step_index,
+              command: descMatch[1].trim(),
+              backgrounded: true
+            });
+          }
+        }
+
+        if (step.status === 'ERROR') {
+          conversation.friction.toolErrors.total++;
+          if (stepContent.includes('target content not found in the file')) {
+            conversation.friction.toolErrors.editFileTargetNotFound++;
+          } else if (stepContent.includes('file does not exist')) {
+            conversation.friction.toolErrors.fileDoesNotExist++;
+          } else {
+            conversation.friction.toolErrors.other++;
+          }
+        }
+      }
+
+      if (firstTimeMs !== null && lastTimeMs !== null && lastTimeMs >= firstTimeMs) {
+        conversation.durationMinutes = Math.round(((lastTimeMs - firstTimeMs) / 60000) * 10) / 10;
+      }
+
+      const gatesPassed =
+        (conversation.gateCompliance.sessionStartLint ? 1 : 0) +
+        (conversation.gateCompliance.preWorkQueries > 0 ? 1 : 0) +
+        (conversation.gateCompliance.conceptCitations > 0 ? 1 : 0) +
+        (conversation.gateCompliance.preCompletionMaintain ? 1 : 0);
+      conversation.gateCompliance.scorePercent = Math.round((gatesPassed / 4) * 100);
+    }
+  }
+
+  const recommendations = [];
+  if (conversation.friction.queryMisses.length > 0 || telemetry.queryMisses.length > 0) {
+    const targets = [
+      ...conversation.friction.queryMisses.map(m => m.missedTarget),
+      ...telemetry.queryMisses.map(m => m.query)
+    ].filter(Boolean);
+    const uniqueTargets = Array.from(new Set(targets)).slice(0, 5);
+    recommendations.push({
+      priority: 'HIGH',
+      category: 'concept-coverage',
+      message: `Bind missed files or add secondary sources: in docs/okf/ concepts for queried paths (${uniqueTargets.join(', ')}).`
+    });
+  }
+  if (conversation.friction.contextBloat.length > 0 || telemetry.contextBloats.length > 0) {
+    recommendations.push({
+      priority: 'HIGH',
+      category: 'context-budget',
+      message: 'Large query output caused context truncation (>40KB). Split oversized concepts or narrow resource/sources bindings.'
+    });
+  }
+  if (conversation.friction.slowCommands.length > 0 || telemetry.slowRuns.length > 0) {
+    recommendations.push({
+      priority: 'MED',
+      category: 'performance',
+      message: 'OKF CLI command exceeded wait threshold or backgrounded. Ensure git commit batching is active or increase WaitMsBeforeAsync.'
+    });
+  }
+  if (conversation.friction.toolErrors.editFileTargetNotFound > 0) {
+    recommendations.push({
+      priority: 'MED',
+      category: 'editing-ergonomics',
+      message: `Detected ${conversation.friction.toolErrors.editFileTargetNotFound} edit_file target-not-found error(s). On Windows CRLF files, use single-line Target strings or read exact line ranges before editing.`
+    });
+  }
+  if (conversation.found && conversation.gateCompliance.scorePercent < 100) {
+    recommendations.push({
+      priority: 'HIGH',
+      category: 'gate-compliance',
+      message: `OKF Steering Gate compliance was ${conversation.gateCompliance.scorePercent}%. Ensure session-start lint, pre-work query, concept citations, and pre-completion maintain run in every task.`
+    });
+  }
+  if (recommendations.length === 0) {
+    recommendations.push({
+      priority: 'LOW',
+      category: 'healthy',
+      message: 'All OKF gates passed with zero query misses, context bloat, or slow commands.'
+    });
+  }
+
+  return {
+    success: true,
+    conversation,
+    telemetry,
+    recommendations
+  };
+}
+
 function splitRespectingQuotes(str, delimiter = ',') {
   const result = [];
   let current = '';
@@ -989,10 +1336,74 @@ function inspectAndSyncSteeringFile(filePath, workspaceRoot, bundleRoot, targetV
 }
 
 async function main() {
+  const startTime = Date.now();
   const args = process.argv.slice(2);
   const isCheckMode = args.includes('--check');
   const isJson = args.includes('--json');
   const withViz = args.includes('--viz');
+
+  if (args.includes('--evaluate')) {
+    const telPath = resolveTelemetryPath(args) || path.join(os.homedir(), '.okf', 'telemetry.jsonl');
+    if (args.includes('--reset')) {
+      try {
+        const dir = path.dirname(telPath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(telPath, '', 'utf8');
+      } catch (e) {}
+      if (isJson) {
+        console.log(JSON.stringify({ success: true, reset: true, telemetryPath: telPath }, null, 2));
+      } else {
+        console.log('✓ OKF telemetry log cleared.');
+      }
+      return;
+    }
+
+    const evalIdx = args.indexOf('--evaluate');
+    let conversationId = null;
+    if (args[evalIdx + 1] && !args[evalIdx + 1].startsWith('--')) {
+      conversationId = args[evalIdx + 1];
+    }
+    const brainIdx = args.indexOf('--brain-dir');
+    const brainDir = (brainIdx !== -1 && args[brainIdx + 1]) ? path.resolve(args[brainIdx + 1]) : undefined;
+    const report = evaluateSkillsPerformance({ conversationId, brainDir, telemetryPath: telPath });
+    if (isJson) {
+      console.log(JSON.stringify(report, null, 2));
+      return;
+    }
+    const c = report.conversation;
+    const t = report.telemetry;
+    console.log('==========================================================');
+    console.log(`OKF Skill Self-Improvement Report${c.conversationId ? ` (Conversation: ${c.conversationId})` : ''}`);
+    console.log('==========================================================');
+    if (c.found) {
+      console.log(`Session Metrics:     ${c.stepCount} steps | ${c.userTurnCount} user turns | ${c.durationMinutes} min`);
+      console.log(`Gate Compliance:     ${c.gateCompliance.scorePercent}%`);
+      console.log(`  - Session-start lint --drift:   ${c.gateCompliance.sessionStartLint ? 'PASS' : 'MISS'}`);
+      console.log(`  - Pre-work okf-query calls:     ${c.gateCompliance.preWorkQueries > 0 ? `PASS (${c.gateCompliance.preWorkQueries} calls)` : 'MISS'}`);
+      console.log(`  - OKF Check citations:          ${c.gateCompliance.conceptCitations > 0 ? `PASS (${c.gateCompliance.conceptCitations} turns)` : 'MISS'}`);
+      console.log(`  - Pre-completion okf-maintain:  ${c.gateCompliance.preCompletionMaintain ? 'PASS' : 'MISS'}`);
+      console.log('----------------------------------------------------------');
+      console.log('Transcript Friction:');
+      console.log(`  - Query misses:                 ${c.friction.queryMisses.length}${c.friction.queryMisses.length ? ` (${c.friction.queryMisses.map(m => m.missedTarget).join(', ')})` : ''}`);
+      console.log(`  - Context bloat (>40KB):        ${c.friction.contextBloat.length}${c.friction.contextBloat.length ? ` (${c.friction.contextBloat.map(b => `step ${b.step}: ${Math.round(b.bytes / 1024)}KB`).join(', ')})` : ''}`);
+      console.log(`  - Backgrounded slow commands:   ${c.friction.slowCommands.length}`);
+      console.log(`  - Tool errors:                  ${c.friction.toolErrors.total} (edit_file target-not-found: ${c.friction.toolErrors.editFileTargetNotFound})`);
+    } else {
+      console.log('Transcript:          No matching conversation transcript found.');
+    }
+    console.log('----------------------------------------------------------');
+    console.log(`Passive Telemetry:   ${t.totalEvents} CLI events recorded`);
+    console.log(`  - Query misses:                 ${t.queryMisses.length} | Fallbacks used: ${t.fallbacksUsed.length}`);
+    console.log(`  - Context bloats (>40KB):       ${t.contextBloats.length} | Slow runs (>2s): ${t.slowRuns.length}`);
+    console.log('----------------------------------------------------------');
+    console.log('Actionable Recommendations:');
+    for (let i = 0; i < report.recommendations.length; i++) {
+      const r = report.recommendations[i];
+      console.log(`  ${i + 1}. [${r.priority}] (${r.category}) ${r.message}`);
+    }
+    console.log('==========================================================');
+    return;
+  }
 
   let actor = 'process:okf-maintain';
   const actorIdx = args.indexOf('--actor');
@@ -1294,7 +1705,8 @@ async function main() {
     try {
       execFileSync(process.execPath, [vizScript, '--bundle', bundleRoot, '--no-open'], {
         cwd: workspaceRoot,
-        stdio: 'ignore'
+        stdio: 'ignore',
+        env: { ...process.env, OKF_INTERNAL_CALL: '1' }
       });
       vizGenerated = true;
     } catch (e) {}
@@ -1309,13 +1721,20 @@ async function main() {
     try {
       execFileSync(process.execPath, [lintScript, '--bundle', bundleRoot, '--drift'], {
         cwd: workspaceRoot,
-        stdio: 'ignore'
+        stdio: 'ignore',
+        env: { ...process.env, OKF_INTERNAL_CALL: '1' }
       });
       lintPassed = true;
     } catch (e) {
       lintPassed = false;
     }
   }
+
+  const nudgeLine = checkSessionAnomaliesForNudge(workspaceRoot, args);
+  const durationMs = Date.now() - startTime;
+  const anomalies = [];
+  if (durationMs > 2000) anomalies.push('slow_exec');
+  if (!lintPassed) anomalies.push('lint_error');
 
   if (isJson) {
     console.log(JSON.stringify({
@@ -1340,7 +1759,21 @@ async function main() {
     if (withViz) console.log(`Visualization updated:  ${vizGenerated ? 'Yes' : 'N/A'}`);
     console.log(`Lint verification:      ${lintPassed ? 'Passed' : 'Failed'}`);
     console.log(`----------------------------------------`);
+    if (nudgeLine) {
+      console.log(nudgeLine);
+    }
   }
+
+  recordTelemetry({
+    skill: 'okf-maintain',
+    workspaceRoot,
+    mode: 'sync',
+    updatedCount: updatedFiles.length,
+    frontierCount: frontierList.length,
+    lintPassed,
+    durationMs,
+    anomalies
+  }, args);
 }
 
 if (require.main === module) {
@@ -1354,5 +1787,7 @@ module.exports = {
   resolveSkillsBase,
   findUnindexedConcepts,
   updateIndexConcepts,
-  getRepoCommitTimeMap
+  getRepoCommitTimeMap,
+  recordTelemetry,
+  evaluateSkillsPerformance
 };

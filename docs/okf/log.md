@@ -5,6 +5,8 @@ Newest changes recorded chronologically.
 
 ## 2026-11-05
 - Synchronized timestamp for 5 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md.
+- Added the 3-part Skill Self-Improvement Pipeline across `okf-query/scripts/query.js`, `okf-maintain/scripts/maintain.js`, and `okf-lint/scripts/lint.js`: passive zero-token CLI telemetry (`~/.okf/telemetry.jsonl` via `recordTelemetry`), pre-completion anomaly nudges (`checkSessionAnomaliesForNudge`), and the 1-command session transcript & telemetry evaluator (`node okf-maintain/scripts/maintain.js --evaluate [conversation-id | --latest] [--json] [--reset]` via `evaluateSkillsPerformance`), plus Step 22 regression tests in `scripts/test-lifecycle.js`.
+- Synchronized timestamp for 5 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md.
 
 ## 2026-11-04
 - Optimized `okf-query/scripts/query.js` with primary (`resource`, `computation`, `executor.resource`, `attester.resource`) vs. secondary (`sources`) `--file` ranking, path-suffix and basename fallback when a queried relative path does not exist on disk, header-weighted `--search` ranking, and default full-body output budgeting (top 3 `--file` + all primary matches; top 5 `--search` matches, with `--full` override); replaced per-file `git log -1` process spawns in `okf-maintain/scripts/maintain.js` and `okf-lint/scripts/lint.js` with batched repository-wide `getRepoCommitTimeMap` (~25x faster drift checks on Windows); and added Step 21 regression tests in `scripts/test-lifecycle.js`.

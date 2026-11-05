@@ -1416,6 +1416,155 @@ Body.
   const repoCommitMap = maintainMod.getRepoCommitTimeMap(tempDir);
   assert.ok(repoCommitMap instanceof Map && repoCommitMap.size > 0, 'getRepoCommitTimeMap must populate commit timestamps in batch');
   console.log('✓ okf-query primary ranking, basename fallback, search output budgeting, and batched git log verified.');
+
+  // === STEP 22: SKILL SELF-IMPROVEMENT TELEMETRY, PRE-COMPLETION NUDGE & --EVALUATE ANALYZER ===
+  console.log('Step 22: Testing passive skill telemetry (~/.okf/telemetry.jsonl), maintain.js anomaly nudge, and maintain.js --evaluate...');
+
+  const customTelemetryPath = path.join(tempDir, 'custom-telemetry', 'telemetry.jsonl');
+  const telEnv = { ...process.env, OKF_TELEMETRY_PATH: customTelemetryPath, OKF_DISABLE_TELEMETRY: '0' };
+
+  // 22a. Trigger a query miss and a basename fallback rescue in queryPerfWorkspace
+  execSync(`node "${scripts.query}" --file unknown_folder/totally_missing_file.js`, { cwd: queryPerfWorkspace, env: telEnv });
+  execSync(`node "${scripts.query}" --file js/admin_panel.js`, { cwd: queryPerfWorkspace, env: telEnv });
+
+  assert.ok(fs.existsSync(customTelemetryPath), 'OKF scripts must create and append to telemetry.jsonl');
+  const telLines = fs.readFileSync(customTelemetryPath, 'utf8').trim().split(/\r?\n/).map(l => JSON.parse(l));
+  assert.strictEqual(telLines.length, 2, 'Two query invocations must produce 2 telemetry records');
+  assert.ok(telLines[0].anomalies.includes('query_miss'), 'First query must record query_miss anomaly');
+  assert.ok(telLines[1].anomalies.includes('fallback_used'), 'Second query must record fallback_used anomaly');
+
+  // 22b. Running maintain.js in queryPerfWorkspace must emit the self-improvement nudge once, and not repeat on a clean second run
+  const maintainNudgeOut1 = execSync(`node "${scripts.maintain}"`, { cwd: queryPerfWorkspace, env: telEnv }).toString();
+  assert.ok(maintainNudgeOut1.includes('[OKF Self-Improvement]'), 'maintain.js must print [OKF Self-Improvement] nudge when session anomalies exist');
+  assert.ok(maintainNudgeOut1.includes('1 query miss'), 'maintain.js nudge must summarize the query miss count');
+
+  const maintainNudgeOut2 = execSync(`node "${scripts.maintain}"`, { cwd: queryPerfWorkspace, env: telEnv }).toString();
+  assert.ok(!maintainNudgeOut2.includes('[OKF Self-Improvement]'), 'maintain.js must not repeat nudge when no new anomalies occurred since last maintain sync');
+
+  // 22c. Create a mock conversation transcript and run maintain.js --evaluate
+  const mockBrainDir = path.join(tempDir, 'mock-brain');
+  const mockConvId = 'conv-eval-test-001';
+  const mockConvDir = path.join(mockBrainDir, mockConvId, '.system_generated');
+  fs.mkdirSync(path.join(mockConvDir, 'logs'), { recursive: true });
+  fs.mkdirSync(path.join(mockConvDir, 'steps', '3'), { recursive: true });
+
+  // Write a >50KB step output file to simulate context bloat truncation
+  fs.writeFileSync(path.join(mockConvDir, 'steps', '3', 'output.txt'), '=== OKF CONTEXT BLOCK (15 concept(s) found) ===\n' + 'X'.repeat(55000));
+
+  const mockTranscriptSteps = [
+    {
+      step_index: 0,
+      source: 'USER_EXPLICIT',
+      type: 'USER_INPUT',
+      status: 'DONE',
+      created_at: '2026-11-04T20:00:00Z',
+      content: '<USER_REQUEST>fix slow save</USER_REQUEST>'
+    },
+    {
+      step_index: 1,
+      source: 'MODEL',
+      type: 'PLANNER_RESPONSE',
+      status: 'DONE',
+      created_at: '2026-11-04T20:00:05Z',
+      input_tokens: 5000,
+      cache_read_tokens: 10000,
+      output_tokens: 300,
+      tool_calls: [
+        { name: 'run_command', args: { CommandLine: 'node okf-lint/scripts/lint.js --drift; node okf-query/scripts/query.js --file js/missing_guess.js' } },
+        { name: 'run_command', args: { CommandLine: 'node okf-query/scripts/query.js --search "broad query"' } }
+      ]
+    },
+    {
+      step_index: 2,
+      source: 'MODEL',
+      type: 'GENERIC',
+      status: 'DONE',
+      created_at: '2026-11-04T20:00:08Z',
+      content: 'OKF Linting Passed Successfully!\nNo matching OKF concepts found for file: js\\missing_guess.js'
+    },
+    {
+      step_index: 3,
+      source: 'MODEL',
+      type: 'GENERIC',
+      status: 'DONE',
+      created_at: '2026-11-04T20:00:10Z',
+      content: `The tool's output was truncated due to being too long. You can find the full output in a file at file:///${path.join(mockConvDir, 'steps', '3', 'output.txt').replace(/\\/g, '/')}.`
+    },
+    {
+      step_index: 4,
+      source: 'MODEL',
+      type: 'PLANNER_RESPONSE',
+      status: 'DONE',
+      created_at: '2026-11-04T20:01:00Z',
+      input_tokens: 6000,
+      cache_read_tokens: 15000,
+      output_tokens: 400,
+      tool_calls: [
+        { name: 'edit_file', args: { Path: 'D:\\repo\\admin.js' } },
+        { name: 'run_command', args: { CommandLine: 'node okf-maintain/scripts/maintain.js; node okf-lint/scripts/lint.js --drift' } }
+      ]
+    },
+    {
+      step_index: 5,
+      source: 'MODEL',
+      type: 'GENERIC',
+      status: 'ERROR',
+      created_at: '2026-11-04T20:01:02Z',
+      content: 'Encountered error in step execution: target content not found in the file; the Target must exactly match existing file text'
+    },
+    {
+      step_index: 6,
+      source: 'MODEL',
+      type: 'GENERIC',
+      status: 'DONE',
+      created_at: '2026-11-04T20:01:12Z',
+      content: 'Tool is running as a background task with task id: conv-eval-test-001/task-6\nTask Description: node okf-maintain/scripts/maintain.js; node okf-lint/scripts/lint.js --drift'
+    },
+    {
+      step_index: 7,
+      source: 'MODEL',
+      type: 'PLANNER_RESPONSE',
+      status: 'DONE',
+      created_at: '2026-11-04T20:02:00Z',
+      input_tokens: 4000,
+      cache_read_tokens: 20000,
+      output_tokens: 250,
+      content: '**OKF Check:** Cited concepts `frontend/admin-dashboard.md`.'
+    }
+  ];
+  fs.writeFileSync(
+    path.join(mockConvDir, 'logs', 'transcript.jsonl'),
+    mockTranscriptSteps.map(s => JSON.stringify(s)).join('\n') + '\n'
+  );
+
+  const evalJsonOut = JSON.parse(
+    execSync(`node "${scripts.maintain}" --evaluate ${mockConvId} --brain-dir "${mockBrainDir}" --json`, {
+      cwd: queryPerfWorkspace,
+      env: telEnv
+    }).toString()
+  );
+  assert.strictEqual(evalJsonOut.conversation.conversationId, mockConvId, '--evaluate must identify target conversation ID');
+  assert.strictEqual(evalJsonOut.conversation.gateCompliance.scorePercent, 100, 'Gate compliance must be 100% when all 4 gates are present');
+  assert.strictEqual(evalJsonOut.conversation.friction.queryMisses.length, 1, '--evaluate must detect query miss in transcript');
+  assert.ok(evalJsonOut.conversation.friction.queryMisses[0].missedTarget.includes('missing_guess.js'), '--evaluate must extract missed file path');
+  assert.strictEqual(evalJsonOut.conversation.friction.contextBloat.length, 1, '--evaluate must detect truncated >40KB context bloat');
+  assert.ok(evalJsonOut.conversation.friction.contextBloat[0].bytes >= 55000, '--evaluate must measure truncated step output bytes');
+  assert.strictEqual(evalJsonOut.conversation.friction.slowCommands.length, 1, '--evaluate must detect backgrounded OKF command');
+  assert.strictEqual(evalJsonOut.conversation.friction.toolErrors.editFileTargetNotFound, 1, '--evaluate must count edit_file target-not-found errors');
+  assert.ok(Array.isArray(evalJsonOut.recommendations) && evalJsonOut.recommendations.length >= 2, '--evaluate must synthesize actionable recommendations');
+
+  const evalTextOut = execSync(`node "${scripts.maintain}" --evaluate --latest --brain-dir "${mockBrainDir}"`, {
+    cwd: queryPerfWorkspace,
+    env: telEnv
+  }).toString();
+  assert.ok(evalTextOut.includes('OKF Skill Self-Improvement Report'), 'Human-readable --evaluate --latest must render report header');
+  assert.ok(evalTextOut.includes(mockConvId), '--evaluate --latest must select the most recent conversation');
+
+  // 22d. --evaluate --reset clears telemetry log
+  execSync(`node "${scripts.maintain}" --evaluate --reset`, { cwd: queryPerfWorkspace, env: telEnv });
+  assert.strictEqual(fs.readFileSync(customTelemetryPath, 'utf8').trim(), '', '--evaluate --reset must clear telemetry.jsonl');
+  console.log('✓ Skill self-improvement telemetry, pre-completion nudge, and --evaluate transcript analyzer verified.');
+  console.log('✓ okf-query primary ranking, basename fallback, search output budgeting, and batched git log verified.');
   console.log('✓ Windows ~/ steering fix, static media frontier exclusion, smart comma resource split, and unindexed concept auto-indexing verified.');
 
 } finally {
