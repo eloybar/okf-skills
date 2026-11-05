@@ -1730,6 +1730,63 @@ Body.
 
   execSync(`node "${scripts.learn}" --clear-notes`, { cwd: queryPerfWorkspace, env: learnEnv });
   assert.strictEqual(fs.readFileSync(customLearningsPath, 'utf8').trim(), '', 'okf-learn --clear-notes must empty skill-learnings.jsonl');
+
+  // Test direct concept file querying (--file docs/okf/z_frontend/z_admin_panel.md) and space-separated multi-arg --file / --search
+  const directConceptQueryOut = execSync(`node "${scripts.query}" --file docs/okf/z_frontend/z_admin_panel.md`, {
+    cwd: queryPerfWorkspace,
+    env: learnEnv
+  }).toString();
+  assert.ok(
+    directConceptQueryOut.includes('[Concept: Primary Admin Panel Module]'),
+    'okf-query --file on a concept markdown path must return the concept itself at Tier 1A primary'
+  );
+  const multiSpaceFileQueryOut = execSync(`node "${scripts.query}" --file admin_panel.js src/routes/settings_route.js`, {
+    cwd: queryPerfWorkspace,
+    env: learnEnv
+  }).toString();
+  assert.ok(
+    multiSpaceFileQueryOut.includes('[Concept: Primary Admin Panel Module]') &&
+      multiSpaceFileQueryOut.includes('[Concept: Oversized Spec]'),
+    'okf-query --file must accept space-separated multiple file paths'
+  );
+  const unquotedSearchOut = execSync(`node "${scripts.query}" --search Primary Admin Panel`, {
+    cwd: queryPerfWorkspace,
+    env: learnEnv
+  }).toString();
+  assert.ok(
+    unquotedSearchOut.includes('[Concept: Primary Admin Panel Module]'),
+    'okf-query --search must accept unquoted multi-word search queries'
+  );
+
+  // Test okf-maintain frontier exclusion of .bin, .rdb, scratch/, and hashed assets, plus auto-healing of stale hashed asset bindings
+  fs.mkdirSync(path.join(queryPerfWorkspace, 'scratch'), { recursive: true });
+  fs.writeFileSync(path.join(queryPerfWorkspace, 'scratch', 'tmp_probe.js'), '// scratch\n');
+  fs.writeFileSync(path.join(queryPerfWorkspace, 'dump_nvs.bin'), 'binary');
+  fs.writeFileSync(path.join(queryPerfWorkspace, 'dump.rdb'), 'redis');
+  fs.mkdirSync(path.join(queryPerfWorkspace, 'public', 'assets'), { recursive: true });
+  fs.writeFileSync(path.join(queryPerfWorkspace, 'public', 'assets', 'index-BG1gssc5.js'), 'console.log(1);\n');
+  // Bind an old hashed asset name (index-DdRhUgrL.js) into z_admin_panel.md sources: and verify maintain auto-heals it to index-BG1gssc5.js
+  const adminConceptPath = path.join(queryPerfBundle, 'z_frontend', 'z_admin_panel.md');
+  const adminConceptRaw = fs.readFileSync(adminConceptPath, 'utf8');
+  fs.writeFileSync(
+    adminConceptPath,
+    adminConceptRaw.replace('sources:\n', 'sources:\n  - public/assets/index-DdRhUgrL.js\n')
+  );
+  execSync(`node "${scripts.maintain}"`, { cwd: queryPerfWorkspace, env: learnEnv });
+  const healedAdminConcept = fs.readFileSync(adminConceptPath, 'utf8');
+  assert.ok(
+    healedAdminConcept.includes('public/assets/index-BG1gssc5.js') && !healedAdminConcept.includes('index-DdRhUgrL.js'),
+    'okf-maintain must auto-heal stale hashed build asset bindings in sources: when a replacement hashed bundle exists'
+  );
+  const updatedIndexMd = fs.readFileSync(path.join(queryPerfBundle, 'index.md'), 'utf8');
+  assert.ok(
+    !updatedIndexMd.includes('dump_nvs.bin') &&
+      !updatedIndexMd.includes('dump.rdb') &&
+      !updatedIndexMd.includes('scratch/tmp_probe.js') &&
+      !updatedIndexMd.includes('index-BG1gssc5.js'),
+    'okf-maintain frontier must exclude .bin, .rdb, scratch/, and content-hashed build assets'
+  );
+
   console.log('✓ okf-learn session audit, learning signals extraction, and --bind auto-remediation verified.');
   console.log('✓ Skill self-improvement telemetry, pre-completion nudge, and --evaluate transcript analyzer verified.');
   console.log('✓ okf-query primary ranking, basename fallback, search output budgeting, and batched git log verified.');

@@ -4,6 +4,10 @@ Newest changes recorded chronologically.
 
 
 ## 2026-11-05
+- Synchronized timestamp for 3 drifted concept(s): concepts/interactive-simulator.md, concepts/okf-learn-skill.md, concepts/skill-catalog-sync.md.
+- Synchronized timestamp for 6 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md, concepts/skill-catalog-sync.md.
+- Synchronized timestamp for 7 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md, concepts/okf-upgrade-skill.md, concepts/skill-catalog-sync.md.
+- Applied `/okf-learn` cross-session retrospective improvements across `okf-query/scripts/query.js` (Tier 1A direct concept `.md` file matching in `--file` and multi-argument space-separated `--file` / `--search` parsing), `okf-maintain/scripts/maintain.js` (`isHashedBuildAsset` and `.bin`/`.rdb`/`scratch/` frontier exclusion plus `healStaleHashedAssetBindings` auto-healing for Vite/Webpack hashed bundle paths in `sources:`), `okf-learn/scripts/learn.js` (`inferWorkspaceFromPath`, `read_file` false-positive filtering for `queryMisses`/`contextBloat`, and `okf/index.md` grounding credit), `okf-upgrade/SKILL.md`, `okf-learn/SKILL.md`, and `scripts/test-lifecycle.js`.
 - Synchronized timestamp for 7 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-course.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/okf-upgrade-skill.md, concepts/skill-catalog-sync.md.
 - Synchronized skill and lifecycle step counts across `okf-upgrade/SKILL.md`, `index.html`, `course.html`, `docs/course/01-why-okf-and-codebase-amnesia.md`, `docs/course/07-capstone-self-documenting-repo.md`, and `scripts/test-lifecycle.js`, and added `okf-upgrade/SKILL.md` to `verifyCatalogInvariants()` in `scripts/sync-skills.js`.
 - Synchronized timestamp for 4 drifted concept(s): concepts/git-development-workflow.md, concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/skill-catalog-sync.md.
