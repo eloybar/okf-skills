@@ -1442,6 +1442,8 @@ Body.
   const maintainNudgeOut1 = execSync(`node "${scripts.maintain}"`, { cwd: queryPerfWorkspace, env: telEnv }).toString();
   assert.ok(maintainNudgeOut1.includes('[OKF Self-Improvement]'), 'maintain.js must print [OKF Self-Improvement] nudge when session anomalies exist');
   assert.ok(maintainNudgeOut1.includes('1 query miss'), 'maintain.js nudge must summarize the query miss count');
+  assert.ok(maintainNudgeOut1.includes('okf-learn'), 'maintain.js nudge must direct the agent to invoke okf-learn');
+  assert.ok(maintainNudgeOut1.includes('unknown_folder/totally_missing_file.js'), 'maintain.js nudge must include the missed query target');
 
   const maintainNudgeOut2 = execSync(`node "${scripts.maintain}"`, { cwd: queryPerfWorkspace, env: telEnv }).toString();
   assert.ok(!maintainNudgeOut2.includes('[OKF Self-Improvement]'), 'maintain.js must not repeat nudge when no new anomalies occurred since last maintain sync');
@@ -1667,6 +1669,67 @@ Body.
     env: telEnv
   }).toString();
   assert.ok(boundQueryOut.includes('[Concept: Primary Admin Panel Module]'), 'okf-query --file must resolve concept after okf-learn --bind');
+
+  // Test okf-learn cross-repo skill-learnings.jsonl queue (--note), smart --latest skipping short meta-chats, and --recent multi-session summary
+  const customLearningsPath = path.join(tempDir, 'custom-telemetry', 'skill-learnings.jsonl');
+  const learnEnv = { ...telEnv, OKF_SKILL_LEARNINGS_PATH: customLearningsPath };
+  const noteJsonOut = JSON.parse(
+    execSync(`node "${scripts.learn}" --note "Add primary resource ranking" --skill okf-query --category ranking --json`, {
+      cwd: queryPerfWorkspace,
+      env: learnEnv
+    }).toString()
+  );
+  assert.strictEqual(noteJsonOut.success, true, 'okf-learn --note must succeed');
+  assert.ok(fs.existsSync(customLearningsPath), 'okf-learn --note must create skill-learnings.jsonl');
+
+  // Create a newer 2-step meta-conversation in mockBrainDir and verify --latest skips it in favor of substantive conv-eval-test-001
+  const metaConvId = 'conv-meta-short-002';
+  const metaConvDir = path.join(mockBrainDir, metaConvId, '.system_generated', 'logs');
+  fs.mkdirSync(metaConvDir, { recursive: true });
+  const metaTranscriptPath = path.join(metaConvDir, 'transcript.jsonl');
+  fs.writeFileSync(
+    metaTranscriptPath,
+    [
+      JSON.stringify({ step_index: 0, type: 'USER_INPUT', status: 'DONE', created_at: '2026-11-05T10:00:00Z', content: '<USER_REQUEST>/okf-learn</USER_REQUEST>' }),
+      JSON.stringify({ step_index: 1, type: 'PLANNER_RESPONSE', status: 'DONE', created_at: '2026-11-05T10:00:02Z', content: 'Running okf-learn...' })
+    ].join('\n') + '\n'
+  );
+  const futureTime = new Date(Date.now() + 60000);
+  fs.utimesSync(metaTranscriptPath, futureTime, futureTime);
+
+  const smartLatestOut = JSON.parse(
+    execSync(`node "${scripts.learn}" --latest --brain-dir "${mockBrainDir}" --json`, {
+      cwd: queryPerfWorkspace,
+      env: learnEnv
+    }).toString()
+  );
+  assert.strictEqual(
+    smartLatestOut.conversation.conversationId,
+    mockConvId,
+    'okf-learn --latest must skip <6 step meta-conversations when a substantive coding session exists'
+  );
+  assert.ok(
+    Array.isArray(smartLatestOut.skillLearningsQueue) && smartLatestOut.skillLearningsQueue.length === 1,
+    'okf-learn must surface queued skill-learnings.jsonl notes in report'
+  );
+  assert.ok(
+    smartLatestOut.recommendations.some(r => r.category === 'skill-backlog'),
+    'okf-learn must synthesize a HIGH priority skill-backlog recommendation when skill-learnings.jsonl has entries'
+  );
+
+  const recentMultiOut = JSON.parse(
+    execSync(`node "${scripts.learn}" --recent 2 --brain-dir "${mockBrainDir}" --json`, {
+      cwd: queryPerfWorkspace,
+      env: learnEnv
+    }).toString()
+  );
+  assert.ok(
+    Array.isArray(recentMultiOut.recentSessions) && recentMultiOut.recentSessions.length >= 1 && recentMultiOut.recentSessions[0].conversationId === mockConvId,
+    'okf-learn --recent must aggregate substantive recent sessions'
+  );
+
+  execSync(`node "${scripts.learn}" --clear-notes`, { cwd: queryPerfWorkspace, env: learnEnv });
+  assert.strictEqual(fs.readFileSync(customLearningsPath, 'utf8').trim(), '', 'okf-learn --clear-notes must empty skill-learnings.jsonl');
   console.log('✓ okf-learn session audit, learning signals extraction, and --bind auto-remediation verified.');
   console.log('✓ Skill self-improvement telemetry, pre-completion nudge, and --evaluate transcript analyzer verified.');
   console.log('✓ okf-query primary ranking, basename fallback, search output budgeting, and batched git log verified.');
