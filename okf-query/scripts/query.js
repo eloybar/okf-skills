@@ -1,6 +1,34 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const os = require('os');
+
+function resolveTelemetryPath(args = []) {
+  if (process.env.OKF_DISABLE_TELEMETRY === '1' || process.env.OKF_INTERNAL_CALL === '1') return null;
+  const idx = args.indexOf('--telemetry');
+  if (idx !== -1 && args[idx + 1]) return path.resolve(args[idx + 1]);
+  if (process.env.OKF_TELEMETRY_PATH) return path.resolve(process.env.OKF_TELEMETRY_PATH);
+  try {
+    const cwdNorm = path.resolve(process.cwd()).toLowerCase();
+    const tmpNorm = path.resolve(os.tmpdir()).toLowerCase();
+    if (cwdNorm.startsWith(tmpNorm)) return null;
+  } catch (e) {}
+  return path.join(os.homedir(), '.okf', 'telemetry.jsonl');
+}
+
+function recordTelemetry(entry, args = []) {
+  const telPath = resolveTelemetryPath(args);
+  if (!telPath) return;
+  try {
+    const dir = path.dirname(telPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const payload = {
+      timestamp: new Date().toISOString(),
+      ...entry
+    };
+    fs.appendFileSync(telPath, JSON.stringify(payload) + '\n', 'utf8');
+  } catch (e) {}
+}
 
 function splitRespectingQuotes(str, delimiter = ',') {
   const result = [];
@@ -256,6 +284,7 @@ function tokenizeSearchQuery(rawQuery) {
 }
 
 function main() {
+  const startTime = Date.now();
   const args = process.argv.slice(2);
   const fileIndex = args.indexOf('--file');
   const searchIndex = args.indexOf('--search');
@@ -334,12 +363,12 @@ function main() {
           const resRel = path.relative(workspaceRoot, resPath).replace(/\\/g, '/').toLowerCase();
           const resBase = path.basename(resPath).toLowerCase();
           if (rawRelNorm.includes('/') && (resRel === rawRelNorm || resRel.endsWith('/' + rawRelNorm))) {
-            suffixPrimary.push({ concept: c, matchTier: 'primary' });
+            suffixPrimary.push({ concept: c, matchTier: 'primary', fallback: 'fallback-suffix' });
             hitPrimarySuffix = true;
             break;
           }
           if (targetBase && resBase === targetBase) {
-            basePrimary.push({ concept: c, matchTier: 'primary' });
+            basePrimary.push({ concept: c, matchTier: 'primary', fallback: 'fallback-basename' });
             hitPrimaryBase = true;
           }
         }
@@ -351,11 +380,11 @@ function main() {
           const resRel = path.relative(workspaceRoot, resPath).replace(/\\/g, '/').toLowerCase();
           const resBase = path.basename(resPath).toLowerCase();
           if (rawRelNorm.includes('/') && (resRel === rawRelNorm || resRel.endsWith('/' + rawRelNorm))) {
-            suffixSecondary.push({ concept: c, matchTier: 'secondary' });
+            suffixSecondary.push({ concept: c, matchTier: 'secondary', fallback: 'fallback-suffix' });
             break;
           }
           if (!hitPrimaryBase && targetBase && resBase === targetBase) {
-            baseSecondary.push({ concept: c, matchTier: 'secondary' });
+            baseSecondary.push({ concept: c, matchTier: 'secondary', fallback: 'fallback-basename' });
             break;
           }
         }
@@ -495,6 +524,20 @@ function main() {
     } else {
       console.log('No matching OKF concepts found.');
     }
+    const durationMs = Date.now() - startTime;
+    const anomalies = ['query_miss'];
+    if (durationMs > 2000) anomalies.push('slow_exec');
+    recordTelemetry({
+      skill: 'okf-query',
+      workspaceRoot,
+      mode: fileIndex !== -1 ? 'file' : 'search',
+      query: fileIndex !== -1 ? args[fileIndex + 1] : args[searchIndex + 1],
+      matchCount: 0,
+      matchTiers: [],
+      outputBytes: 0,
+      durationMs,
+      anomalies
+    }, args);
     return;
   }
 
@@ -552,6 +595,12 @@ function main() {
   }
 
   // Format and output matched concepts
+  let outputBytes = 0;
+  const origConsoleLog = console.log;
+  console.log = (...logArgs) => {
+    outputBytes += Buffer.byteLength(logArgs.map(String).join(' ') + '\n', 'utf8');
+    origConsoleLog(...logArgs);
+  };
   console.log(`=== OKF CONTEXT BLOCK (${matchedEntries.length} concept(s) found) ===\n`);
   for (let idx = 0; idx < matchedEntries.length; idx++) {
     const entry = matchedEntries[idx];
@@ -591,6 +640,27 @@ function main() {
     }
     console.log(`\n========================================\n`);
   }
+  console.log = origConsoleLog;
+
+  const durationMs = Date.now() - startTime;
+  const matchTiers = Array.from(new Set(matchedEntries.map(e => e.fallback || e.matchTier)));
+  const anomalies = [];
+  if (matchTiers.some(t => t === 'fallback-suffix' || t === 'fallback-basename' || t === 'directory')) {
+    anomalies.push('fallback_used');
+  }
+  if (outputBytes > 40000) anomalies.push('context_bloat');
+  if (durationMs > 2000) anomalies.push('slow_exec');
+  recordTelemetry({
+    skill: 'okf-query',
+    workspaceRoot,
+    mode: fileIndex !== -1 ? 'file' : 'search',
+    query: fileIndex !== -1 ? args[fileIndex + 1] : args[searchIndex + 1],
+    matchCount: matchedEntries.length,
+    matchTiers,
+    outputBytes,
+    durationMs,
+    anomalies
+  }, args);
 }
 
 if (require.main === module) {
@@ -602,5 +672,6 @@ module.exports = {
   scanConcepts,
   collectConceptResourceUris,
   collectPrimaryResourceUris,
-  collectSecondarySourceUris
+  collectSecondarySourceUris,
+  recordTelemetry
 };

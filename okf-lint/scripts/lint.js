@@ -4,6 +4,33 @@ const { execSync, execFileSync } = require('child_process');
 const https = require('https');
 const os = require('os');
 
+function resolveTelemetryPath(args = []) {
+  if (process.env.OKF_DISABLE_TELEMETRY === '1' || process.env.OKF_INTERNAL_CALL === '1') return null;
+  const idx = args.indexOf('--telemetry');
+  if (idx !== -1 && args[idx + 1]) return path.resolve(args[idx + 1]);
+  if (process.env.OKF_TELEMETRY_PATH) return path.resolve(process.env.OKF_TELEMETRY_PATH);
+  try {
+    const cwdNorm = path.resolve(process.cwd()).toLowerCase();
+    const tmpNorm = path.resolve(os.tmpdir()).toLowerCase();
+    if (cwdNorm.startsWith(tmpNorm)) return null;
+  } catch (e) {}
+  return path.join(os.homedir(), '.okf', 'telemetry.jsonl');
+}
+
+function recordTelemetry(entry, args = []) {
+  const telPath = resolveTelemetryPath(args);
+  if (!telPath) return;
+  try {
+    const dir = path.dirname(telPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const payload = {
+      timestamp: new Date().toISOString(),
+      ...entry
+    };
+    fs.appendFileSync(telPath, JSON.stringify(payload) + '\n', 'utf8');
+  } catch (e) {}
+}
+
 function splitRespectingQuotes(str, delimiter = ',') {
   const result = [];
   let current = '';
@@ -849,6 +876,7 @@ function checkSkillsVersion() {
 }
 
 async function main() {
+  const startTime = Date.now();
   const args = process.argv.slice(2);
   const outputJson = args.includes('--json');
   if (!outputJson) {
@@ -920,6 +948,23 @@ async function main() {
     }
   }
 
+  const durationMs = Date.now() - startTime;
+  const driftCount = results.warnings.filter(w => w.includes('Concept drift detected') || w.includes('[Drift Warning]')).length;
+  const anomalies = [];
+  if (durationMs > 2000) anomalies.push('slow_exec');
+  if (results.errors.length > 0) anomalies.push('lint_error');
+  recordTelemetry({
+    skill: 'okf-lint',
+    workspaceRoot,
+    checkDrift,
+    filesChecked: results.filesChecked,
+    errorsCount: results.errors.length,
+    warningsCount: results.warnings.length,
+    driftCount,
+    durationMs,
+    anomalies
+  }, args);
+
   if (outputJson) {
     const jsonOutput = {
       success: results.errors.length === 0,
@@ -927,7 +972,7 @@ async function main() {
       filesChecked: results.filesChecked,
       errors: results.errors,
       warnings: results.warnings,
-      driftCount: results.warnings.filter(w => w.includes('Concept drift detected') || w.includes('[Drift Warning]')).length,
+      driftCount,
       staleCount: results.warnings.filter(w => w.includes('Concept is stale')).length
     };
     console.log(JSON.stringify(jsonOutput, null, 2));
@@ -963,5 +1008,6 @@ module.exports = {
   parseFrontmatter,
   scanAndLint,
   compareVersions,
-  getRepoCommitTimeMap
+  getRepoCommitTimeMap,
+  recordTelemetry
 };

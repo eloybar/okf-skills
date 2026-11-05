@@ -12,7 +12,9 @@ Keep an existing **OKF bundle** current so it doesn't rot. This skill handles bo
 Whenever code modifications touch existing resources or introduce untracked workspace files, run the automated maintainer script:
 ```bash
 node okf-maintain/scripts/maintain.js        # Auto-syncs drift timestamps, frontier, steering, and log (add --viz to rebuild viz.html)
+node okf-maintain/scripts/maintain.js        # Auto-syncs drift timestamps, frontier, steering, and log (add --viz to rebuild viz.html)
 node okf-maintain/scripts/maintain.js --check # Audit mode: checks drift and frontier without changes
+node okf-maintain/scripts/maintain.js --evaluate --latest # Self-improvement analyzer: evaluates session transcript & ~/.okf/telemetry.jsonl
 ```
 This automatically updates timestamps for drifted concepts, updates `## Not yet specified` in `index.md`, records the entry in `log.md`, and runs `okf-lint --drift` (pass `--viz` or run `okf-visualize` to generate `viz.html`).
 
