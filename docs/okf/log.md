@@ -4,6 +4,8 @@ Newest changes recorded chronologically.
 
 
 ## 2026-11-05
+- Synchronized timestamp for 4 drifted concept(s): concepts/git-development-workflow.md, concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/skill-catalog-sync.md.
+- Added `docs/okf/concepts/skill-catalog-sync.md` ("Skill Lifecycle & Documentation Synchronization Playbook") and extended `scripts/sync-skills.js` (`verifyCatalogInvariants`, `buildSyncedReadmeMd`, and `s11l-panel-1` mapping) to automatically synchronize and enforce catalog parity across `README.md`, `index.html` (adding Step 11 `/okf-learn` card and code tabs), `okf-upgrade/scripts/upgrade.js`, `install.ps1`, `install.sh`, and `docs/okf/index.md` whenever skills are added, modified, or deleted.
 - Synchronized timestamp for 2 drifted concept(s): concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md.
 - Synchronized timestamp for 3 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-maintain-skill.md.
 - Enhanced `okf-learn` (`okf-learn/scripts/learn.js`, `okf-learn/SKILL.md`) and `okf-maintain` (`okf-maintain/scripts/maintain.js`, `okf-maintain/SKILL.md`) with conditional agent-invocation and centralized cross-repo skill evolution: smart `--latest` selection that skips `<6` step meta-sessions to evaluate the most recent substantive coding session across workspaces, `--recent [N]` multi-session aggregation, `--note "<message>" [--skill <name>]` / `--clear-notes` cross-repo skill learning queue (`~/.okf/skill-learnings.jsonl`), and missed-file details plus `okf-learn` invocation instructions in the `[OKF Self-Improvement]` pre-completion nudge.

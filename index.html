@@ -504,6 +504,20 @@
       box-shadow: 0 0 10px hsla(199, 89%, 48%, 0.15);
     }
 
+    /* PURE CSS TAB SELECTION FOR STEP 11l */
+    #s11l-tab-1:checked ~ .code-tab-container #s11l-panel-1,
+    #s11l-tab-2:checked ~ .code-tab-container #s11l-panel-2 {
+      display: block;
+    }
+
+    #s11l-tab-1:checked ~ .code-tab-container label[for="s11l-tab-1"],
+    #s11l-tab-2:checked ~ .code-tab-container label[for="s11l-tab-2"] {
+      background: hsla(217, 91%, 60%, 0.25);
+      color: var(--accent-sky);
+      border-color: var(--accent-sky);
+      box-shadow: 0 0 10px hsla(199, 89%, 48%, 0.15);
+    }
+
     /* PURE CSS INTERACTIVE SELECTORS */
     #toggle-step-1:checked ~ .pipeline-section #details-panel-1,
     #toggle-step-2:checked ~ .pipeline-section #details-panel-2,
@@ -514,7 +528,8 @@
     #toggle-step-7:checked ~ .pipeline-section #details-panel-7,
     #toggle-step-8:checked ~ .pipeline-section #details-panel-8,
     #toggle-step-9:checked ~ .pipeline-section #details-panel-9,
-    #toggle-step-10:checked ~ .pipeline-section #details-panel-10 {
+    #toggle-step-10:checked ~ .pipeline-section #details-panel-10,
+    #toggle-step-11:checked ~ .pipeline-section #details-panel-11 {
       margin-top: 2.5rem;
       padding: 2.5rem;
       border-color: var(--border-color);
@@ -533,7 +548,8 @@
     #toggle-step-7:checked ~ .pipeline-section #step-card-7,
     #toggle-step-8:checked ~ .pipeline-section #step-card-8,
     #toggle-step-9:checked ~ .pipeline-section #step-card-9,
-    #toggle-step-10:checked ~ .pipeline-section #step-card-10 {
+    #toggle-step-10:checked ~ .pipeline-section #step-card-10,
+    #toggle-step-11:checked ~ .pipeline-section #step-card-11 {
       transform: translateY(-5px);
       background: var(--bg-surface-hover);
       border-color: var(--accent-sky);
@@ -550,7 +566,8 @@
     #toggle-step-7:checked ~ .pipeline-section #step-card-7 .card-icon,
     #toggle-step-8:checked ~ .pipeline-section #step-card-8 .card-icon,
     #toggle-step-9:checked ~ .pipeline-section #step-card-9 .card-icon,
-    #toggle-step-10:checked ~ .pipeline-section #step-card-10 .card-icon {
+    #toggle-step-10:checked ~ .pipeline-section #step-card-10 .card-icon,
+    #toggle-step-11:checked ~ .pipeline-section #step-card-11 .card-icon {
       background: var(--gradient-primary);
       color: var(--text-primary);
     }
@@ -858,6 +875,7 @@
     <input type="radio" name="timeline-toggle" id="toggle-step-8" style="display:none;">
     <input type="radio" name="timeline-toggle" id="toggle-step-9" style="display:none;">
     <input type="radio" name="timeline-toggle" id="toggle-step-10" style="display:none;">
+    <input type="radio" name="timeline-toggle" id="toggle-step-11" style="display:none;">
 
     <!-- Hero / Header -->
     <header>
@@ -989,6 +1007,18 @@
           <div class="card-text">
             <h3 class="card-title">Bundle Pruner (/okf-prune)</h3>
             <p class="card-desc">The garbage collector. Audits, archives, and cleans up expired, deprecated, broken, or orphaned concepts.</p>
+          </div>
+        </label>
+
+        <!-- Step 11 -->
+        <label for="toggle-step-11" class="pipeline-card" id="step-card-11" tabindex="0" role="button">
+          <div class="card-step">11</div>
+          <div class="card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          </div>
+          <div class="card-text">
+            <h3 class="card-title">Self-Improvement (/okf-learn)</h3>
+            <p class="card-desc">The retrospective learner. Audits transcripts and telemetry to extract lessons and auto-bind missed files.</p>
           </div>
         </label>
 
@@ -3802,6 +3832,138 @@ node okf-prune/scripts/prune.js --check --json
       archiveConcept(item, bundleRoot);
     }
   }
+}</code></pre>
+               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Details Panel 11 -->
+      <div class="details-panel" id="details-panel-11">
+        <div class="details-grid">
+          <div class="details-info">
+            <h3>Retrospective Self-Improvement &amp; Telemetry Loop</h3>
+            <p>The <code>/okf-learn</code> skill closes the feedback loop across coding sessions by auditing passive CLI telemetry (<code>~/.okf/telemetry.jsonl</code>), cross-repo skill learning notes (<code>~/.okf/skill-learnings.jsonl</code>), and conversation transcripts (<code>transcript.jsonl</code>).</p>
+            <ul>
+              <li><strong>Gate Compliance Scoring</strong>: Verifies session-start <code>okf-lint --drift</code>, pre-work <code>okf-query</code>, <code>OKF Check</code> citations, and pre-completion <code>okf-maintain</code>.</li>
+              <li><strong>Quantitative Friction Detection</strong>: Flags query misses, fallback rescues, &gt;40KB context bloat truncations, slow commands, and <code>edit_file</code> errors.</li>
+              <li><strong>Qualitative Lesson Extraction</strong>: Extracts corrective user turns and oversized concepts (&gt;12KB).</li>
+              <li><strong>Auto-Remediation &amp; Cross-Repo Queue</strong>: Binds missed files into concepts via <code>--bind</code> and queues cross-repo skill findings via <code>--note</code>.</li>
+            </ul>
+          </div>
+          <div class="details-code-container">
+            <input type="radio" name="s11l-tab-selector" id="s11l-tab-1" checked style="display:none;">
+            <input type="radio" name="s11l-tab-selector" id="s11l-tab-2" style="display:none;">
+
+            <div class="code-tab-container">
+               <div class="code-tabs">
+                 <label for="s11l-tab-1" class="tab-btn">SKILL.md</label>
+                 <label for="s11l-tab-2" class="tab-btn">learn.js</label>
+               </div>
+
+               <!-- Panel 1: SKILL.md -->
+               <div class="details-code tab-panel" id="s11l-panel-1">
+                 <div class="code-header">
+                   <span>SKILL.md (Instructions)</span>
+                   <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                 </div>
+                 <pre><code><span class="code-comment"># okf-learn/SKILL.md</span>
+---
+name: okf-learn
+description: Use when evaluating agent or skill performance after a coding session, when the pre-completion maintain nudge reports session telemetry anomalies, or when the user asks to learn from a conversation, fix query misses, or improve OKF concepts and skills.
+version: 1.8.2
+---
+
+# `okf-learn` Workflow
+
+Close the self-improvement feedback loop across coding sessions by auditing passive CLI telemetry (`~/.okf/telemetry.jsonl`), cross-repo skill learning notes (`~/.okf/skill-learnings.jsonl`), and conversation transcripts (`transcript.jsonl`), distilling qualitative engineering lessons, and automatically remediating project bundle or `okf-skills` source code gaps.
+
+## When to Invoke (`Agent-Invoked` vs. `Centralized Skill Evolution`)
+
+1. **Conditional Agent-Invocation (Any Project Repo):**
+   - Triggered automatically during the Pre-Completion Verification Gate when `node okf-maintain/scripts/maintain.js` prints `💡 [OKF Self-Improvement] Session telemetry recorded ... — invoke okf-learn`.
+   - **Action:** Run `node okf-learn/scripts/learn.js --bind &lt;missed-file&gt; --concept &lt;concept-rel-path&gt;` to fix project-level `query_miss` gaps immediately, or run `node okf-learn/scripts/learn.js --note "&lt;finding&gt;" --skill &lt;skill-name&gt;` if the friction requires a code/prompt change in `okf-skills`.
+2. **Centralized Skill Evolution (Inside the `okf-skills` Repo):**
+   - Triggered when the user runs `/okf-learn` or asks to evaluate/improve OKF skills from inside `okf-skills`.
+   - **Smart `--latest` &amp; `--recent` Discovery:** Because transcripts (`~/.gemini/antigravity-cli/brain/`) and telemetry (`~/.okf/`) are stored globally in `$HOME`, running `learn.js --latest --recent 5` inside `okf-skills` automatically skips short `&lt;6` step meta-sessions (like a freshly opened `/okf-learn` chat) and evaluates the most recent substantive coding session(s) from any repository on the machine alongside `~/.okf/skill-learnings.jsonl`.
+
+## Usage
+
+```bash
+# 1. Evaluate the most recent substantive coding session &amp; passive telemetry
+node okf-learn/scripts/learn.js --latest [--recent 5] [--bundle &lt;path&gt;]
+npm run okf:learn -- --latest --recent 5
+
+# 2. Evaluate a specific conversation ID (human-readable or JSON)
+node okf-learn/scripts/learn.js &lt;conversation-id&gt; [--brain-dir &lt;path&gt;]
+node okf-learn/scripts/learn.js &lt;conversation-id&gt; --json
+
+# 3. Auto-bind a missed or newly discovered workspace file into a concept's sources:
+node okf-learn/scripts/learn.js --bind &lt;file-path&gt; --concept &lt;concept-rel-path&gt; [--bundle &lt;path&gt;]
+
+# 4. Queue a cross-repo skill improvement note from any project session:
+node okf-learn/scripts/learn.js --note "&lt;description of skill bug or ranking gap&gt;" --skill &lt;okf-query|okf-maintain|...&gt; [--category &lt;cat&gt;]
+
+# 5. Clear queued skill notes or reset the full telemetry + notes log:
+node okf-learn/scripts/learn.js --clear-notes
+node okf-learn/scripts/learn.js --reset
+```
+
+## Quick Reference
+
+| Command / Flag | Action | Modifies Files? |
+|---|---|---|
+| `--latest` (or no args) | Evaluates the most recent substantive (`&gt;=6` step) conversation transcript + `~/.okf/telemetry.jsonl` + `~/.okf/skill-learnings.jsonl` | No |
+| `--recent [N]` | Summarizes the last `N` (default `5`) substantive coding sessions across all workspaces (`inferredWorkspace`, gate score, friction) | No |
+| `&lt;conversation-id&gt;` | Evaluates a specific conversation transcript + telemetry | No |
+| `--bind &lt;file&gt; --concept &lt;md&gt;` | Adds `&lt;file&gt;` to `&lt;md&gt;`'s `sources:` frontmatter (if not already bound) and refreshes `generated.at` | Yes (concept file) |
+| `--note "&lt;msg&gt;" [--skill &lt;name&gt;]` | Appends a cross-repo skill improvement item to `~/.okf/skill-learnings.jsonl` | Yes (`skill-learnings.jsonl`) |
+| `--clear-notes` | Clears `~/.okf/skill-learnings.jsonl` after skill improvements are applied | Yes (`skill-learnings.jsonl`) |
+| `--reset` | Clears both `~/.okf/telemetry.jsonl` and `~/.okf/skill-learnings.jsonl` | Yes (telemetry &amp; notes) |
+| `--json` | Emits structured JSON report (`conversation`, `recentSessions`, `telemetry`, `skillLearningsQueue`, `learningSignals`, `recommendations`) | Same as mode |
+
+## 4-Step Retrospective Playbook
+
+1. **Run the Session &amp; Telemetry Audit**
+   - Execute `node okf-learn/scripts/learn.js --latest --recent 5 --json` (or pass a specific `&lt;conversation-id&gt;`).
+   - Inspect `conversation.friction`, `recentSessions`, `telemetry`, `skillLearningsQueue`, `learningSignals`, and `recommendations`.
+
+2. **Extract Qualitative Engineering Lessons**
+   - Review `learningSignals.userCorrections` and `friction.toolErrors` from the report.
+   - Identify durable domain rules, third-party format quirks, platform constraints, or workflow corrections that surfaced during debugging or user feedback.
+
+3. **Remediate Bundle or Skill Source Code Gaps**
+   - **In a Project Workspace (Bundle Remediation):**
+     - Bind missed paths in `friction.queryMisses` or `telemetry.queryMisses` using `node okf-learn/scripts/learn.js --bind &lt;file&gt; --concept &lt;concept&gt;`.
+     - Split any concept in `learningSignals.oversizedConcepts` (`&gt;12KB`) or `friction.contextBloat` into focused sub-concepts.
+     - If you discover a limitation in an OKF CLI script or `SKILL.md` while working in another repo, queue it via `node okf-learn/scripts/learn.js --note "&lt;message&gt;" --skill &lt;skill-name&gt;`.
+   - **In the `okf-skills` Repository (Skill Source Evolution):**
+     - Implement code/prompt fixes for `skillLearningsQueue`, `telemetry` anomalies, and `recentSessions` friction directly in `okf-*/scripts/*.js` and `okf-*/SKILL.md`.
+     - Add regression tests to `scripts/test-lifecycle.js`.
+
+4. **Verify, Deploy &amp; Clear Queue**
+   - Run `node okf-maintain/scripts/maintain.js` and `node okf-lint/scripts/lint.js --drift` (must report 0 errors and 0 warnings).
+   - When modifying `okf-skills`, run `npm test`, deploy updated skills to all local agent directories via `node okf-upgrade/scripts/upgrade.js --skills`, and clear processed notes via `node okf-learn/scripts/learn.js --clear-notes`.
+</code></pre>
+               </div>
+
+               <!-- Panel 2: learn.js -->
+               <div class="details-code tab-panel" id="s11l-panel-2">
+                 <div class="code-header">
+                   <span>scripts/learn.js (CLI Implementation)</span>
+                   <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                 </div>
+                 <pre><code>function main() {
+  const args = process.argv.slice(2);
+  if (args.includes('--bind')) {
+    return bindSourceToConcept(resolveWorkspaceAndBundle(args));
+  }
+  if (args.includes('--note')) {
+    return recordSkillLearning(extractNoteOptions(args), args);
+  }
+  const report = evaluateSkillsPerformance(resolveEvalOptions(args));
+  printReport(report);
 }</code></pre>
                </div>
             </div>

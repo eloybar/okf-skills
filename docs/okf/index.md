@@ -19,6 +19,7 @@ Welcome to the self-documenting knowledge bundle for the OKF Skills repository.
 - [OKF Learn Skill](/concepts/okf-learn-skill.md) — Retrospective session and telemetry analyzer that extracts lessons and auto-remediates bundle friction.
 - [The Knowledge Loop Lifecycle](/concepts/knowledge-loop.md) — The lifecycle binding specification, steering, maintenance, and visualization.
 - [Interactive Simulator & Playbook](/concepts/interactive-simulator.md) — Visual playbook and token saving calculator.
+- [Skill Lifecycle & Documentation Synchronization Playbook](/concepts/skill-catalog-sync.md) — Invariants and automated checks keeping `README.md`, `index.html`, installers, and OKF concepts synchronized as skills are added, modified, or deleted.
 - [OKF Academy Interactive Course](/concepts/okf-course.md) — Self-contained interactive web academy and 7-module curriculum teaching OKF v0.2.
 - [Skill Installer Scripts](/concepts/skill-installers.md) — Automated install, update, and remove scripts.
 - [Git Development Workflow](/concepts/git-development-workflow.md) — Core process specification for branch management, commit grouping, pull requests, and rebase-merging.
