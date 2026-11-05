@@ -168,20 +168,28 @@ function resolveResourceLocalPath(resourceUri, workspaceRoot, bundleRoot = null)
   return path.normalize(path.join(workspaceRoot, localPath));
 }
 
-function collectConceptResourceUris(fm) {
+function collectPrimaryResourceUris(fm) {
   const uris = [];
   if (!fm) return uris;
   if (fm.resource) uris.push(fm.resource);
-  if (Array.isArray(fm.sources)) {
-    for (const src of fm.sources) {
-      const rawResource = typeof src === 'string' ? src : (src && src.resource);
-      if (rawResource) uris.push(rawResource);
-    }
-  }
   if (fm.computation) uris.push(fm.computation);
   if (fm.executor && fm.executor.resource) uris.push(fm.executor.resource);
   if (fm.attester && fm.attester.resource) uris.push(fm.attester.resource);
   return uris;
+}
+
+function collectSecondarySourceUris(fm) {
+  const uris = [];
+  if (!fm || !Array.isArray(fm.sources)) return uris;
+  for (const src of fm.sources) {
+    const rawResource = typeof src === 'string' ? src : (src && src.resource);
+    if (rawResource) uris.push(rawResource);
+  }
+  return uris;
+}
+
+function collectConceptResourceUris(fm) {
+  return [...collectPrimaryResourceUris(fm), ...collectSecondarySourceUris(fm)];
 }
 
 function scanConcepts(dir, bundleRoot, workspaceRoot, matches = []) {
@@ -265,7 +273,7 @@ function main() {
   }
 
   const allConcepts = scanConcepts(bundleRoot, bundleRoot, workspaceRoot);
-  const matched = [];
+  const matchedEntries = [];
   const searchKeyword = searchIndex !== -1 && args[searchIndex + 1] ? args[searchIndex + 1].toLowerCase().trim() : null;
   const searchTokens = searchKeyword ? tokenizeSearchQuery(searchKeyword) : [];
 
@@ -274,41 +282,124 @@ function main() {
     const wsTarget = path.resolve(workspaceRoot, rawFileArg);
     const cwdTarget = path.resolve(process.cwd(), rawFileArg);
     const targetFile = fs.existsSync(wsTarget) || !fs.existsSync(cwdTarget) ? wsTarget : cwdTarget;
+    const targetExists = fs.existsSync(targetFile);
     const normalizedTarget = path.normalize(targetFile).toLowerCase();
 
-    // Tier 1: Exact file match or resource is a directory enclosing target
+    // Tier 1A (primary resource) & Tier 1B (secondary sources): Exact file match or enclosing directory resource
+    const tier1Primary = [];
+    const tier1Secondary = [];
     for (const c of allConcepts) {
-      const resourceUris = collectConceptResourceUris(c.frontmatter);
-
-      for (const uri of resourceUris) {
+      let matchedPrimary = false;
+      for (const uri of collectPrimaryResourceUris(c.frontmatter)) {
         const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
         if (resPath) {
           const normalizedRes = path.normalize(resPath).toLowerCase();
           if (normalizedTarget === normalizedRes || normalizedTarget.startsWith(normalizedRes + path.sep)) {
-            matched.push(c);
+            tier1Primary.push({ concept: c, matchTier: 'primary' });
+            matchedPrimary = true;
+            break;
+          }
+        }
+      }
+      if (matchedPrimary) continue;
+
+      for (const uri of collectSecondarySourceUris(c.frontmatter)) {
+        const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
+        if (resPath) {
+          const normalizedRes = path.normalize(resPath).toLowerCase();
+          if (normalizedTarget === normalizedRes || normalizedTarget.startsWith(normalizedRes + path.sep)) {
+            tier1Secondary.push({ concept: c, matchTier: 'secondary' });
             break;
           }
         }
       }
     }
+    matchedEntries.push(...tier1Primary, ...tier1Secondary);
+
+    // Tier 1C: Suffix / Basename fallback when the queried path does not exist at that exact relative location
+    if (matchedEntries.length === 0 && !targetExists) {
+      const rawRelNorm = rawFileArg.replace(/\\/g, '/').replace(/^\.?\//, '').toLowerCase();
+      const targetBase = path.basename(normalizedTarget);
+      const suffixPrimary = [];
+      const suffixSecondary = [];
+      const basePrimary = [];
+      const baseSecondary = [];
+
+      for (const c of allConcepts) {
+        let hitPrimarySuffix = false;
+        let hitPrimaryBase = false;
+        for (const uri of collectPrimaryResourceUris(c.frontmatter)) {
+          const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
+          if (!resPath) continue;
+          const resRel = path.relative(workspaceRoot, resPath).replace(/\\/g, '/').toLowerCase();
+          const resBase = path.basename(resPath).toLowerCase();
+          if (rawRelNorm.includes('/') && (resRel === rawRelNorm || resRel.endsWith('/' + rawRelNorm))) {
+            suffixPrimary.push({ concept: c, matchTier: 'primary' });
+            hitPrimarySuffix = true;
+            break;
+          }
+          if (targetBase && resBase === targetBase) {
+            basePrimary.push({ concept: c, matchTier: 'primary' });
+            hitPrimaryBase = true;
+          }
+        }
+        if (hitPrimarySuffix) continue;
+
+        for (const uri of collectSecondarySourceUris(c.frontmatter)) {
+          const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
+          if (!resPath) continue;
+          const resRel = path.relative(workspaceRoot, resPath).replace(/\\/g, '/').toLowerCase();
+          const resBase = path.basename(resPath).toLowerCase();
+          if (rawRelNorm.includes('/') && (resRel === rawRelNorm || resRel.endsWith('/' + rawRelNorm))) {
+            suffixSecondary.push({ concept: c, matchTier: 'secondary' });
+            break;
+          }
+          if (!hitPrimaryBase && targetBase && resBase === targetBase) {
+            baseSecondary.push({ concept: c, matchTier: 'secondary' });
+            break;
+          }
+        }
+      }
+
+      if (suffixPrimary.length > 0 || suffixSecondary.length > 0) {
+        matchedEntries.push(...suffixPrimary, ...suffixSecondary);
+      } else if (basePrimary.length > 0 || baseSecondary.length > 0) {
+        matchedEntries.push(...basePrimary, ...baseSecondary);
+      }
+    }
 
     // Tier 2: Directory / Subsystem match (target resides in the same directory as a documented resource)
-    if (matched.length === 0) {
+    if (matchedEntries.length === 0) {
+      const wsNorm = path.normalize(workspaceRoot).toLowerCase();
+      const tier2Primary = [];
+      const tier2Secondary = [];
       for (const c of allConcepts) {
-        const resourceUris = collectConceptResourceUris(c.frontmatter);
-
-        for (const uri of resourceUris) {
+        let matchedDirPrimary = false;
+        for (const uri of collectPrimaryResourceUris(c.frontmatter)) {
           const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
           if (resPath) {
             const resDir = path.dirname(path.normalize(resPath)).toLowerCase();
-            const wsNorm = path.normalize(workspaceRoot).toLowerCase();
             if (resDir !== wsNorm && (normalizedTarget === resDir || normalizedTarget.startsWith(resDir + path.sep))) {
-              matched.push(c);
+              tier2Primary.push({ concept: c, matchTier: 'directory' });
+              matchedDirPrimary = true;
+              break;
+            }
+          }
+        }
+        if (matchedDirPrimary) continue;
+
+        for (const uri of collectSecondarySourceUris(c.frontmatter)) {
+          const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
+          if (resPath) {
+            const resDir = path.dirname(path.normalize(resPath)).toLowerCase();
+            if (resDir !== wsNorm && (normalizedTarget === resDir || normalizedTarget.startsWith(resDir + path.sep))) {
+              tier2Secondary.push({ concept: c, matchTier: 'directory' });
               break;
             }
           }
         }
       }
+      matchedEntries.push(...tier2Primary, ...tier2Secondary);
     }
   } else if (searchIndex !== -1 && searchKeyword) {
     const exactAndFullMatches = [];
@@ -340,26 +431,46 @@ function main() {
       const headerBlob = [title, desc, type, runtime, tags.join(' '), relPath, sourcesText].join(' ');
       const fullBlob = headerBlob + '\n' + body;
 
-      const isExactPhrase =
+      const isHeaderExactPhrase =
         title.includes(searchKeyword) ||
         desc.includes(searchKeyword) ||
         type.includes(searchKeyword) ||
         runtime.includes(searchKeyword) ||
         tags.some(t => t.includes(searchKeyword)) ||
-        sourcesText.includes(searchKeyword) ||
-        body.includes(searchKeyword);
+        sourcesText.includes(searchKeyword);
+      const isExactPhrase = isHeaderExactPhrase || body.includes(searchKeyword);
 
       let tokenHitCount = 0;
-      let weightedScore = isExactPhrase ? 100 : 0;
+      let headerTokenHits = 0;
+      let weightedScore = (isExactPhrase ? 100 : 0) + (isHeaderExactPhrase ? 50 : 0);
       for (const tok of searchTokens) {
         if (fullBlob.includes(tok)) {
           tokenHitCount++;
-          if (title.includes(tok)) weightedScore += 5;
-          else if (tags.some(t => t.includes(tok)) || relPath.includes(tok)) weightedScore += 4;
-          else if (desc.includes(tok) || sourcesText.includes(tok)) weightedScore += 3;
-          else weightedScore += 1;
+          let inHeader = false;
+          if (title.includes(tok)) {
+            weightedScore += 10;
+            inHeader = true;
+          }
+          if (tags.some(t => t.includes(tok)) || relPath.includes(tok)) {
+            weightedScore += 8;
+            inHeader = true;
+          }
+          if (desc.includes(tok)) {
+            weightedScore += 6;
+            inHeader = true;
+          }
+          if (sourcesText.includes(tok)) {
+            weightedScore += 4;
+            inHeader = true;
+          }
+          if (inHeader) {
+            headerTokenHits++;
+          } else {
+            weightedScore += 1;
+          }
         }
       }
+      weightedScore += headerTokenHits * 5;
 
       if (isExactPhrase || (searchTokens.length > 1 && tokenHitCount === searchTokens.length)) {
         exactAndFullMatches.push({ concept: c, tokenHitCount, weightedScore });
@@ -371,11 +482,11 @@ function main() {
     const chosen = exactAndFullMatches.length > 0 ? exactAndFullMatches : partialMatches;
     chosen.sort((a, b) => (b.tokenHitCount - a.tokenHitCount) || (b.weightedScore - a.weightedScore));
     for (const item of chosen) {
-      matched.push(item.concept);
+      matchedEntries.push({ concept: item.concept, matchTier: 'search' });
     }
   }
 
-  if (matched.length === 0) {
+  if (matchedEntries.length === 0) {
     if (fileIndex !== -1) {
       const relTarget = path.relative(workspaceRoot, path.resolve(workspaceRoot, args[fileIndex + 1]));
       console.log(`No matching OKF concepts found for file: ${relTarget}`);
@@ -389,6 +500,8 @@ function main() {
 
   const forceFull = args.includes('--full');
   const MAX_CONCEPT_CHARS = 12000;
+  const MAX_FILE_FULL_CONCEPTS = 3;
+  const MAX_SEARCH_FULL_CONCEPTS = 5;
 
   function formatConceptBody(concept) {
     const trimmed = concept.body.trim();
@@ -439,8 +552,10 @@ function main() {
   }
 
   // Format and output matched concepts
-  console.log(`=== OKF CONTEXT BLOCK (${matched.length} concept(s) found) ===\n`);
-  for (const c of matched) {
+  console.log(`=== OKF CONTEXT BLOCK (${matchedEntries.length} concept(s) found) ===\n`);
+  for (let idx = 0; idx < matchedEntries.length; idx++) {
+    const entry = matchedEntries[idx];
+    const c = entry.concept;
     console.log(`[Concept: ${c.frontmatter.title || c.relativePath}]`);
     console.log(`File:        ${c.relativePath}`);
     console.log(`Type:        ${c.frontmatter.type}`);
@@ -461,7 +576,19 @@ function main() {
     console.log(`Trust Tier:  ${trustTier}`);
     
     console.log(`----------------------------------------`);
-    console.log(formatConceptBody(c));
+    const shouldPrintFull =
+      forceFull ||
+      (entry.matchTier === 'search'
+        ? idx < MAX_SEARCH_FULL_CONCEPTS
+        : (entry.matchTier === 'primary' || idx < MAX_FILE_FULL_CONCEPTS));
+
+    if (shouldPrintFull) {
+      console.log(formatConceptBody(c));
+    } else if (entry.matchTier === 'search') {
+      console.log(`(Additional search match [${idx + 1} of ${matchedEntries.length}]. Read ${c.relativePath} or pass --full for full concept body.)`);
+    } else {
+      console.log(`(Matched via secondary sources: binding [${idx + 1} of ${matchedEntries.length}]. Read ${c.relativePath} or pass --full for full concept body.)`);
+    }
     console.log(`\n========================================\n`);
   }
 }
@@ -473,5 +600,7 @@ if (require.main === module) {
 module.exports = {
   parseFrontmatter,
   scanConcepts,
-  collectConceptResourceUris
+  collectConceptResourceUris,
+  collectPrimaryResourceUris,
+  collectSecondarySourceUris
 };

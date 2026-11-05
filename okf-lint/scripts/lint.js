@@ -168,6 +168,68 @@ function extractFootnoteRefs(content) {
 
 const gitModifiedCache = new Map();
 const gitDirtySetByCwd = new Map();
+const gitTopLevelByCwd = new Map();
+const gitRepoCommitMapByTop = new Map();
+const gitCommitOnlyCache = new Map();
+
+function getGitTopLevel(execCwd) {
+  const normCwd = path.resolve(execCwd).toLowerCase();
+  if (gitTopLevelByCwd.has(normCwd)) {
+    return gitTopLevelByCwd.get(normCwd);
+  }
+  let topLevel = null;
+  try {
+    topLevel = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      cwd: execCwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+  } catch (e) {
+    topLevel = null;
+  }
+  gitTopLevelByCwd.set(normCwd, topLevel);
+  return topLevel;
+}
+
+function getRepoCommitTimeMap(execCwd, forceRefresh = false) {
+  const topLevel = getGitTopLevel(execCwd);
+  if (!topLevel) return new Map();
+  const topKey = path.resolve(topLevel).toLowerCase();
+  if (!forceRefresh && gitRepoCommitMapByTop.has(topKey)) {
+    return gitRepoCommitMapByTop.get(topKey);
+  }
+  const commitMap = new Map();
+  try {
+    const out = execFileSync(
+      'git',
+      ['-c', 'core.quotepath=false', 'log', '-m', '--format=__OKF_COMMIT__%aI', '--name-only'],
+      {
+        cwd: topLevel,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        maxBuffer: 64 * 1024 * 1024
+      }
+    );
+    let currentIso = null;
+    for (const rawLine of out.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line) continue;
+      if (line.startsWith('__OKF_COMMIT__')) {
+        currentIso = line.slice('__OKF_COMMIT__'.length).trim();
+      } else if (currentIso) {
+        const cleaned = line.replace(/^"|"$/g, '');
+        const absPath = path.resolve(topLevel, cleaned).toLowerCase();
+        if (!commitMap.has(absPath)) {
+          commitMap.set(absPath, currentIso);
+        }
+      }
+    }
+  } catch (e) {
+    // Ignore git log errors
+  }
+  gitRepoCommitMapByTop.set(topKey, commitMap);
+  return commitMap;
+}
 
 function getRepoDirtySet(execCwd) {
   const normCwd = path.resolve(execCwd).toLowerCase();
@@ -176,11 +238,11 @@ function getRepoDirtySet(execCwd) {
   }
   const dirtySet = new Set();
   try {
-    const topLevel = execFileSync('git', ['rev-parse', '--show-toplevel'], {
-      cwd: execCwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore']
-    }).trim();
+    const topLevel = getGitTopLevel(execCwd);
+    if (!topLevel) {
+      gitDirtySetByCwd.set(normCwd, dirtySet);
+      return dirtySet;
+    }
     const statusOut = execFileSync('git', ['-c', 'core.quotepath=false', 'status', '--porcelain', '-uall'], {
       cwd: topLevel,
       encoding: 'utf8',
@@ -202,6 +264,34 @@ function getRepoDirtySet(execCwd) {
   return dirtySet;
 }
 
+function getGitCommitISO(filePath, cwd) {
+  const absFile = path.resolve(filePath);
+  const cacheKey = absFile.toLowerCase();
+  if (gitCommitOnlyCache.has(cacheKey)) {
+    return gitCommitOnlyCache.get(cacheKey);
+  }
+  const execCwd = cwd || path.dirname(absFile);
+  const commitMap = getRepoCommitTimeMap(execCwd);
+  let gitIso = commitMap.get(cacheKey) || null;
+  if (!gitIso && fs.existsSync(absFile)) {
+    try {
+      const stat = fs.statSync(absFile);
+      if (stat.isDirectory()) {
+        const prefix = cacheKey.endsWith(path.sep) ? cacheKey : cacheKey + path.sep;
+        for (const [trackedPath, iso] of commitMap.entries()) {
+          if (trackedPath.startsWith(prefix)) {
+            if (!gitIso || new Date(iso) > new Date(gitIso)) {
+              gitIso = iso;
+            }
+          }
+        }
+      }
+    } catch (e) {}
+  }
+  gitCommitOnlyCache.set(cacheKey, gitIso);
+  return gitIso;
+}
+
 function getGitLastModifiedISO(filePath, cwd) {
   const absFile = path.resolve(filePath);
   const cacheKey = absFile.toLowerCase();
@@ -209,19 +299,8 @@ function getGitLastModifiedISO(filePath, cwd) {
     return gitModifiedCache.get(cacheKey);
   }
 
-  const cleanPath = absFile.replace(/\\/g, '/');
   const execCwd = cwd || path.dirname(absFile);
-  let gitIso = null;
-  try {
-    const stdout = execFileSync('git', ['log', '-1', '--format=%aI', '--', cleanPath], {
-      cwd: execCwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore']
-    }).trim();
-    if (stdout) gitIso = stdout;
-  } catch (e) {
-    // Ignore git log errors
-  }
+  let gitIso = getGitCommitISO(absFile, execCwd);
 
   try {
     const dirtySet = getRepoDirtySet(execCwd);
@@ -254,29 +333,6 @@ function getGitLastModifiedISO(filePath, cwd) {
   }
 
   gitModifiedCache.set(cacheKey, gitIso);
-  return gitIso;
-}
-
-const gitCommitOnlyCache = new Map();
-
-function getGitCommitISO(filePath, cwd) {
-  const absFile = path.resolve(filePath);
-  const cacheKey = absFile.toLowerCase();
-  if (gitCommitOnlyCache.has(cacheKey)) {
-    return gitCommitOnlyCache.get(cacheKey);
-  }
-  const cleanPath = absFile.replace(/\\/g, '/');
-  const execCwd = cwd || path.dirname(absFile);
-  let gitIso = null;
-  try {
-    const stdout = execFileSync('git', ['log', '-1', '--format=%aI', '--', cleanPath], {
-      cwd: execCwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore']
-    }).trim();
-    if (stdout) gitIso = stdout;
-  } catch (e) {}
-  gitCommitOnlyCache.set(cacheKey, gitIso);
   return gitIso;
 }
 
@@ -906,5 +962,6 @@ if (require.main === module) {
 module.exports = {
   parseFrontmatter,
   scanAndLint,
-  compareVersions
+  compareVersions,
+  getRepoCommitTimeMap
 };
