@@ -26,7 +26,7 @@ node okf-query/scripts/query.js --search "maintenance" [--bundle <path>]
 2. **Match by File Path (`--file <path>`)**
    - Take a file path as input and resolve it relative to the workspace root.
    - Scan all active concept files and inspect all OKF v0.2 §6.2 path-valued fields: `resource`, `sources` (both shorthand string arrays and `{ id, resource, title, ... }` objects), `computation`, `executor.resource`, and `attester.resource`.
-   - **Tier 1 (Direct / Enclosing Match):** Select any concept whose bound path matches the queried file or an enclosing parent directory.
+   - **Tier 1 (Direct / Enclosing Match):** Select any concept whose bound path matches the queried file or an enclosing parent directory, ranking primary resource bindings (`resource`, `computation`, `executor.resource`, `attester.resource`) ahead of secondary `sources` mentions. If the queried path does not exist on disk at that exact relative path, fall back to suffix and basename matching against bound resources before attempting directory matching.
    - **Tier 2 (Subsystem / Directory Match):** If no Tier 1 match exists, select concepts that document sibling files in the same module/directory.
    - If no concept is found, output actionable guidance suggesting search keywords or the catalog index.
 

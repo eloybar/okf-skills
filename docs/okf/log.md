@@ -2,7 +2,12 @@
 
 Newest changes recorded chronologically.
 
+
+## 2026-11-05
+- Synchronized timestamp for 5 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md.
+
 ## 2026-11-04
+- Optimized `okf-query/scripts/query.js` with primary (`resource`, `computation`, `executor.resource`, `attester.resource`) vs. secondary (`sources`) `--file` ranking, path-suffix and basename fallback when a queried relative path does not exist on disk, header-weighted `--search` ranking, and default full-body output budgeting (top 3 `--file` + all primary matches; top 5 `--search` matches, with `--full` override); replaced per-file `git log -1` process spawns in `okf-maintain/scripts/maintain.js` and `okf-lint/scripts/lint.js` with batched repository-wide `getRepoCommitTimeMap` (~25x faster drift checks on Windows); and added Step 21 regression tests in `scripts/test-lifecycle.js`.
 - Synchronized timestamp for 4 drifted concept(s): concepts/knowledge-loop.md, concepts/okf-maintain-skill.md, concepts/okf-upgrade-skill.md, concepts/okf-wayfinder-skill.md.
 - Updated `okf-maintain/scripts/maintain.js` (`resolveSkillsBase` & `inspectAndSyncSteeringFile`) to emit forward-slash absolute paths instead of `~/` on Windows (`win32`, since PowerShell does not expand `~/` when passed as an argument to `node`) and auto-heal existing Windows steering files containing `node ~/`; added static media, font, office document, and archive extensions (`.jpg`, `.png`, `.svg`, `.pdf`, `.xlsx`, `.zip`, `.pkpass`, etc.) to `IGNORED_FRONTIER_EXTENSIONS` in `okf-maintain/scripts/maintain.js` and `okf-wayfinder/scripts/wayfinder_taxonomy.js`; added unindexed active concept detection (`findUnindexedConcepts`) and auto-indexing (`updateIndexConcepts`) into `index.md` in `okf-maintain/scripts/maintain.js`; refined comma-separated `resource:` splitting in `okf-upgrade/scripts/upgrade.js` to filter to existing paths and avoid duplicating `resource` in `sources`; and added Step 20 regression tests in `scripts/test-lifecycle.js`.
 - Synchronized timestamp for 3 drifted concept(s): concepts/knowledge-loop.md, concepts/okf-maintain-skill.md, concepts/okf-upgrade-skill.md.
