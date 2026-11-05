@@ -13,7 +13,8 @@ const SKILLS = [
   'okf-prune',
   'okf-lint',
   'okf-maintain',
-  'okf-visualize'
+  'okf-visualize',
+  'okf-learn'
 ];
 
 function escapeHtml(str) {

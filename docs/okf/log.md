@@ -4,6 +4,8 @@ Newest changes recorded chronologically.
 
 
 ## 2026-11-05
+- Synchronized timestamp for 6 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/okf-upgrade-skill.md, concepts/skill-installers.md.
+- Promoted the session and telemetry self-improvement workflow into the dedicated `okf-learn` skill (`okf-learn/SKILL.md`, `okf-learn/scripts/learn.js`, `docs/okf/concepts/okf-learn-skill.md`) with qualitative lesson extraction (`learningSignals.userCorrections`, `learningSignals.oversizedConcepts`) and automated `--bind <file> --concept <concept>` source binding remediation; registered `okf-learn` across `scripts/sync-skills.js`, `okf-upgrade/scripts/upgrade.js`, `install.ps1`, `install.sh`, `package.json`, and `scripts/test-parser.js`; and added Step 23 regression tests in `scripts/test-lifecycle.js`.
 - Synchronized timestamp for 4 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md.
 - Added multi-file `--file <path1,path2,...>` deduplication and a 24,000-character cumulative body budget (`MAX_TOTAL_BODY_CHARS`) in `okf-query/scripts/query.js` so multi-concept and multi-file queries stay under the 40KB bloat threshold by default; refined `evaluateSkillsPerformance` in `okf-maintain/scripts/maintain.js` to require both `OKF CONTEXT BLOCK` and `>40KB` size when flagging transcript `contextBloat`; and added Step 22e regression tests in `scripts/test-lifecycle.js`.
 - Synchronized timestamp for 5 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md.
