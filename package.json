@@ -19,6 +19,7 @@
     "okf:upgrade": "node okf-upgrade/scripts/upgrade.js",
     "okf:prune": "node okf-prune/scripts/prune.js",
     "okf:prune:check": "node okf-prune/scripts/prune.js --check",
+    "okf:learn": "node okf-learn/scripts/learn.js",
     "okf:sync": "node scripts/sync-skills.js",
     "okf:sync:check": "node scripts/sync-skills.js --check"
   },

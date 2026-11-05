@@ -16,6 +16,7 @@ Welcome to the self-documenting knowledge bundle for the OKF Skills repository.
 - [OKF Query Skill](/concepts/okf-query-skill.md) — Context-aware search and retrieval.
 - [OKF Upgrade Skill](/concepts/okf-upgrade-skill.md) — Automated migration of bundles from v0.1 to v0.2.
 - [OKF Prune Skill](/concepts/okf-prune-skill.md) — Automated lifecycle cleanup, archiving, and garbage collection.
+- [OKF Learn Skill](/concepts/okf-learn-skill.md) — Retrospective session and telemetry analyzer that extracts lessons and auto-remediates bundle friction.
 - [The Knowledge Loop Lifecycle](/concepts/knowledge-loop.md) — The lifecycle binding specification, steering, maintenance, and visualization.
 - [Interactive Simulator & Playbook](/concepts/interactive-simulator.md) — Visual playbook and token saving calculator.
 - [OKF Academy Interactive Course](/concepts/okf-course.md) — Self-contained interactive web academy and 7-module curriculum teaching OKF v0.2.
