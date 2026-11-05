@@ -7,23 +7,27 @@ status: stable
 tags: [self-improvement, telemetry, evaluation, learning]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-05T19:49:17.956Z
+  at: 2026-11-05T21:04:21.341Z
 sources:
   - okf-learn/scripts/learn.js
   - scripts/test-lifecycle.js
 ---
 
 # Overview
-The `okf-learn` skill closes the retrospective self-improvement loop in [The Knowledge Loop Lifecycle](/concepts/knowledge-loop.md). While [OKF Maintain Skill](/concepts/okf-maintain-skill.md) performs mechanical post-edit synchronization, `okf-learn` inspects completed or active coding sessions (`transcript.jsonl`) alongside passive zero-token CLI telemetry (`~/.okf/telemetry.jsonl`) to surface and fix documentation and tooling friction.
+The `okf-learn` skill closes the retrospective self-improvement loop in [The Knowledge Loop Lifecycle](/concepts/knowledge-loop.md). While [OKF Maintain Skill](/concepts/okf-maintain-skill.md) performs mechanical post-edit synchronization, `okf-learn` inspects completed or active coding sessions (`transcript.jsonl`) alongside passive zero-token CLI telemetry (`~/.okf/telemetry.jsonl`) and cross-repo skill learning notes (`~/.okf/skill-learnings.jsonl`) to surface and fix documentation and tooling friction.
 
 # Architecture & CLI Modes
 - **Script**: Located at [`okf-learn/scripts/learn.js`](/okf-learn/scripts/learn.js).
-- **Session & Telemetry Audit (`node okf-learn/scripts/learn.js [<conversation-id> | --latest] [--brain-dir <path>] [--json]`)**:
+- **Session & Telemetry Audit (`node okf-learn/scripts/learn.js [<conversation-id> | --latest] [--recent [N]] [--exclude <id>] [--brain-dir <path>] [--json]`)**:
+  - **Smart `--latest` & Multi-Session `--recent [N]` Discovery**: When `--latest` is passed without an explicit conversation ID, `evaluateSkillsPerformance` automatically skips short `<6` step meta-sessions (such as a newly opened `/okf-learn` chat) in favor of the most recent substantive coding session (`>= 6` steps), and `--recent [N]` summarizes the last `N` (default `5`) substantive sessions across all workspaces (`inferredWorkspace`, gate score, and friction).
   - **Gate Compliance**: Scores adherence to the 4 mandatory OKF Steering Gates (`sessionStartLint`, `preWorkQueries`, `conceptCitations`, `preCompletionMaintain`).
   - **Quantitative Friction**: Detects `queryMisses` (from both transcript outputs and `telemetry.jsonl`), `fallbacksUsed` (suffix/basename/directory rescues), `contextBloat` (`OKF CONTEXT BLOCK` outputs exceeding 40 KB), `slowCommands` (backgrounded OKF CLI commands), and `toolErrors` (`edit_file` target-not-found vs. missing files).
   - **Qualitative Learning Signals (`learningSignals`)**: Extracts corrective user turns (`userCorrections`) and identifies oversized active concepts (`oversizedConcepts` with body > 12 KB) in the bundle.
+  - **Cross-Repo Skill Learnings Queue (`skillLearningsQueue`)**: Reads queued skill-level findings from `~/.okf/skill-learnings.jsonl` (overridable via `OKF_SKILL_LEARNINGS_PATH` or `--learnings`) and synthesizes a `HIGH` priority `skill-backlog` recommendation when entries exist.
   - **Actionable Recommendations**: Synthesizes prioritized (`HIGH` / `MED` / `LOW`) remediation steps.
 - **Auto-Binding Remediation (`node okf-learn/scripts/learn.js --bind <file> --concept <concept-rel-path>`)**:
   - Automatically adds a missed or newly discovered workspace file to the target concept's `sources:` frontmatter (preserving CRLF/LF line endings and refreshing `generated.at`) so future [OKF Query Skill](/concepts/okf-query-skill.md) `--file` lookups resolve at Tier 1.
-- **Telemetry Reset (`node okf-learn/scripts/learn.js --reset`)**:
-  - Clears `~/.okf/telemetry.jsonl` (or `OKF_TELEMETRY_PATH` / `--telemetry <path>`) when starting a clean benchmark window.
+- **Cross-Repo Skill Note Queueing (`node okf-learn/scripts/learn.js --note "<message>" [--skill <name>] [--category <cat>]`)**:
+  - Appends a structured skill improvement item (`{ timestamp, workspaceRoot, skill, category, message }`) to `~/.okf/skill-learnings.jsonl` during any external project session so it can be applied inside the `okf-skills` repository.
+- **Queue & Telemetry Reset (`node okf-learn/scripts/learn.js --clear-notes | --reset`)**:
+  - `--clear-notes` empties `~/.okf/skill-learnings.jsonl` after skill improvements are applied; `--reset` clears both `~/.okf/telemetry.jsonl` and `~/.okf/skill-learnings.jsonl`.

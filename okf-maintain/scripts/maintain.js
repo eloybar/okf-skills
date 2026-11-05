@@ -64,19 +64,27 @@ function checkSessionAnomaliesForNudge(workspaceRoot, args = []) {
     let queryMisses = 0;
     let contextBloats = 0;
     let slowRuns = 0;
+    const missedQueries = [];
     for (const e of slice) {
       const anoms = Array.isArray(e.anomalies) ? e.anomalies : [];
-      if (anoms.includes('query_miss')) queryMisses++;
+      if (anoms.includes('query_miss')) {
+        queryMisses++;
+        if (e.query) missedQueries.push(e.query);
+      }
       if (anoms.includes('context_bloat')) contextBloats++;
       if (anoms.includes('slow_exec')) slowRuns++;
     }
 
     if (queryMisses === 0 && contextBloats === 0 && slowRuns === 0) return null;
     const parts = [];
-    if (queryMisses > 0) parts.push(`${queryMisses} query miss${queryMisses === 1 ? '' : 'es'}`);
+    if (queryMisses > 0) {
+      const uniqueMissed = Array.from(new Set(missedQueries)).slice(0, 3);
+      const missedSuffix = uniqueMissed.length > 0 ? ` [${uniqueMissed.join(', ')}]` : '';
+      parts.push(`${queryMisses} query miss${queryMisses === 1 ? '' : 'es'}${missedSuffix}`);
+    }
     if (contextBloats > 0) parts.push(`${contextBloats} bloated output${contextBloats === 1 ? '' : 's'}`);
     if (slowRuns > 0) parts.push(`${slowRuns} slow run${slowRuns === 1 ? '' : 's'}`);
-    return `💡 [OKF Self-Improvement] Session telemetry recorded ${parts.join(', ')} (run "node okf-maintain/scripts/maintain.js --evaluate --latest" to inspect).`;
+    return `💡 [OKF Self-Improvement] Session telemetry recorded ${parts.join(', ')} — invoke okf-learn (run "node okf-learn/scripts/learn.js --latest" or "node okf-maintain/scripts/maintain.js --evaluate --latest") to inspect and remediate.`;
   } catch (e) {
     return null;
   }
@@ -224,7 +232,7 @@ function evaluateSkillsPerformance(options = {}) {
 
         const stepContent = String(step.content || '');
         const missFileMatch = stepContent.match(/No matching OKF concepts found for file:\s*([^\r\n]+)/);
-        if (missFileMatch) {
+        if (missFileMatch && !missFileMatch[1].includes('${') && !missFileMatch[1].includes('`')) {
           conversation.friction.queryMisses.push({
             step: step.step_index,
             missedTarget: missFileMatch[1].trim()

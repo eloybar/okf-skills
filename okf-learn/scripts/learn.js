@@ -51,7 +51,7 @@ function parseFrontmatter(content) {
     if (val.startsWith('[') && val.endsWith(']')) {
       return splitRespectingQuotes(val.slice(1, -1), ',').map(item => {
         item = item.trim();
-        if ((item.startsWith('"') && item.endsWith('"')) || (item.startsWith("'") && item.endsWith("'"))) {
+        if ((item.startsWith('"') && item.endsWith('"')) || (item.startsWith("'") && v.endsWith("'"))) {
           item = item.slice(1, -1);
         }
         return item;
@@ -142,6 +142,13 @@ function resolveTelemetryPath(args = []) {
   return path.join(os.homedir(), '.okf', 'telemetry.jsonl');
 }
 
+function resolveSkillLearningsPath(args = []) {
+  const idx = args.indexOf('--learnings');
+  if (idx !== -1 && args[idx + 1]) return path.resolve(args[idx + 1]);
+  if (process.env.OKF_SKILL_LEARNINGS_PATH) return path.resolve(process.env.OKF_SKILL_LEARNINGS_PATH);
+  return path.join(os.homedir(), '.okf', 'skill-learnings.jsonl');
+}
+
 function recordTelemetry(entry, args = []) {
   const telPath = resolveTelemetryPath(args);
   if (!telPath) return;
@@ -154,6 +161,21 @@ function recordTelemetry(entry, args = []) {
     };
     fs.appendFileSync(telPath, JSON.stringify(payload) + '\n', 'utf8');
   } catch (e) {}
+}
+
+function recordSkillLearning({ workspaceRoot, skill, category, message }, args = []) {
+  const learningsPath = resolveSkillLearningsPath(args);
+  const dir = path.dirname(learningsPath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const payload = {
+    timestamp: new Date().toISOString(),
+    workspaceRoot: workspaceRoot || process.cwd(),
+    skill: skill || 'okf-skills',
+    category: category || 'general',
+    message
+  };
+  fs.appendFileSync(learningsPath, JSON.stringify(payload) + '\n', 'utf8');
+  return { success: true, note: payload, learningsPath };
 }
 
 function resolveWorkspaceAndBundle(args) {
@@ -298,27 +320,208 @@ function bindSourceToConcept({ workspaceRoot, bundleRoot, filePath, conceptRelPa
   };
 }
 
+function analyzeSingleTranscript(transcriptPath, convId) {
+  const conversation = {
+    conversationId: convId,
+    found: false,
+    inferredWorkspace: null,
+    stepCount: 0,
+    userTurnCount: 0,
+    durationMinutes: 0,
+    tokens: { inputTokens: 0, cacheReadTokens: 0, outputTokens: 0 },
+    gateCompliance: {
+      sessionStartLint: false,
+      preWorkQueries: 0,
+      conceptCitations: 0,
+      preCompletionMaintain: false,
+      scorePercent: 0
+    },
+    friction: {
+      queryMisses: [],
+      contextBloat: [],
+      slowCommands: [],
+      toolErrors: {
+        total: 0,
+        editFileTargetNotFound: 0,
+        fileDoesNotExist: 0,
+        other: 0
+      }
+    }
+  };
+  const userCorrections = [];
+
+  if (!transcriptPath || !fs.existsSync(transcriptPath)) {
+    return { conversation, userCorrections };
+  }
+
+  conversation.found = true;
+  const lines = fs.readFileSync(transcriptPath, 'utf8').split(/\r?\n/).filter(Boolean);
+  let firstTimeMs = null;
+  let lastTimeMs = null;
+
+  for (const line of lines) {
+    let step;
+    try { step = JSON.parse(line); } catch (e) { continue; }
+    conversation.stepCount++;
+    if (step.created_at) {
+      const ms = new Date(step.created_at).getTime();
+      if (!isNaN(ms)) {
+        if (firstTimeMs === null || ms < firstTimeMs) firstTimeMs = ms;
+        if (lastTimeMs === null || ms > lastTimeMs) lastTimeMs = ms;
+      }
+    }
+    if (step.type === 'USER_INPUT') {
+      conversation.userTurnCount++;
+      const rawReqMatch = String(step.content || '').match(/<USER_REQUEST>([\s\S]*?)<\/USER_REQUEST>/i);
+      const userText = (rawReqMatch ? rawReqMatch[1] : String(step.content || '')).trim();
+      if (/\b(no[,\s]|instead\b|don't\b|wrong\b|not working\b|still broken\b|should be\b|why did you\b)/i.test(userText)) {
+        userCorrections.push({
+          step: step.step_index,
+          excerpt: userText.slice(0, 240)
+        });
+      }
+    }
+    if (step.type === 'PLANNER_RESPONSE') {
+      conversation.tokens.inputTokens += Number(step.input_tokens || 0);
+      conversation.tokens.cacheReadTokens += Number(step.cache_read_tokens || 0);
+      conversation.tokens.outputTokens += Number(step.output_tokens || 0);
+      const content = String(step.content || '');
+      if (/OKF Check|OKF Citations|docs\/okf\/|\/okf\/concepts\//i.test(content)) {
+        conversation.gateCompliance.conceptCitations++;
+      }
+      if (Array.isArray(step.tool_calls)) {
+        for (const tc of step.tool_calls) {
+          const tcArgs = (tc && tc.args) || {};
+          if (!conversation.inferredWorkspace && tcArgs.Path && typeof tcArgs.Path === 'string') {
+            const normP = tcArgs.Path.replace(/^["']+|["']+$/g, '').replace(/\\+/g, '/').replace(/\/+/g, '/');
+            if (!normP.includes('/.gemini/') && !normP.includes('/AppData/Local/Temp/')) {
+              const parts = normP.split('/');
+              if (parts.length >= 2) {
+                conversation.inferredWorkspace = parts.slice(0, Math.min(parts.length - 1, 3)).join('/');
+              }
+            }
+          }
+          const cmd = tcArgs.CommandLine ? String(tcArgs.CommandLine) : '';
+          if (/lint\.js\b/.test(cmd) && /--drift\b/.test(cmd)) {
+            conversation.gateCompliance.sessionStartLint = true;
+          }
+          const qMatches = cmd.match(/query\.js\b/g);
+          if (qMatches) {
+            conversation.gateCompliance.preWorkQueries += qMatches.length;
+          }
+          if (/maintain\.js\b/.test(cmd)) {
+            conversation.gateCompliance.preCompletionMaintain = true;
+          }
+        }
+      }
+    }
+
+    const stepContent = String(step.content || '');
+    const missFileMatch = stepContent.match(/No matching OKF concepts found for file:\s*([^\r\n]+)/);
+    if (missFileMatch && !missFileMatch[1].includes('${') && !missFileMatch[1].includes('`')) {
+      conversation.friction.queryMisses.push({
+        step: step.step_index,
+        missedTarget: missFileMatch[1].trim()
+      });
+    } else if (stepContent.includes('No matching OKF concepts found.')) {
+      conversation.friction.queryMisses.push({
+        step: step.step_index,
+        missedTarget: '(search query)'
+      });
+    }
+
+    if (stepContent.includes('output was truncated due to being too long')) {
+      const uriMatch = stepContent.match(/file:\/\/\/[^\s)"']+/);
+      if (uriMatch) {
+        const cleanedUri = uriMatch[0].replace(/\.$/, '');
+        const localOutPath = fileUriToPath(cleanedUri);
+        if (fs.existsSync(localOutPath)) {
+          try {
+            const stat = fs.statSync(localOutPath);
+            const head = fs.readFileSync(localOutPath, 'utf8').slice(0, 2048);
+            if (head.includes('OKF CONTEXT BLOCK') && stat.size > 40000) {
+              conversation.friction.contextBloat.push({
+                step: step.step_index,
+                bytes: stat.size,
+                file: localOutPath
+              });
+            }
+          } catch (e) {}
+        }
+      }
+    }
+
+    if (stepContent.includes('Tool is running as a background task')) {
+      const descMatch = stepContent.match(/Task Description:\s*([^\r\n]+)/);
+      if (descMatch && /okf-(?:query|maintain|lint|prune|visualize|wayfinder|learn)|(?:query|maintain|lint|learn)\.js/i.test(descMatch[1])) {
+        conversation.friction.slowCommands.push({
+          step: step.step_index,
+          command: descMatch[1].trim(),
+          backgrounded: true
+        });
+      }
+    }
+
+    if (step.status === 'ERROR') {
+      conversation.friction.toolErrors.total++;
+      if (stepContent.includes('target content not found in the file')) {
+        conversation.friction.toolErrors.editFileTargetNotFound++;
+      } else if (stepContent.includes('file does not exist')) {
+        conversation.friction.toolErrors.fileDoesNotExist++;
+      } else {
+        conversation.friction.toolErrors.other++;
+      }
+    }
+  }
+
+  if (firstTimeMs !== null && lastTimeMs !== null && lastTimeMs >= firstTimeMs) {
+    conversation.durationMinutes = Math.round(((lastTimeMs - firstTimeMs) / 60000) * 10) / 10;
+  }
+
+  const gatesPassed =
+    (conversation.gateCompliance.sessionStartLint ? 1 : 0) +
+    (conversation.gateCompliance.preWorkQueries > 0 ? 1 : 0) +
+    (conversation.gateCompliance.conceptCitations > 0 ? 1 : 0) +
+    (conversation.gateCompliance.preCompletionMaintain ? 1 : 0);
+  conversation.gateCompliance.scorePercent = Math.round((gatesPassed / 4) * 100);
+
+  return { conversation, userCorrections };
+}
+
 function evaluateSkillsPerformance(options = {}) {
   const brainDir = options.brainDir || process.env.OKF_BRAIN_DIR || path.join(os.homedir(), '.gemini', 'antigravity-cli', 'brain');
   const telemetryPath = options.telemetryPath;
+  const skillLearningsPath = options.skillLearningsPath || resolveSkillLearningsPath();
   const workspaceRoot = options.workspaceRoot || process.cwd();
   const bundleRoot = options.bundleRoot || (fs.existsSync(path.join(workspaceRoot, 'docs', 'okf')) ? path.join(workspaceRoot, 'docs', 'okf') : path.join(workspaceRoot, 'okf'));
+  const excludeConvId = options.excludeConversationId || process.env.OKF_CURRENT_CONVERSATION_ID || null;
   let targetConvId = options.conversationId || null;
 
-  if (!targetConvId && fs.existsSync(brainDir)) {
-    const candidates = [];
+  const candidates = [];
+  if (fs.existsSync(brainDir)) {
     for (const entry of fs.readdirSync(brainDir)) {
+      if (excludeConvId && entry === excludeConvId) continue;
       const tPath = path.join(brainDir, entry, '.system_generated', 'logs', 'transcript.jsonl');
       if (fs.existsSync(tPath)) {
         try {
-          candidates.push({ id: entry, mtimeMs: fs.statSync(tPath).mtimeMs });
+          const rawLines = fs.readFileSync(tPath, 'utf8').split(/\r?\n/).filter(Boolean);
+          candidates.push({
+            id: entry,
+            tPath,
+            mtimeMs: fs.statSync(tPath).mtimeMs,
+            stepCount: rawLines.length
+          });
         } catch (e) {}
       }
     }
     candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
-    if (candidates.length > 0) {
-      targetConvId = candidates[0].id;
-    }
+  }
+
+  if (!targetConvId && candidates.length > 0) {
+    // Smart --latest: prefer the most recent substantive session (>= 6 steps) so running /okf-learn
+    // from a freshly opened meta-session automatically evaluates the prior real coding session.
+    const substantive = candidates.find(c => c.stepCount >= 6);
+    targetConvId = (substantive || candidates[0]).id;
   }
 
   const telemetry = {
@@ -357,32 +560,18 @@ function evaluateSkillsPerformance(options = {}) {
     } catch (e) {}
   }
 
-  const conversation = {
-    conversationId: targetConvId,
-    found: false,
-    stepCount: 0,
-    userTurnCount: 0,
-    durationMinutes: 0,
-    tokens: { inputTokens: 0, cacheReadTokens: 0, outputTokens: 0 },
-    gateCompliance: {
-      sessionStartLint: false,
-      preWorkQueries: 0,
-      conceptCitations: 0,
-      preCompletionMaintain: false,
-      scorePercent: 0
-    },
-    friction: {
-      queryMisses: [],
-      contextBloat: [],
-      slowCommands: [],
-      toolErrors: {
-        total: 0,
-        editFileTargetNotFound: 0,
-        fileDoesNotExist: 0,
-        other: 0
+  const skillLearningsQueue = [];
+  if (skillLearningsPath && fs.existsSync(skillLearningsPath)) {
+    try {
+      const rawNotes = fs.readFileSync(skillLearningsPath, 'utf8').trim();
+      if (rawNotes) {
+        for (const line of rawNotes.split(/\r?\n/)) {
+          if (!line.trim()) continue;
+          skillLearningsQueue.push(JSON.parse(line));
+        }
       }
-    }
-  };
+    } catch (e) {}
+  }
 
   const learningSignals = {
     userCorrections: [],
@@ -402,133 +591,39 @@ function evaluateSkillsPerformance(options = {}) {
     }
   }
 
-  if (targetConvId) {
-    const transcriptPath = path.join(brainDir, targetConvId, '.system_generated', 'logs', 'transcript.jsonl');
-    if (fs.existsSync(transcriptPath)) {
-      conversation.found = true;
-      const lines = fs.readFileSync(transcriptPath, 'utf8').split(/\r?\n/).filter(Boolean);
-      let firstTimeMs = null;
-      let lastTimeMs = null;
+  const targetTranscriptPath = targetConvId
+    ? path.join(brainDir, targetConvId, '.system_generated', 'logs', 'transcript.jsonl')
+    : null;
+  const { conversation, userCorrections } = analyzeSingleTranscript(targetTranscriptPath, targetConvId);
+  learningSignals.userCorrections = userCorrections;
 
-      for (const line of lines) {
-        let step;
-        try { step = JSON.parse(line); } catch (e) { continue; }
-        conversation.stepCount++;
-        if (step.created_at) {
-          const ms = new Date(step.created_at).getTime();
-          if (!isNaN(ms)) {
-            if (firstTimeMs === null || ms < firstTimeMs) firstTimeMs = ms;
-            if (lastTimeMs === null || ms > lastTimeMs) lastTimeMs = ms;
-          }
-        }
-        if (step.type === 'USER_INPUT') {
-          conversation.userTurnCount++;
-          const rawReqMatch = String(step.content || '').match(/<USER_REQUEST>([\s\S]*?)<\/USER_REQUEST>/i);
-          const userText = (rawReqMatch ? rawReqMatch[1] : String(step.content || '')).trim();
-          if (/\b(no[,\s]|instead\b|don't\b|wrong\b|not working\b|still broken\b|should be\b|why did you\b)/i.test(userText)) {
-            learningSignals.userCorrections.push({
-              step: step.step_index,
-              excerpt: userText.slice(0, 240)
-            });
-          }
-        }
-        if (step.type === 'PLANNER_RESPONSE') {
-          conversation.tokens.inputTokens += Number(step.input_tokens || 0);
-          conversation.tokens.cacheReadTokens += Number(step.cache_read_tokens || 0);
-          conversation.tokens.outputTokens += Number(step.output_tokens || 0);
-          const content = String(step.content || '');
-          if (/OKF Check|OKF Citations|docs\/okf\/|\/okf\/concepts\//i.test(content)) {
-            conversation.gateCompliance.conceptCitations++;
-          }
-          if (Array.isArray(step.tool_calls)) {
-            for (const tc of step.tool_calls) {
-              const cmd = tc && tc.args && tc.args.CommandLine ? String(tc.args.CommandLine) : '';
-              if (/lint\.js\b/.test(cmd) && /--drift\b/.test(cmd)) {
-                conversation.gateCompliance.sessionStartLint = true;
-              }
-              const qMatches = cmd.match(/query\.js\b/g);
-              if (qMatches) {
-                conversation.gateCompliance.preWorkQueries += qMatches.length;
-              }
-              if (/maintain\.js\b/.test(cmd)) {
-                conversation.gateCompliance.preCompletionMaintain = true;
-              }
-            }
-          }
-        }
-
-        const stepContent = String(step.content || '');
-        const missFileMatch = stepContent.match(/No matching OKF concepts found for file:\s*([^\r\n]+)/);
-        if (missFileMatch) {
-          conversation.friction.queryMisses.push({
-            step: step.step_index,
-            missedTarget: missFileMatch[1].trim()
-          });
-        } else if (stepContent.includes('No matching OKF concepts found.')) {
-          conversation.friction.queryMisses.push({
-            step: step.step_index,
-            missedTarget: '(search query)'
-          });
-        }
-
-        if (stepContent.includes('output was truncated due to being too long')) {
-          const uriMatch = stepContent.match(/file:\/\/\/[^\s)"']+/);
-          if (uriMatch) {
-            const cleanedUri = uriMatch[0].replace(/\.$/, '');
-            const localOutPath = fileUriToPath(cleanedUri);
-            if (fs.existsSync(localOutPath)) {
-              try {
-                const stat = fs.statSync(localOutPath);
-                const head = fs.readFileSync(localOutPath, 'utf8').slice(0, 2048);
-                if (head.includes('OKF CONTEXT BLOCK') && stat.size > 40000) {
-                  conversation.friction.contextBloat.push({
-                    step: step.step_index,
-                    bytes: stat.size,
-                    file: localOutPath
-                  });
-                }
-              } catch (e) {}
-            }
-          }
-        }
-
-        if (stepContent.includes('Tool is running as a background task')) {
-          const descMatch = stepContent.match(/Task Description:\s*([^\r\n]+)/);
-          if (descMatch && /okf-(?:query|maintain|lint|prune|visualize|wayfinder|learn)|(?:query|maintain|lint|learn)\.js/i.test(descMatch[1])) {
-            conversation.friction.slowCommands.push({
-              step: step.step_index,
-              command: descMatch[1].trim(),
-              backgrounded: true
-            });
-          }
-        }
-
-        if (step.status === 'ERROR') {
-          conversation.friction.toolErrors.total++;
-          if (stepContent.includes('target content not found in the file')) {
-            conversation.friction.toolErrors.editFileTargetNotFound++;
-          } else if (stepContent.includes('file does not exist')) {
-            conversation.friction.toolErrors.fileDoesNotExist++;
-          } else {
-            conversation.friction.toolErrors.other++;
-          }
-        }
-      }
-
-      if (firstTimeMs !== null && lastTimeMs !== null && lastTimeMs >= firstTimeMs) {
-        conversation.durationMinutes = Math.round(((lastTimeMs - firstTimeMs) / 60000) * 10) / 10;
-      }
-
-      const gatesPassed =
-        (conversation.gateCompliance.sessionStartLint ? 1 : 0) +
-        (conversation.gateCompliance.preWorkQueries > 0 ? 1 : 0) +
-        (conversation.gateCompliance.conceptCitations > 0 ? 1 : 0) +
-        (conversation.gateCompliance.preCompletionMaintain ? 1 : 0);
-      conversation.gateCompliance.scorePercent = Math.round((gatesPassed / 4) * 100);
+  const recentSessions = [];
+  if (options.recentLimit && options.recentLimit > 0 && candidates.length > 0) {
+    const substantiveCandidates = candidates.filter(c => c.stepCount >= 6);
+    const pool = substantiveCandidates.length > 0 ? substantiveCandidates : candidates;
+    for (const cand of pool.slice(0, options.recentLimit)) {
+      const { conversation: cSummary } = analyzeSingleTranscript(cand.tPath, cand.id);
+      recentSessions.push({
+        conversationId: cand.id,
+        inferredWorkspace: cSummary.inferredWorkspace,
+        stepCount: cSummary.stepCount,
+        userTurnCount: cSummary.userTurnCount,
+        scorePercent: cSummary.gateCompliance.scorePercent,
+        queryMisses: cSummary.friction.queryMisses.length,
+        contextBloat: cSummary.friction.contextBloat.length,
+        toolErrors: cSummary.friction.toolErrors.total
+      });
     }
   }
 
   const recommendations = [];
+  if (skillLearningsQueue.length > 0) {
+    recommendations.push({
+      priority: 'HIGH',
+      category: 'skill-backlog',
+      message: `${skillLearningsQueue.length} queued skill-level learning note(s) in ~/.okf/skill-learnings.jsonl (${skillLearningsQueue.map(n => `[${n.skill}] ${n.message}`).slice(0, 3).join('; ')}). Apply inside okf-skills and clear with "node okf-learn/scripts/learn.js --clear-notes".`
+    });
+  }
   if (conversation.friction.queryMisses.length > 0 || telemetry.queryMisses.length > 0) {
     const targets = [
       ...conversation.friction.queryMisses.map(m => m.missedTarget),
@@ -591,7 +686,9 @@ function evaluateSkillsPerformance(options = {}) {
   return {
     success: true,
     conversation,
+    recentSessions,
     telemetry,
+    skillLearningsQueue,
     learningSignals,
     recommendations
   };
@@ -601,17 +698,57 @@ function main() {
   const args = process.argv.slice(2);
   const isJson = args.includes('--json');
   const telPath = resolveTelemetryPath(args) || path.join(os.homedir(), '.okf', 'telemetry.jsonl');
+  const learningsPath = resolveSkillLearningsPath(args);
+
+  if (args.includes('--clear-notes')) {
+    try {
+      const dir = path.dirname(learningsPath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(learningsPath, '', 'utf8');
+    } catch (e) {}
+    if (isJson) {
+      console.log(JSON.stringify({ success: true, clearedNotes: true, learningsPath }, null, 2));
+    } else {
+      console.log('✓ OKF skill learnings queue cleared.');
+    }
+    return;
+  }
 
   if (args.includes('--reset')) {
     try {
       const dir = path.dirname(telPath);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(telPath, '', 'utf8');
+      if (fs.existsSync(learningsPath)) {
+        fs.writeFileSync(learningsPath, '', 'utf8');
+      }
     } catch (e) {}
     if (isJson) {
-      console.log(JSON.stringify({ success: true, reset: true, telemetryPath: telPath }, null, 2));
+      console.log(JSON.stringify({ success: true, reset: true, telemetryPath: telPath, learningsPath }, null, 2));
     } else {
-      console.log('✓ OKF telemetry log cleared.');
+      console.log('✓ OKF telemetry log and skill learnings queue cleared.');
+    }
+    return;
+  }
+
+  const noteIdx = args.indexOf('--note');
+  if (noteIdx !== -1 && args[noteIdx + 1]) {
+    const { workspaceRoot } = resolveWorkspaceAndBundle(args);
+    const skillIdx = args.indexOf('--skill');
+    const catIdx = args.indexOf('--category');
+    const res = recordSkillLearning(
+      {
+        workspaceRoot,
+        skill: skillIdx !== -1 && args[skillIdx + 1] ? args[skillIdx + 1] : 'okf-skills',
+        category: catIdx !== -1 && args[catIdx + 1] ? args[catIdx + 1] : 'general',
+        message: args[noteIdx + 1]
+      },
+      args
+    );
+    if (isJson) {
+      console.log(JSON.stringify(res, null, 2));
+    } else {
+      console.log(`✓ Queued skill learning note for [${res.note.skill}] in ${res.learningsPath}`);
     }
     return;
   }
@@ -640,15 +777,46 @@ function main() {
   let conversationId = null;
   const convFlagIdx = args.indexOf('--conversation');
   const evalFlagIdx = args.indexOf('--evaluate');
+  const excludeIdx = args.indexOf('--exclude');
+  const excludeConversationId = (excludeIdx !== -1 && args[excludeIdx + 1]) ? args[excludeIdx + 1] : undefined;
+
+  let recentLimit = 0;
+  const recentIdx = args.indexOf('--recent');
+  if (recentIdx !== -1) {
+    const nextArg = args[recentIdx + 1];
+    if (nextArg && !nextArg.startsWith('--') && /^\d+$/.test(nextArg)) {
+      recentLimit = parseInt(nextArg, 10);
+    } else {
+      recentLimit = 5;
+    }
+  }
+
   if (convFlagIdx !== -1 && args[convFlagIdx + 1] && !args[convFlagIdx + 1].startsWith('--')) {
     conversationId = args[convFlagIdx + 1];
   } else if (evalFlagIdx !== -1 && args[evalFlagIdx + 1] && !args[evalFlagIdx + 1].startsWith('--')) {
     conversationId = args[evalFlagIdx + 1];
   } else {
-    const flagsWithVal = new Set(['--brain-dir', '--bundle', '--telemetry', '--conversation', '--evaluate', '--bind', '--concept']);
+    const flagsWithVal = new Set([
+      '--brain-dir',
+      '--bundle',
+      '--telemetry',
+      '--learnings',
+      '--conversation',
+      '--evaluate',
+      '--bind',
+      '--concept',
+      '--note',
+      '--skill',
+      '--category',
+      '--exclude'
+    ]);
     for (let i = 0; i < args.length; i++) {
       if (flagsWithVal.has(args[i])) {
         i++;
+        continue;
+      }
+      if (args[i] === '--recent') {
+        if (args[i + 1] && /^\d+$/.test(args[i + 1])) i++;
         continue;
       }
       if (!args[i].startsWith('--')) {
@@ -662,8 +830,11 @@ function main() {
   const brainDir = (brainIdx !== -1 && args[brainIdx + 1]) ? path.resolve(args[brainIdx + 1]) : undefined;
   const report = evaluateSkillsPerformance({
     conversationId,
+    excludeConversationId,
+    recentLimit,
     brainDir,
     telemetryPath: telPath,
+    skillLearningsPath: learningsPath,
     workspaceRoot,
     bundleRoot
   });
@@ -680,7 +851,7 @@ function main() {
   console.log(`OKF Skill Self-Improvement Report${c.conversationId ? ` (Conversation: ${c.conversationId})` : ''}`);
   console.log('==========================================================');
   if (c.found) {
-    console.log(`Session Metrics:     ${c.stepCount} steps | ${c.userTurnCount} user turns | ${c.durationMinutes} min`);
+    console.log(`Session Metrics:     ${c.stepCount} steps | ${c.userTurnCount} user turns | ${c.durationMinutes} min${c.inferredWorkspace ? ` | Workspace: ${c.inferredWorkspace}` : ''}`);
     console.log(`Gate Compliance:     ${c.gateCompliance.scorePercent}%`);
     console.log(`  - Session-start lint --drift:   ${c.gateCompliance.sessionStartLint ? 'PASS' : 'MISS'}`);
     console.log(`  - Pre-work okf-query calls:     ${c.gateCompliance.preWorkQueries > 0 ? `PASS (${c.gateCompliance.preWorkQueries} calls)` : 'MISS'}`);
@@ -698,6 +869,20 @@ function main() {
     console.log(`  - Oversized concepts (>12KB):   ${ls.oversizedConcepts.length}${ls.oversizedConcepts.length ? ` (${ls.oversizedConcepts.map(o => o.file).join(', ')})` : ''}`);
   } else {
     console.log('Transcript:          No matching conversation transcript found.');
+  }
+  if (report.recentSessions && report.recentSessions.length > 0) {
+    console.log('----------------------------------------------------------');
+    console.log(`Recent Substantive Sessions (${report.recentSessions.length}):`);
+    for (const rs of report.recentSessions) {
+      console.log(`  - ${rs.conversationId} | ${rs.stepCount} steps | gates: ${rs.scorePercent}% | misses: ${rs.queryMisses} | bloat: ${rs.contextBloat} | errors: ${rs.toolErrors}${rs.inferredWorkspace ? ` | ${rs.inferredWorkspace}` : ''}`);
+    }
+  }
+  if (report.skillLearningsQueue && report.skillLearningsQueue.length > 0) {
+    console.log('----------------------------------------------------------');
+    console.log(`Queued Cross-Repo Skill Learnings (${report.skillLearningsQueue.length}):`);
+    for (const qn of report.skillLearningsQueue) {
+      console.log(`  - [${qn.skill}/${qn.category}] ${qn.message} (from ${qn.workspaceRoot})`);
+    }
   }
   console.log('----------------------------------------------------------');
   console.log(`Passive Telemetry:   ${t.totalEvents} CLI events recorded`);
@@ -720,5 +905,7 @@ module.exports = {
   parseFrontmatter,
   evaluateSkillsPerformance,
   bindSourceToConcept,
-  recordTelemetry
+  recordTelemetry,
+  recordSkillLearning,
+  resolveSkillLearningsPath
 };
