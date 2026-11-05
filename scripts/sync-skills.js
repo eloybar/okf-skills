@@ -130,7 +130,8 @@ function verifyCatalogInvariants() {
     { rel: 'okf-upgrade/scripts/upgrade.js', token: s => `'${s}'` },
     { rel: 'install.ps1', token: s => `"${s}"` },
     { rel: 'install.sh', token: s => `"${s}"` },
-    { rel: 'docs/okf/index.md', token: s => `concepts/${s}-skill.md` }
+    { rel: 'docs/okf/index.md', token: s => `concepts/${s}-skill.md` },
+    { rel: 'okf-upgrade/SKILL.md', token: s => `\`${s}\`` }
   ];
   for (const check of installerChecks) {
     const abs = path.join(workspaceRoot, check.rel);

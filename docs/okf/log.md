@@ -4,6 +4,8 @@ Newest changes recorded chronologically.
 
 
 ## 2026-11-05
+- Synchronized timestamp for 7 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-course.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/okf-upgrade-skill.md, concepts/skill-catalog-sync.md.
+- Synchronized skill and lifecycle step counts across `okf-upgrade/SKILL.md`, `index.html`, `course.html`, `docs/course/01-why-okf-and-codebase-amnesia.md`, `docs/course/07-capstone-self-documenting-repo.md`, and `scripts/test-lifecycle.js`, and added `okf-upgrade/SKILL.md` to `verifyCatalogInvariants()` in `scripts/sync-skills.js`.
 - Synchronized timestamp for 4 drifted concept(s): concepts/git-development-workflow.md, concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/skill-catalog-sync.md.
 - Added `docs/okf/concepts/skill-catalog-sync.md` ("Skill Lifecycle & Documentation Synchronization Playbook") and extended `scripts/sync-skills.js` (`verifyCatalogInvariants`, `buildSyncedReadmeMd`, and `s11l-panel-1` mapping) to automatically synchronize and enforce catalog parity across `README.md`, `index.html` (adding Step 11 `/okf-learn` card and code tabs), `okf-upgrade/scripts/upgrade.js`, `install.ps1`, `install.sh`, and `docs/okf/index.md` whenever skills are added, modified, or deleted.
 - Synchronized timestamp for 2 drifted concept(s): concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md.

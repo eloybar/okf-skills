@@ -1229,7 +1229,7 @@ Body.
     );
   }
   assert.ok(upgradeSkillsOut.includes('Operation complete'), 'okf-upgrade --skills should print completion summary');
-  console.log('✓ okf-upgrade --skills synchronized all 8 skills across Antigravity, Claude profiles, Codex profiles, and Universal directories.');
+  console.log('✓ okf-upgrade --skills synchronized all 9 skills across Antigravity, Claude profiles, Codex profiles, and Universal directories.');
 
   // === STEP 20: SKILL EVALUATION IMPROVEMENTS (WINDOWS STEERING PATHS, MEDIA FRONTIER, COMMA RESOURCE SPLIT, AUTO-INDEXING) ===
   console.log('Step 20: Testing skill evaluation improvements (Windows ~/ steering fix, static media exclusion, comma resource split, unindexed concept auto-indexing)...');
