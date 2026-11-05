@@ -4,6 +4,8 @@ Newest changes recorded chronologically.
 
 
 ## 2026-11-05
+- Synchronized timestamp for 4 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md.
+- Added multi-file `--file <path1,path2,...>` deduplication and a 24,000-character cumulative body budget (`MAX_TOTAL_BODY_CHARS`) in `okf-query/scripts/query.js` so multi-concept and multi-file queries stay under the 40KB bloat threshold by default; refined `evaluateSkillsPerformance` in `okf-maintain/scripts/maintain.js` to require both `OKF CONTEXT BLOCK` and `>40KB` size when flagging transcript `contextBloat`; and added Step 22e regression tests in `scripts/test-lifecycle.js`.
 - Synchronized timestamp for 5 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md.
 - Added the 3-part Skill Self-Improvement Pipeline across `okf-query/scripts/query.js`, `okf-maintain/scripts/maintain.js`, and `okf-lint/scripts/lint.js`: passive zero-token CLI telemetry (`~/.okf/telemetry.jsonl` via `recordTelemetry`), pre-completion anomaly nudges (`checkSessionAnomaliesForNudge`), and the 1-command session transcript & telemetry evaluator (`node okf-maintain/scripts/maintain.js --evaluate [conversation-id | --latest] [--json] [--reset]` via `evaluateSkillsPerformance`), plus Step 22 regression tests in `scripts/test-lifecycle.js`.
 - Synchronized timestamp for 5 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md.

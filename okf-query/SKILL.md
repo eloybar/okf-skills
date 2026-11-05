@@ -12,7 +12,9 @@ Retrieve matching OKF v0.2 concepts to inject architectural contracts, provenanc
 
 ```bash
 # Retrieve concept matching a specific codebase resource, source, or attested computation file
+# Retrieve concept(s) matching one or more codebase resources, sources, or attested computation files (comma-separated or repeated --file)
 node okf-query/scripts/query.js --file install.ps1 [--bundle <path>]
+node okf-query/scripts/query.js --file admin.html,api.js,src/routes/items.js [--bundle <path>]
 
 # Search all concepts by tags, provenance metadata, runtime, or text keywords
 node okf-query/scripts/query.js --search "maintenance" [--bundle <path>]
