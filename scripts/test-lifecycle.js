@@ -1347,6 +1347,75 @@ Body.
   );
   assert.strictEqual(extMaintainAfterJson.inSync, true, 'maintain --check must pass after auto-indexing and media frontier cleanup');
   assert.strictEqual(extMaintainAfterJson.unindexedConcepts.length, 0, 'unindexedConcepts must be empty after maintain');
+
+  // === STEP 21: QUERY PRECISION, BASENAME FALLBACK, OUTPUT BUDGETING & BATCHED GIT LOG ===
+  console.log('Step 21: Testing okf-query primary vs secondary ranking, basename fallback, search output budgeting, and batched git log...');
+
+  const queryPerfWorkspace = path.join(tempDir, 'query-perf-project');
+  const queryPerfBundle = path.join(queryPerfWorkspace, 'okf');
+  fs.mkdirSync(path.join(queryPerfBundle, 'z_frontend'), { recursive: true });
+  fs.mkdirSync(path.join(queryPerfBundle, 'specs'), { recursive: true });
+  fs.mkdirSync(path.join(queryPerfWorkspace, 'src', 'routes'), { recursive: true });
+  fs.writeFileSync(path.join(queryPerfWorkspace, 'admin_panel.js'), 'console.log("admin panel");\n');
+  fs.writeFileSync(path.join(queryPerfWorkspace, 'src', 'routes', 'settings_route.js'), 'console.log("settings route");\n');
+  fs.writeFileSync(path.join(queryPerfBundle, 'index.md'), '---\nokf_version: 0.2\n---\n# Query Perf OKF\n\n## Concepts\n\n## Not yet specified\n');
+  fs.writeFileSync(path.join(queryPerfBundle, 'log.md'), '# Log\n');
+
+  for (let i = 1; i <= 5; i++) {
+    fs.writeFileSync(
+      path.join(queryPerfBundle, 'specs', `a_spec_${i}.md`),
+      `---\ntype: Specification\ntitle: Secondary Spec ${i}\ndescription: Cross-cutting specification ${i} referencing admin_panel.\nresource: src/routes/settings_route.js\nsources:\n  - admin_panel.js\ngenerated:\n  by: Antigravity/4.0\n  at: 2026-11-04T00:00:00Z\n---\n# Secondary Spec ${i}\n\nSECONDARY_BODY_MARKER_${i} mentions global config store admin settings in body text.\n`
+    );
+  }
+
+  fs.writeFileSync(
+    path.join(queryPerfBundle, 'z_frontend', 'z_admin_panel.md'),
+    `---\ntype: Module\ntitle: Primary Admin Panel Module\ndescription: Global config store admin panel primary module.\nresource: admin_panel.js\ntags: [global, config, store, admin]\ngenerated:\n  by: Antigravity/4.0\n  at: 2026-11-04T00:00:00Z\n---\n# Primary Admin Panel Module\n\nPRIMARY_ADMIN_PANEL_BODY_MARKER with full architectural details.\n`
+  );
+
+  fs.writeFileSync(
+    path.join(queryPerfBundle, 'specs', 'a_spec_6.md'),
+    `---\ntype: Specification\ntitle: Secondary Spec 6\ndescription: Another spec.\nresource: src/routes/settings_route.js\ngenerated:\n  by: Antigravity/4.0\n  at: 2026-11-04T00:00:00Z\n---\n# Secondary Spec 6\n\nSECONDARY_BODY_MARKER_6 also mentions global config store admin in body.\n`
+  );
+
+  // 21a. Primary resource concept must rank FIRST on --file admin_panel.js, and secondary sources: beyond top 3 must be compact unless --full is passed
+  const fileQueryOut = execSync(`node "${scripts.query}" --file admin_panel.js`, { cwd: queryPerfWorkspace }).toString();
+  const primaryPos = fileQueryOut.indexOf('[Concept: Primary Admin Panel Module]');
+  const firstSecondaryPos = fileQueryOut.indexOf('[Concept: Secondary Spec 1]');
+  assert.ok(primaryPos !== -1 && firstSecondaryPos !== -1 && primaryPos < firstSecondaryPos, 'Primary resource: concept must appear before secondary sources: concepts');
+  assert.ok(fileQueryOut.includes('PRIMARY_ADMIN_PANEL_BODY_MARKER'), 'Primary resource concept body must be included in full');
+  assert.ok(!fileQueryOut.includes('SECONDARY_BODY_MARKER_5'), 'Secondary sources: concepts beyond top 3 budget must omit full body by default');
+  assert.ok(fileQueryOut.includes('Matched via secondary sources: binding'), 'Compacted secondary concepts must include explanatory summary note');
+
+  const fileQueryFullOut = execSync(`node "${scripts.query}" --file admin_panel.js --full`, { cwd: queryPerfWorkspace }).toString();
+  assert.ok(fileQueryFullOut.includes('SECONDARY_BODY_MARKER_5'), '--full must print full bodies for all secondary sources: concepts');
+
+  // 21b. Suffix / Basename fallback when agent guesses wrong directory prefix (e.g. js/admin_panel.js or routes/settings_route.js)
+  const basenameQueryOut = execSync(`node "${scripts.query}" --file js/admin_panel.js`, { cwd: queryPerfWorkspace }).toString();
+  assert.ok(basenameQueryOut.includes('[Concept: Primary Admin Panel Module]'), 'okf-query --file js/admin_panel.js must resolve admin_panel.js via basename fallback');
+
+  const suffixQueryOut = execSync(`node "${scripts.query}" --file routes/settings_route.js`, { cwd: queryPerfWorkspace }).toString();
+  assert.ok(suffixQueryOut.includes('[Concept: Secondary Spec 1]'), 'okf-query --file routes/settings_route.js must resolve src/routes/settings_route.js via suffix/basename fallback');
+
+  // 21c. Search header-weighted ranking and top-5 full-body budget
+  const searchOut = execSync(`node "${scripts.query}" --search "global config store admin"`, { cwd: queryPerfWorkspace }).toString();
+  const searchPrimaryPos = searchOut.indexOf('[Concept: Primary Admin Panel Module]');
+  const searchSpec1Pos = searchOut.indexOf('[Concept: Secondary Spec 1]');
+  assert.ok(searchPrimaryPos !== -1 && searchPrimaryPos < searchSpec1Pos, 'Concept matching search tokens in title/tags/description must rank above body-only matches');
+  assert.ok(searchOut.includes('[Concept: Secondary Spec 6]'), 'All matching concepts must still have their header block listed in search output');
+  assert.ok(!searchOut.includes('SECONDARY_BODY_MARKER_6'), 'Search matches ranked #6+ must omit full body by default');
+  assert.ok(searchOut.includes('Additional search match ['), 'Compacted search matches #6+ must include explanatory summary note');
+
+  const searchFullOut = execSync(`node "${scripts.query}" --search "global config store admin" --full`, { cwd: queryPerfWorkspace }).toString();
+  assert.ok(searchFullOut.includes('SECONDARY_BODY_MARKER_6'), '--search with --full must include all matched bodies');
+
+  // 21d. Batched git log commit timestamp map in maintain.js and lint.js
+  const lintMod = require(scripts.lint);
+  assert.strictEqual(typeof maintainMod.getRepoCommitTimeMap, 'function', 'maintain.js must export getRepoCommitTimeMap');
+  assert.strictEqual(typeof lintMod.getRepoCommitTimeMap, 'function', 'lint.js must export getRepoCommitTimeMap');
+  const repoCommitMap = maintainMod.getRepoCommitTimeMap(tempDir);
+  assert.ok(repoCommitMap instanceof Map && repoCommitMap.size > 0, 'getRepoCommitTimeMap must populate commit timestamps in batch');
+  console.log('✓ okf-query primary ranking, basename fallback, search output budgeting, and batched git log verified.');
   console.log('✓ Windows ~/ steering fix, static media frontier exclusion, smart comma resource split, and unindexed concept auto-indexing verified.');
 
 } finally {
