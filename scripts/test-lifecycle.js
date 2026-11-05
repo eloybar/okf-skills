@@ -16,7 +16,8 @@ const scripts = {
   query: path.resolve(__dirname, '../okf-query/scripts/query.js'),
   visualize: path.resolve(__dirname, '../okf-visualize/scripts/visualize.js'),
   upgrade: path.resolve(__dirname, '../okf-upgrade/scripts/upgrade.js'),
-  prune: path.resolve(__dirname, '../okf-prune/scripts/prune.js')
+  prune: path.resolve(__dirname, '../okf-prune/scripts/prune.js'),
+  learn: path.resolve(__dirname, '../okf-learn/scripts/learn.js')
 };
 
 // Initialize Git inside the sandbox (needed for drift checks)
@@ -1222,6 +1223,10 @@ Body.
       fs.existsSync(path.join(agentSkillDir, 'okf-upgrade', 'scripts', 'upgrade.js')),
       `okf-upgrade --skills must install okf-upgrade into ${agentSkillDir}`
     );
+    assert.ok(
+      fs.existsSync(path.join(agentSkillDir, 'okf-learn', 'scripts', 'learn.js')),
+      `okf-upgrade --skills must install okf-learn into ${agentSkillDir}`
+    );
   }
   assert.ok(upgradeSkillsOut.includes('Operation complete'), 'okf-upgrade --skills should print completion summary');
   console.log('✓ okf-upgrade --skills synchronized all 8 skills across Antigravity, Claude profiles, Codex profiles, and Universal directories.');
@@ -1604,6 +1609,65 @@ Body.
   assert.ok(Buffer.byteLength(budgetedHeavyOut, 'utf8') < 32000, 'Default cumulative query budget must keep multi-concept output well under the 40KB bloat threshold');
   const fullHeavyOut = execSync(`node "${scripts.query}" --file src/routes/settings_route.js --full`, { cwd: queryPerfWorkspace, env: telEnv }).toString();
   assert.ok(Buffer.byteLength(fullHeavyOut, 'utf8') > 40000, '--full must bypass cumulative output budget and print all concept bodies');
+
+  // === STEP 23: OKF-LEARN SKILL (SESSION AUDIT, LEARNING SIGNALS & --BIND AUTO-REMEDIATION) ===
+  console.log('Step 23: Testing okf-learn skill (session audit, qualitative learning signals, and --bind auto-remediation)...');
+  assert.ok(fs.existsSync(path.resolve(__dirname, '../okf-learn/SKILL.md')), 'okf-learn/SKILL.md must exist');
+  assert.ok(fs.existsSync(scripts.learn), 'okf-learn/scripts/learn.js must exist');
+
+  // Add a corrective user turn to mockTranscriptSteps and write oversized concept (>12KB) in queryPerfBundle
+  fs.writeFileSync(
+    path.join(queryPerfBundle, 'specs', 'oversized_spec.md'),
+    `---\ntype: Specification\ntitle: Oversized Spec\ndescription: Spec over 12KB.\nresource: src/routes/settings_route.js\ngenerated:\n  by: Antigravity/4.0\n  at: 2026-11-04T00:00:00Z\n---\n# Oversized Spec\n\n` + 'Z'.repeat(13500) + '\n'
+  );
+  const learnSteps = [
+    ...mockTranscriptSteps,
+    {
+      step_index: 10,
+      source: 'USER_EXPLICIT',
+      type: 'USER_INPUT',
+      status: 'DONE',
+      created_at: '2026-11-04T20:03:00Z',
+      content: '<USER_REQUEST>No, instead of hardcoding the path use resolveResourceLocalPath because Windows paths fail otherwise.</USER_REQUEST>'
+    }
+  ];
+  fs.writeFileSync(
+    path.join(mockConvDir, 'logs', 'transcript.jsonl'),
+    learnSteps.map(s => JSON.stringify(s)).join('\n') + '\n'
+  );
+
+  const learnJsonOut = JSON.parse(
+    execSync(`node "${scripts.learn}" ${mockConvId} --brain-dir "${mockBrainDir}" --json`, {
+      cwd: queryPerfWorkspace,
+      env: telEnv
+    }).toString()
+  );
+  assert.strictEqual(learnJsonOut.conversation.conversationId, mockConvId, 'okf-learn must evaluate target conversation');
+  assert.ok(
+    learnJsonOut.learningSignals && Array.isArray(learnJsonOut.learningSignals.userCorrections) && learnJsonOut.learningSignals.userCorrections.length >= 1,
+    'okf-learn must extract qualitative userCorrections from transcript'
+  );
+  assert.ok(
+    Array.isArray(learnJsonOut.learningSignals.oversizedConcepts) && learnJsonOut.learningSignals.oversizedConcepts.some(c => c.file.includes('oversized_spec.md')),
+    'okf-learn must identify oversized concepts (>12KB) in bundle'
+  );
+
+  // Test okf-learn --bind <file> --concept <concept> auto-remediation
+  fs.writeFileSync(path.join(queryPerfWorkspace, 'src', 'new_bound_helper.js'), 'module.exports = {};\n');
+  const bindJsonOut = JSON.parse(
+    execSync(`node "${scripts.learn}" --bind src/new_bound_helper.js --concept z_frontend/z_admin_panel.md --json`, {
+      cwd: queryPerfWorkspace,
+      env: telEnv
+    }).toString()
+  );
+  assert.strictEqual(bindJsonOut.success, true, 'okf-learn --bind must succeed');
+  assert.strictEqual(bindJsonOut.bound, true, 'okf-learn --bind must report bound: true');
+  const boundQueryOut = execSync(`node "${scripts.query}" --file src/new_bound_helper.js`, {
+    cwd: queryPerfWorkspace,
+    env: telEnv
+  }).toString();
+  assert.ok(boundQueryOut.includes('[Concept: Primary Admin Panel Module]'), 'okf-query --file must resolve concept after okf-learn --bind');
+  console.log('✓ okf-learn session audit, learning signals extraction, and --bind auto-remediation verified.');
   console.log('✓ Skill self-improvement telemetry, pre-completion nudge, and --evaluate transcript analyzer verified.');
   console.log('✓ okf-query primary ranking, basename fallback, search output budgeting, and batched git log verified.');
   console.log('✓ Windows ~/ steering fix, static media frontier exclusion, smart comma resource split, and unindexed concept auto-indexing verified.');

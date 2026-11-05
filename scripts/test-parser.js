@@ -14,6 +14,7 @@ const parsers = {
   'okf-prune': require('../okf-prune/scripts/prune.js').parseFrontmatter,
   'okf-upgrade': require('../okf-upgrade/scripts/upgrade.js').parseFrontmatter,
   'okf-wayfinder': require('../okf-wayfinder/scripts/wayfinder_taxonomy.js').parseFrontmatter,
+  'okf-learn': require('../okf-learn/scripts/learn.js').parseFrontmatter,
   'okf-visualize': (content) => require('../okf-visualize/scripts/visualize.js').parseFrontmatter(content).frontmatter
 };
 

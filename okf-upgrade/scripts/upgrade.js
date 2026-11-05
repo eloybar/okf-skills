@@ -401,7 +401,8 @@ const OKF_SKILLS = [
   'okf-lint',
   'okf-query',
   'okf-upgrade',
-  'okf-prune'
+  'okf-prune',
+  'okf-learn'
 ];
 
 const DEFAULT_SKILLS_REPO_URL = 'https://github.com/eloybar/okf-skills.git';

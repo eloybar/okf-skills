@@ -6,7 +6,7 @@ resource: README.md
 tags: [architecture, loop, feedback]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-05T19:34:58.200Z
+  at: 2026-11-05T19:49:17.956Z
 sources:
   - scripts/lib/okf-core.js
   - scripts/sync-skills.js
@@ -29,7 +29,7 @@ The knowledge loop lifecycle binds the OKF skills together into a continuous sel
 8. **Interactive Visualization**: Formulated by [OKF Visualize Skill](/concepts/okf-visualize-skill.md), allowing human-in-the-loop audit of the knowledge graph.
 9. **Bundle Upgrader**: Automated migration of legacy bundles from v0.1 format to v0.2 using [OKF Upgrade Skill](/concepts/okf-upgrade-skill.md).
 10. **Lifecycle Pruning & Garbage Collection**: Identifies, archives, or purges stale, deprecated, ghost, or orphaned concepts using [OKF Prune Skill](/concepts/okf-prune-skill.md).
-11. **Skill Self-Improvement Feedback Loop**: Passively logs CLI telemetry (`~/.okf/telemetry.jsonl`) across `okf-query`, `okf-maintain`, and `okf-lint`, surfaces a 1-line anomaly nudge at pre-completion sync, and evaluates agent conversation transcripts via `maintain.js --evaluate` (`evaluateSkillsPerformance`).
+11. **Skill Self-Improvement Feedback Loop**: Passively logs CLI telemetry (`~/.okf/telemetry.jsonl`) across `okf-query`, `okf-maintain`, and `okf-lint`, surfaces a 1-line anomaly nudge at pre-completion sync, and runs retrospective session/telemetry analysis and auto-remediation via [OKF Learn Skill](/concepts/okf-learn-skill.md) (`okf-learn/scripts/learn.js`).
 
 # Purpose
 By keeping documentation aligned with actual code state at commit/lifecycle boundaries, this workflow mitigates cold-starts for new agents or team members, enables token-efficient context retrieval, and completely eliminates documentation rot.
