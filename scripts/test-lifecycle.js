@@ -1101,7 +1101,7 @@ Body.
       '---',
       'type: Log Format',
       'title: GatewayService Journal Anatomy',
-      'description: How to read an GatewayService.service journald capture.',
+      'description: How to read a GatewayService.service journald capture.',
       `resource: ${encodedWorkspaceUri}/GatewayComms.cs`,
       'generated:',
       '  by: claude-code/opus-5.5',
@@ -1117,7 +1117,7 @@ Body.
       '---',
       '',
       '# GatewayService Journal Anatomy',
-      'Cross-references [`GatewayComms.cs`](/interface-journal.md), parses with `gateway_journal_parse.py`, and applies `…_2026_09_28_denialfix.sql`.'
+      'Cross-references [`GatewayComms.cs`](/interface-journal.md), parses with `gateway_journal_parse.py`, and applies `…_2026_09_28_patch.sql`.'
     ].join('\r\n') + '\r\n',
     'utf8'
   );
@@ -1138,10 +1138,10 @@ Body.
     '',
     '- `192.0.2.10` — the upstream gateway peer that emitted every duplicate-packet NAK. Which',
     '  device it is, and whether the retransmissions matter, is unestablished.',
-    '- `RpcClient.SimulateRouteRequest` — an operator-triggered simulated floor request, observed failing with',
-    '  `Can not find a keypad for the swiped card.` Its keypad-resolution path is undocumented.',
+    '- `RpcClient.SimulateRouteRequest` — an operator-triggered simulated route request, observed failing with',
+    '  `Can not find a route for the requested endpoint.` Its resolution path is undocumented.',
     '- `GatewayComms.cs` — the UDP loop side is still unread in detail,',
-    '  only the card lookup lines are covered.',
+    '  only the lookup lines are covered.',
     '- `stale_deleted_auto.py` — Undocumented codebase file.'
   ].join('\r\n') + '\r\n';
   fs.writeFileSync(path.join(spaceBundleDir, 'index.md'), handWrittenIndex, 'utf8');
@@ -1167,11 +1167,11 @@ Body.
     'Maintain must preserve multi-line hand-written note starting with IP address'
   );
   assert.ok(
-    spaceIndexAfter.includes('- `RpcClient.SimulateRouteRequest` — an operator-triggered simulated floor request, observed failing with\r\n  `Can not find a keypad for the swiped card.` Its keypad-resolution path is undocumented.'),
+    spaceIndexAfter.includes('- `RpcClient.SimulateRouteRequest` — an operator-triggered simulated route request, observed failing with\r\n  `Can not find a route for the requested endpoint.` Its resolution path is undocumented.'),
     'Maintain must preserve multi-line hand-written note starting with symbol name'
   );
   assert.ok(
-    spaceIndexAfter.includes('- `GatewayComms.cs` — the UDP loop side is still unread in detail,\r\n  only the card lookup lines are covered.'),
+    spaceIndexAfter.includes('- `GatewayComms.cs` — the UDP loop side is still unread in detail,\r\n  only the lookup lines are covered.'),
     'Maintain must preserve multi-line hand-written note starting with covered file path'
   );
   assert.ok(!spaceIndexAfter.includes('Undocumented codebase file.'), 'Maintain must not add %20-bound, concept-mentioned, or README/CLAUDE files as undocumented');
