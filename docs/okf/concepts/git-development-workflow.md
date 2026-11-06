@@ -59,10 +59,10 @@ git commit -m "feat(scope): brief description of feature"
 ```
 
 ### Step 3: Run Verification
-Before pushing, run the project's test suite and lint checks to ensure no regressions (see [OKF Lint Skill](/concepts/okf-lint-skill.md)):
+Before pushing, run the project's test suite and lint checks to ensure no regressions and verify that all test fixtures and commit metadata pass the public-repo sanitization gate (see [OKF Lint Skill](/concepts/okf-lint-skill.md) and [Skill Lifecycle & Documentation Synchronization Playbook](/concepts/skill-catalog-sync.md)):
 ```bash
 node okf-lint/scripts/lint.js --drift  # OKF conformance & drift check
-node scripts/test-lifecycle.js        # Integration lifecycle test suite
+npm test                               # Parser, sanitization gate, lifecycle & course tests
 ```
 
 ### Step 4: Push to Remote

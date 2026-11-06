@@ -7,7 +7,7 @@ status: stable
 tags: [self-improvement, telemetry, evaluation, learning]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-06T18:47:01.892Z
+  at: 2026-11-06T19:00:51.508Z
 sources:
   - okf-learn/scripts/learn.js
   - scripts/test-lifecycle.js
@@ -31,3 +31,4 @@ The `okf-learn` skill closes the retrospective self-improvement loop in [The Kno
   - Appends a structured skill improvement item (`{ timestamp, workspaceRoot, skill, category, message }`) to `~/.okf/skill-learnings.jsonl` during any external project session so it can be applied inside the `okf-skills` repository.
 - **Queue & Telemetry Reset (`node okf-learn/scripts/learn.js --clear-notes | --reset`)**:
   - `--clear-notes` empties `~/.okf/skill-learnings.jsonl` after skill improvements are applied; `--reset` clears both `~/.okf/telemetry.jsonl` and `~/.okf/skill-learnings.jsonl`.
+- **Mandatory Fixture Sanitization**: When translating live session findings into regression tests (`scripts/test-lifecycle.js`), concept examples, or `docs/okf/log.md` entries inside `okf-skills`, all real project names, usernames, LAN IPs, drive URIs, and session UUIDs must be anonymized into generic fixtures (`webapp`, `GatewayService`, `Acme`, `jdoe`, `192.0.2.10`, `00000000-0000-4000-8000-000000000001`), enforced by `verifyPublicRepoSanitization` in [Skill Lifecycle & Documentation Synchronization Playbook](/concepts/skill-catalog-sync.md).

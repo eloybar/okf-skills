@@ -1,5 +1,7 @@
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const { execSync } = require('child_process');
 const { buildSteeringDirectivesBlock } = require('../okf-maintain/scripts/maintain.js');
 
 const workspaceRoot = path.resolve(__dirname, '..');
@@ -149,6 +151,136 @@ function verifyCatalogInvariants() {
   return errors;
 }
 
+function discoverDynamicLocalTokens(rootDir = workspaceRoot) {
+  const ignoreTokens = new Set([
+    'okf-skills', 'knowledge-catalog', 'projects', 'documents', 'downloads',
+    'desktop', 'pictures', 'videos', 'music', 'appdata', 'program', 'windows',
+    'system', 'backup', 'archive', 'sandbox', 'courses', 'scripts', 'concepts',
+    'source', 'sources', 'workspace', 'workspaces', 'packages', 'examples', 'recovery',
+    'runner', 'ubuntu', 'admin', 'user', 'root', 'node', 'eloybar', 'github'
+  ]);
+  const tokens = new Set();
+
+  try {
+    const username = os.userInfo().username;
+    if (username && username.length >= 4 && !ignoreTokens.has(username.toLowerCase())) {
+      tokens.add(username);
+    }
+  } catch {}
+
+  const parentDir = path.resolve(rootDir, '..');
+  const grandParentDir = path.resolve(parentDir, '..');
+  for (const dir of [parentDir, grandParentDir]) {
+    try {
+      for (const d of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (
+          d.isDirectory() &&
+          d.name.length >= 6 &&
+          !d.name.startsWith('$') &&
+          !d.name.startsWith('.') &&
+          !ignoreTokens.has(d.name.toLowerCase())
+        ) {
+          tokens.add(d.name);
+        }
+      }
+    } catch {}
+  }
+
+  try {
+    const homeDir = os.homedir();
+    for (const d of fs.readdirSync(homeDir, { withFileTypes: true })) {
+      if (
+        d.isDirectory() &&
+        d.name.startsWith('.claude-') &&
+        d.name !== '.claude-work' &&
+        d.name !== '.claude-enterprise'
+      ) {
+        tokens.add(d.name);
+      }
+    }
+  } catch {}
+
+  return [...tokens];
+}
+
+function verifyPublicRepoSanitization(options = {}) {
+  const errors = [];
+  const rootDir = options.rootDir || workspaceRoot;
+  const dynamicTokens = options.dynamicTokens || discoverDynamicLocalTokens(rootDir);
+
+  let filesToScan = [];
+  if (Array.isArray(options.mockFiles)) {
+    filesToScan = options.mockFiles;
+  } else {
+    try {
+      const tracked = execSync('git ls-files', { cwd: rootDir, stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString()
+        .trim()
+        .split(/\r?\n/)
+        .filter(Boolean);
+      filesToScan = tracked
+        .filter(rel => fs.existsSync(path.join(rootDir, rel)))
+        .map(rel => ({ rel, content: fs.readFileSync(path.join(rootDir, rel), 'utf8') }));
+    } catch {}
+  }
+
+  const escapedDynamic = dynamicTokens
+    .filter(t => t && t.length >= 4)
+    .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const dynamicRegex = escapedDynamic.length > 0 ? new RegExp(`\\b(${escapedDynamic.join('|')})\\b`, 'i') : null;
+  const driveUriRegex = /file:\/\/\/[A-Za-z]:\//;
+  const lanIpRegex = /\b192\.168\.\d{1,3}\.\d{1,3}\b/;
+  const realUuidRegex = /\b(?!00000000-)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i;
+
+  for (const fileObj of filesToScan) {
+    const { rel, content } = fileObj;
+    const isSelfOrParserTest = rel === 'scripts/sync-skills.js' || rel === 'scripts/test-parser.js';
+    const lines = content.split(/\r?\n/);
+
+    lines.forEach((line, idx) => {
+      const lineNum = idx + 1;
+      if (dynamicRegex) {
+        const m = line.match(dynamicRegex);
+        if (m) {
+          errors.push(`Unsanitized local project/user identifier '${m[0]}' found in ${rel}:${lineNum}. Use generic test fixtures instead.`);
+        }
+      }
+      if (!isSelfOrParserTest) {
+        if (driveUriRegex.test(line)) {
+          errors.push(`Machine-specific drive URI (file:///<Drive>:/) found in ${rel}:${lineNum}. Use repo-relative paths or file:///workspace/... instead.`);
+        }
+        if (lanIpRegex.test(line)) {
+          errors.push(`Private LAN IPv4 (192.168.x.x) found in ${rel}:${lineNum}. Use RFC 5737 documentation IP (e.g. 192.0.2.10) instead.`);
+        }
+        if (realUuidRegex.test(line)) {
+          errors.push(`Non-synthetic UUID found in ${rel}:${lineNum}. Use a zero-prefixed synthetic UUID (e.g. 00000000-0000-4000-8000-000000000001) instead.`);
+        }
+      }
+    });
+  }
+
+  const authorEmail = options.authorEmail !== undefined
+    ? options.authorEmail
+    : (() => {
+        try {
+          return execSync('git log -1 --format=%ae', { cwd: rootDir, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+        } catch {
+          return '';
+        }
+      })();
+
+  if (
+    authorEmail &&
+    !authorEmail.endsWith('@users.noreply.github.com') &&
+    authorEmail !== 'noreply@github.com' &&
+    authorEmail !== 'bot@test.com'
+  ) {
+    errors.push(`Latest git commit author email '${authorEmail}' is not a GitHub noreply address. Set 'git config user.email "<handle>@users.noreply.github.com"'.`);
+  }
+
+  return errors;
+}
+
 function copyRecursive(srcDir, destDir, driftItems) {
   if (!fs.existsSync(srcDir)) return;
   if (!isCheck) {
@@ -219,10 +351,13 @@ function main() {
     }
   }
 
-  // 4. Verify cross-repo documentation and installer catalog invariants
-  const invariantErrors = verifyCatalogInvariants();
+  // 4. Verify cross-repo documentation, installer catalog invariants, and public-repo sanitization
+  const invariantErrors = [
+    ...verifyCatalogInvariants(),
+    ...verifyPublicRepoSanitization()
+  ];
   if (invariantErrors.length > 0) {
-    console.error(`OKF Skill Catalog Invariant Check Failed (${invariantErrors.length} error(s)):`);
+    console.error(`OKF Skill Catalog & Sanitization Check Failed (${invariantErrors.length} error(s)):`);
     invariantErrors.forEach(err => console.error(`  ✗ ${err}`));
     process.exit(1);
   }
@@ -250,5 +385,6 @@ module.exports = {
   PANEL_MAPPINGS,
   buildSyncedIndexHtml,
   buildSyncedReadmeMd,
-  verifyCatalogInvariants
+  verifyCatalogInvariants,
+  verifyPublicRepoSanitization
 };

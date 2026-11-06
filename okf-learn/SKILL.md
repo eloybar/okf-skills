@@ -72,6 +72,7 @@ node okf-learn/scripts/learn.js --reset
    - **In the `okf-skills` Repository (Skill Source Evolution):**
      - Implement code/prompt fixes for `skillLearningsQueue`, `telemetry` anomalies, and `recentSessions` friction directly in `okf-*/scripts/*.js` and `okf-*/SKILL.md`.
      - Add regression tests to `scripts/test-lifecycle.js`.
+     - **Sanitize Test Fixtures & Changelog Entries (MANDATORY):** Never copy real project names, client/company identifiers, OS usernames, private LAN IPs (`192.168.x.x`), machine-specific drive URIs (`file:///<Drive>:/...`), or real session UUIDs from audited transcripts into `scripts/test-*.js`, `docs/okf/log.md`, or `docs/okf/concepts/`. Always anonymize them into generic fixtures (`webapp`, `GatewayService`, `Acme`, `jdoe`, `192.0.2.10`, `00000000-0000-4000-8000-000000000001`). This is enforced automatically by `scripts/sync-skills.js --check` during `npm test`.
 
 4. **Verify, Commit via Git PR Workflow, Deploy & Clear Queue**
    - Run `node okf-maintain/scripts/maintain.js` and `node okf-lint/scripts/lint.js --drift` (must report 0 errors and 0 warnings).

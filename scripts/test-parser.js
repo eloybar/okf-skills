@@ -222,6 +222,34 @@ console.log('✓ All shared core serialization, URI resolution, and actor normal
 console.log('\nVerifying skill & index.html synchronization (scripts/sync-skills.js --check)...');
 execFileSync(process.execPath, [path.join(__dirname, 'sync-skills.js'), '--check'], { stdio: 'inherit' });
 
+const { verifyPublicRepoSanitization } = require('./sync-skills.js');
+assert.deepStrictEqual(
+  verifyPublicRepoSanitization(),
+  [],
+  'verifyPublicRepoSanitization must report 0 errors on the clean repository'
+);
+const mockSanitizationErrors = verifyPublicRepoSanitization({
+  dynamicTokens: ['SecretClientRepo'],
+  authorEmail: 'dev@corporate-domain.com',
+  mockFiles: [
+    {
+      rel: 'scripts/test-lifecycle.js',
+      content: [
+        'const ws = "SecretClientRepo";',
+        'const uri = "file:///D:/work/app.js";',
+        'const ip = "192.168.1.50";',
+        'const sid = "a1b2c3d4-e5f6-4789-abcd-ef0123456789";'
+      ].join('\n')
+    }
+  ]
+});
+assert.strictEqual(
+  mockSanitizationErrors.length,
+  5,
+  `verifyPublicRepoSanitization must catch all 5 synthetic leaks (dynamic project token, drive URI, LAN IP, non-zero UUID, corporate email), got: ${JSON.stringify(mockSanitizationErrors)}`
+);
+console.log('✓ Public-repo test fixture & git author sanitization gate verified.');
+
 console.log('\n======================================');
 console.log('🎉 ALL PARSER UNIT TESTS PASSED SUCCESSFULLY!');
 console.log('======================================');
