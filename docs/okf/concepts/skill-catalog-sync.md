@@ -7,7 +7,7 @@ status: stable
 tags: [synchronization, documentation, skills, simulator, readme, invariants]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-06T18:47:01.892Z
+  at: 2026-11-06T19:00:51.508Z
 sources:
   - README.md
   - index.html
@@ -40,6 +40,10 @@ Running `node scripts/sync-skills.js` (automatically invoked by [OKF Maintain Sk
    - **`index.html` Simulator Coverage**: Verifies every skill in `SKILLS` has a `<skill>/SKILL.md` entry in `PANEL_MAPPINGS` and a matching panel ID in `index.html`.
    - **`README.md` Documentation Coverage**: Verifies every skill in `SKILLS` is linked in both `## 🔄 The Knowledge Loop Lifecycle` (`[<skill>/SKILL.md](<skill>/SKILL.md)`) and `## 🛠️ Repository Contents` (`**[<skill>/](<skill>/)**`).
    - **Installer & Bundle Index Coverage**: Verifies every skill in `SKILLS` is registered in [OKF Upgrade Skill](/concepts/okf-upgrade-skill.md) (`okf-upgrade/scripts/upgrade.js`), [Skill Installer Scripts](/concepts/skill-installers.md) (`install.ps1` and `install.sh`), and `docs/okf/index.md` (`concepts/<skill>-skill.md`).
+
+3. **Public-Repo Sanitization Gate (`verifyPublicRepoSanitization`)**:
+   - **Zero-Knowledge Dynamic Environment Check**: At runtime (`discoverDynamicLocalTokens`), inspects the OS username (`os.userInfo().username`), sibling/parent workspace folder names (`path.resolve(workspaceRoot, '..')` and `../..`), and custom `~/.claude-*` profiles, and fails if any local project or user identifier appears in any git-tracked file.
+   - **Portable Paths, Synthetic Fixtures & Git Identity**: Fails if any tracked file contains machine-specific drive URIs (`file:///<Drive>:/`), private LAN IPs (`192.168.x.x` outside RFC 5737 `192.0.2.x`), or non-synthetic UUIDs (anything not prefixed with `00000000-`), or if the latest commit author email is not a GitHub noreply address (`@users.noreply.github.com`).
 
 # Checklist for Adding, Modifying, or Deleting a Skill
 

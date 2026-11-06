@@ -4,6 +4,7 @@ Newest changes recorded chronologically.
 
 
 ## 2026-11-06
+- Added automated public-repo sanitization gate (`verifyPublicRepoSanitization` and `discoverDynamicLocalTokens`) to `scripts/sync-skills.js` and `scripts/test-parser.js`—blocking local workspace names, OS usernames, machine-specific `file:///<Drive>:/` URIs, `192.168.x.x` LAN IPs, non-synthetic UUIDs, and non-noreply git author emails—and documented the fixture anonymization mandate in `okf-learn/SKILL.md`, `docs/okf/concepts/skill-catalog-sync.md`, `docs/okf/concepts/okf-learn-skill.md`, and `docs/okf/concepts/git-development-workflow.md`.
 - Replaced project-specific fixture strings in `scripts/test-lifecycle.js`, `docs/okf/concepts/okf-lint-skill.md`, `docs/okf/concepts/git-development-workflow.md`, and `docs/okf/log.md` with generic test fixtures (`GatewayAuditor`, `GatewayService`, `GatewayComms.cs`, `Acme Cloud Integrations`, `jdoe`, `.claude-enterprise`).
 - Applied `/okf-learn` multi-session retrospective improvements across `okf-learn/scripts/learn.js` (skipping single-turn `/okf-learn` meta-sessions in `--latest`/`--recent` via `isMetaLearnTranscript`, filtering Claude Code context-compaction continuation summaries and attribute-bearing closing tags `</pasted_content id="...">` in `sanitizeUserTurnText`, recognizing flat `okf/<slug>.md` concept citations and pre-work reads, distinguishing `mode: 'file'` vs. `mode: 'search'` query misses to emit `search-coverage` vs. `--bind` `concept-coverage` recommendations, and excluding test-runner commands from `slowCommands`), `okf-query/scripts/query.js` (reporting `No matching OKF concepts found for search: <query>`), `okf-maintain/scripts/maintain.js` (chronological `Newest entries at the bottom` / ascending `## YYYY-MM-DD` ordering and blank-line preservation in `appendLogEntry`), and `scripts/test-lifecycle.js` (Step 19g).
 - Synchronized timestamp for 4 drifted concept(s): concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/skill-catalog-sync.md.
@@ -15,6 +16,8 @@ Newest changes recorded chronologically.
 - Synchronized timestamp for 6 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md, concepts/skill-catalog-sync.md.
 - Synchronized timestamp for 4 drifted concept(s): concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/skill-catalog-sync.md.
 - Synchronized timestamp for 4 drifted concept(s): concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/skill-catalog-sync.md.
+- Synchronized timestamp for 4 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/skill-catalog-sync.md.
+- Synchronized timestamp for 3 drifted concept(s): concepts/interactive-simulator.md, concepts/okf-learn-skill.md, concepts/skill-catalog-sync.md.
 
 ## 2026-11-05
 - Synchronized timestamp for 3 drifted concept(s): concepts/interactive-simulator.md, concepts/okf-learn-skill.md, concepts/skill-catalog-sync.md.
