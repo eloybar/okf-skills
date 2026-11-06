@@ -197,6 +197,8 @@ const gitModifiedCache = new Map();
 const gitDirtySetByCwd = new Map();
 const gitTopLevelByCwd = new Map();
 const gitRepoCommitMapByTop = new Map();
+const gitRepoCommitHashByTop = new Map();
+const gitRepoCommitFilesByTop = new Map();
 const gitCommitOnlyCache = new Map();
 
 function getGitTopLevel(execCwd) {
@@ -226,10 +228,12 @@ function getRepoCommitTimeMap(execCwd, forceRefresh = false) {
     return gitRepoCommitMapByTop.get(topKey);
   }
   const commitMap = new Map();
+  const commitHashMap = new Map();
+  const commitFilesMap = new Map();
   try {
     const out = execFileSync(
       'git',
-      ['-c', 'core.quotepath=false', 'log', '-m', '--format=__OKF_COMMIT__%aI', '--name-only'],
+      ['-c', 'core.quotepath=false', 'log', '-m', '--format=__OKF_COMMIT__%H|%aI', '--name-only'],
       {
         cwd: topLevel,
         encoding: 'utf8',
@@ -237,17 +241,33 @@ function getRepoCommitTimeMap(execCwd, forceRefresh = false) {
         maxBuffer: 64 * 1024 * 1024
       }
     );
+    let currentHash = null;
     let currentIso = null;
     for (const rawLine of out.split(/\r?\n/)) {
       const line = rawLine.trim();
       if (!line) continue;
       if (line.startsWith('__OKF_COMMIT__')) {
-        currentIso = line.slice('__OKF_COMMIT__'.length).trim();
+        const payload = line.slice('__OKF_COMMIT__'.length).trim();
+        const sepIdx = payload.indexOf('|');
+        if (sepIdx !== -1) {
+          currentHash = payload.slice(0, sepIdx);
+          currentIso = payload.slice(sepIdx + 1).trim();
+        } else {
+          currentHash = payload;
+          currentIso = payload;
+        }
+        if (currentHash && !commitFilesMap.has(currentHash)) {
+          commitFilesMap.set(currentHash, new Set());
+        }
       } else if (currentIso) {
         const cleaned = line.replace(/^"|"$/g, '');
         const absPath = path.resolve(topLevel, cleaned).toLowerCase();
+        if (currentHash && commitFilesMap.has(currentHash)) {
+          commitFilesMap.get(currentHash).add(absPath);
+        }
         if (!commitMap.has(absPath)) {
           commitMap.set(absPath, currentIso);
+          if (currentHash) commitHashMap.set(absPath, currentHash);
         }
       }
     }
@@ -255,6 +275,8 @@ function getRepoCommitTimeMap(execCwd, forceRefresh = false) {
     // Ignore git log errors
   }
   gitRepoCommitMapByTop.set(topKey, commitMap);
+  gitRepoCommitHashByTop.set(topKey, commitHashMap);
+  gitRepoCommitFilesByTop.set(topKey, commitFilesMap);
   return commitMap;
 }
 
@@ -363,6 +385,64 @@ function getGitLastModifiedISO(filePath, cwd) {
   return gitIso;
 }
 
+function isPathDirty(filePath, execCwd) {
+  const absFile = path.resolve(filePath);
+  const cacheKey = absFile.toLowerCase();
+  const dirtySet = getRepoDirtySet(execCwd || path.dirname(absFile));
+  if (dirtySet.has(cacheKey)) return true;
+  if (fs.existsSync(absFile)) {
+    try {
+      const stat = fs.statSync(absFile);
+      if (stat.isDirectory()) {
+        const prefix = cacheKey.endsWith(path.sep) ? cacheKey : cacheKey + path.sep;
+        for (const d of dirtySet) {
+          if (d.startsWith(prefix)) return true;
+        }
+      }
+    } catch (e) {}
+  }
+  return false;
+}
+
+function isCoModifiedInLatestCommit(conceptFilePath, resourcePath, workspaceRoot) {
+  const execCwd = workspaceRoot || path.dirname(path.resolve(conceptFilePath));
+  if (isPathDirty(resourcePath, execCwd)) return false;
+  const topLevel = getGitTopLevel(execCwd);
+  if (!topLevel) return false;
+  const topKey = path.resolve(topLevel).toLowerCase();
+  getRepoCommitTimeMap(execCwd);
+  const commitMap = gitRepoCommitMapByTop.get(topKey);
+  const commitHashMap = gitRepoCommitHashByTop.get(topKey);
+  const commitFilesMap = gitRepoCommitFilesByTop.get(topKey);
+  if (!commitMap || !commitHashMap || !commitFilesMap) return false;
+
+  const absConceptKey = path.resolve(conceptFilePath).toLowerCase();
+  const absRes = path.resolve(resourcePath);
+  const absResKey = absRes.toLowerCase();
+
+  let latestResHash = commitHashMap.get(absResKey) || null;
+  if (!latestResHash && fs.existsSync(absRes)) {
+    try {
+      const stat = fs.statSync(absRes);
+      if (stat.isDirectory()) {
+        const prefix = absResKey.endsWith(path.sep) ? absResKey : absResKey + path.sep;
+        let latestIso = null;
+        for (const [trackedPath, iso] of commitMap.entries()) {
+          if (trackedPath.startsWith(prefix)) {
+            if (!latestIso || new Date(iso) > new Date(latestIso)) {
+              latestIso = iso;
+              latestResHash = commitHashMap.get(trackedPath) || null;
+            }
+          }
+        }
+      }
+    } catch (e) {}
+  }
+  if (!latestResHash) return false;
+  const touchedFiles = commitFilesMap.get(latestResHash);
+  return Boolean(touchedFiles && touchedFiles.has(absConceptKey));
+}
+
 function getEffectiveConceptTime(conceptFilePath, rawLastModified, workspaceRoot) {
   if (!rawLastModified) return null;
   const fmDate = new Date(rawLastModified);
@@ -378,8 +458,43 @@ function getEffectiveConceptTime(conceptFilePath, rawLastModified, workspaceRoot
         return commitDate;
       }
     }
+  } else if (fs.existsSync(absConcept)) {
+    try {
+      const mtime = fs.statSync(absConcept).mtime;
+      const diffMs = mtime.getTime() - fmDate.getTime();
+      if (diffMs >= 0 && diffMs <= 2000) {
+        return mtime;
+      }
+    } catch (e) {}
   }
   return fmDate;
+}
+
+function getResourceEffectiveModifiedISO(resourcePath, workspaceRoot, bundleRoot) {
+  const absRes = path.resolve(resourcePath);
+  if (bundleRoot && absRes.toLowerCase().endsWith('.md') && !isReservedBundleFile(absRes, bundleRoot)) {
+    const absBundle = path.resolve(bundleRoot).toLowerCase();
+    if (absRes.toLowerCase().startsWith(absBundle + path.sep) && fs.existsSync(absRes)) {
+      try {
+        const stat = fs.statSync(absRes);
+        if (stat.isFile()) {
+          const fm = parseFrontmatter(fs.readFileSync(absRes, 'utf8'));
+          const resLastMod = fm && (fm.timestamp || (fm.generated && fm.generated.at));
+          if (resLastMod) {
+            const fmDate = new Date(resLastMod);
+            if (!isNaN(fmDate.getTime())) {
+              const dirty = isPathDirty(absRes, workspaceRoot);
+              if (!dirty || Math.abs(stat.mtime.getTime() - fmDate.getTime()) <= 5000) {
+                const eff = getEffectiveConceptTime(absRes, resLastMod, workspaceRoot);
+                if (eff) return eff.toISOString();
+              }
+            }
+          }
+        }
+      } catch (e) {}
+    }
+  }
+  return getGitLastModifiedISO(absRes, workspaceRoot);
 }
 
 function resolveWorkspaceAndBundle(args) {
@@ -663,7 +778,10 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
         for (const res of deduplicatedResources) {
           const resolvedPath = res.resolvedBound;
           if (resolvedPath && fs.existsSync(resolvedPath) && effectiveConceptTime && !isReservedBundleFile(resolvedPath, bundleRoot)) {
-            const gitTimeStr = getGitLastModifiedISO(resolvedPath, workspaceRoot);
+            if (isCoModifiedInLatestCommit(fullPath, resolvedPath, workspaceRoot)) {
+              continue;
+            }
+            const gitTimeStr = getResourceEffectiveModifiedISO(resolvedPath, workspaceRoot, bundleRoot);
             if (gitTimeStr) {
               const gitTime = new Date(gitTimeStr);
               if (gitTime > effectiveConceptTime) {
@@ -728,7 +846,7 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
       });
       const ignoredTopDirs = new Set([
         '.git', 'node_modules', '.agents', '.claude', '.gemini', 'agent', 'docs',
-        'tmp', 'temp', '.idea', '.vscode', '.superpowers', '__pycache__',
+        'tmp', 'temp', 'scratch', '.scratch', '.idea', '.vscode', '.superpowers', '__pycache__',
         '.pytest_cache', '.mypy_cache', '.ruff_cache', '.venv', 'venv',
         'dist', 'build', 'coverage', '.next', 'target', 'bin', 'obj'
       ]);
@@ -758,6 +876,12 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
         const pathSegs = relDirtyPath.split('/');
         const topSeg = pathSegs[0];
         if (pathSegs.some(seg => ignoredTopDirs.has(seg))) continue;
+        if (
+          pathSegs.some(seg => seg.toLowerCase() === 'assets' || seg.toLowerCase() === 'chunks' || seg.toLowerCase() === 'bundles') &&
+          /^.+[-.][A-Za-z0-9_-]{7,16}\.(?:[cm]?js|css)$/.test(path.basename(relDirtyPath))
+        ) {
+          continue;
+        }
         if (fs.existsSync(path.join(workspaceRoot, topSeg, '.git'))) continue;
         if (bundleRelNorm && (relDirtyLower === bundleRelNorm || relDirtyLower.startsWith(bundleRelNorm + '/'))) continue;
 

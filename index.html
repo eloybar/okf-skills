@@ -2268,13 +2268,13 @@ Keep an existing **OKF bundle** current so it doesn't rot. This skill handles bo
 &gt; **Model-Tier Steering:** Post-implementation upkeep (`okf-maintain`) should run on the **Medium** setting of the active model once the implementation plan has been laid out and executed. Reserve the **High** setting for initial bundle bootstrapping (`okf`, `okf-wayfinder`) or architectural planning.
 
 ### ⚡ Fast Mechanical Upkeep (CLI Automation)
-Whenever code modifications touch existing resources or introduce untracked workspace files, run the automated maintainer script:
+Whenever code modifications touch existing resources or introduce untracked workspace files, run the automated maintainer script (you can run `--check` first to preview drift and unindexed frontier changes without mutating files):
 ```bash
+node okf-maintain/scripts/maintain.js --check # Audit mode: previews drift, unindexed concepts, and frontier without mutating files
 node okf-maintain/scripts/maintain.js        # Auto-syncs drift timestamps, frontier, steering, and log (add --viz to rebuild viz.html)
-node okf-maintain/scripts/maintain.js --check # Audit mode: checks drift and frontier without changes
 node okf-maintain/scripts/maintain.js --evaluate --latest # Self-improvement analyzer: evaluates session transcript &amp; ~/.okf/telemetry.jsonl
 ```
-This automatically updates timestamps for drifted concepts, updates `## Not yet specified` in `index.md`, records the entry in `log.md`, and runs `okf-lint --drift` (pass `--viz` or run `okf-visualize` to generate `viz.html`).
+This automatically updates timestamps for drifted concepts, surgically updates managed `- \`&lt;path&gt;\` — Undocumented codebase file.` bullets in `## Not yet specified` in `index.md` (preserving curated multi-line notes and prose byte-for-byte), prints and logs the exact frontier delta (`+X new, -Y removed, Z already listed`), and runs `okf-lint --drift` (pass `--viz` or run `okf-visualize` to generate `viz.html`).
 
 &gt; **Conditional `okf-learn` Agent Trigger:** If `maintain.js` outputs a `💡 [OKF Self-Improvement]` anomaly nudge at the end of its run (e.g., reporting `query_miss`, `context_bloat`, or `slow_exec`), immediately invoke the `okf-learn` skill: bind missed workspace files into the relevant concept via `node okf-learn/scripts/learn.js --bind &lt;file&gt; --concept &lt;concept&gt;` or queue a cross-repo skill improvement note via `node okf-learn/scripts/learn.js --note "&lt;finding&gt;" --skill &lt;skill-name&gt;`.
 
@@ -3911,7 +3911,7 @@ Close the self-improvement feedback loop across coding sessions by auditing pass
    - **Action:** Run `node okf-learn/scripts/learn.js --bind &lt;missed-file&gt; --concept &lt;concept-rel-path&gt;` to fix project-level `query_miss` gaps immediately, or run `node okf-learn/scripts/learn.js --note "&lt;finding&gt;" --skill &lt;skill-name&gt;` if the friction requires a code/prompt change in `okf-skills`.
 2. **Centralized Skill Evolution (Inside the `okf-skills` Repo):**
    - Triggered when the user runs `/okf-learn` or asks to evaluate/improve OKF skills from inside `okf-skills`.
-   - **Smart `--latest` &amp; `--recent` Discovery:** Because transcripts (`~/.gemini/antigravity-cli/brain/`) and telemetry (`~/.okf/`) are stored globally in `$HOME`, running `learn.js --latest --recent 5` inside `okf-skills` automatically skips short `&lt;6` step meta-sessions (like a freshly opened `/okf-learn` chat) and evaluates the most recent substantive coding session(s) from any repository on the machine alongside `~/.okf/skill-learnings.jsonl`.
+   - **Smart `--latest` &amp; `--recent` Multi-Runtime Discovery:** Because transcripts (Antigravity `~/.gemini/antigravity-cli/brain/` and Claude Code `~/.claude/projects/&lt;slug&gt;/&lt;session-id&gt;.jsonl` / `$CLAUDE_CONFIG_DIR/projects/`) and telemetry (`~/.okf/`) are stored globally in `$HOME`, running `learn.js --latest --recent 5` inside `okf-skills` automatically skips short `&lt;6` step meta-sessions (like a freshly opened `/okf-learn` chat), auto-detects the transcript format (`antigravity` or `claude-code`), and evaluates the most recent substantive coding session(s) from any repository on the machine alongside `~/.okf/skill-learnings.jsonl`.
 
 ## Usage
 
