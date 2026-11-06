@@ -100,6 +100,16 @@ function fileUriToPath(uri) {
 }
 
 function evaluateSkillsPerformance(options = {}) {
+  const siblingLearnScript = path.resolve(__dirname, '..', '..', 'okf-learn', 'scripts', 'learn.js');
+  if (fs.existsSync(siblingLearnScript)) {
+    try {
+      const learnMod = require(siblingLearnScript);
+      if (learnMod && typeof learnMod.evaluateSkillsPerformance === 'function') {
+        return learnMod.evaluateSkillsPerformance(options);
+      }
+    } catch (e) {}
+  }
+
   const brainDir = options.brainDir || process.env.OKF_BRAIN_DIR || path.join(os.homedir(), '.gemini', 'antigravity-cli', 'brain');
   const telemetryPath = options.telemetryPath;
   let targetConvId = options.conversationId || null;
@@ -238,7 +248,7 @@ function evaluateSkillsPerformance(options = {}) {
         const isReadFileOutput = /\n(?:Showing lines \d+-\d+ of \d+|Partial read \(lines \d+-\d+ of \d+\))\r?\n/.test(stepContent);
         if (!isReadFileOutput) {
           const missFileMatch = stepContent.match(/^No matching OKF concepts found for file:\s*([^\r\n]+)$/m);
-          if (missFileMatch && !/[$`/*?<>|();]/.test(missFileMatch[1])) {
+          if (missFileMatch && !/[$`*?<>|();]/.test(missFileMatch[1])) {
             conversation.friction.queryMisses.push({
               step: step.step_index,
               missedTarget: missFileMatch[1].trim()
@@ -543,6 +553,8 @@ const gitModifiedCache = new Map();
 const gitDirtySetByCwd = new Map();
 const gitTopLevelByCwd = new Map();
 const gitRepoCommitMapByTop = new Map();
+const gitRepoCommitHashByTop = new Map();
+const gitRepoCommitFilesByTop = new Map();
 const gitCommitOnlyCache = new Map();
 
 function getGitTopLevel(execCwd) {
@@ -572,10 +584,12 @@ function getRepoCommitTimeMap(execCwd, forceRefresh = false) {
     return gitRepoCommitMapByTop.get(topKey);
   }
   const commitMap = new Map();
+  const commitHashMap = new Map();
+  const commitFilesMap = new Map();
   try {
     const out = execFileSync(
       'git',
-      ['-c', 'core.quotepath=false', 'log', '-m', '--format=__OKF_COMMIT__%aI', '--name-only'],
+      ['-c', 'core.quotepath=false', 'log', '-m', '--format=__OKF_COMMIT__%H|%aI', '--name-only'],
       {
         cwd: topLevel,
         encoding: 'utf8',
@@ -583,17 +597,33 @@ function getRepoCommitTimeMap(execCwd, forceRefresh = false) {
         maxBuffer: 64 * 1024 * 1024
       }
     );
+    let currentHash = null;
     let currentIso = null;
     for (const rawLine of out.split(/\r?\n/)) {
       const line = rawLine.trim();
       if (!line) continue;
       if (line.startsWith('__OKF_COMMIT__')) {
-        currentIso = line.slice('__OKF_COMMIT__'.length).trim();
+        const payload = line.slice('__OKF_COMMIT__'.length).trim();
+        const sepIdx = payload.indexOf('|');
+        if (sepIdx !== -1) {
+          currentHash = payload.slice(0, sepIdx);
+          currentIso = payload.slice(sepIdx + 1).trim();
+        } else {
+          currentHash = payload;
+          currentIso = payload;
+        }
+        if (currentHash && !commitFilesMap.has(currentHash)) {
+          commitFilesMap.set(currentHash, new Set());
+        }
       } else if (currentIso) {
         const cleaned = line.replace(/^"|"$/g, '');
         const absPath = path.resolve(topLevel, cleaned).toLowerCase();
+        if (currentHash && commitFilesMap.has(currentHash)) {
+          commitFilesMap.get(currentHash).add(absPath);
+        }
         if (!commitMap.has(absPath)) {
           commitMap.set(absPath, currentIso);
+          if (currentHash) commitHashMap.set(absPath, currentHash);
         }
       }
     }
@@ -601,6 +631,8 @@ function getRepoCommitTimeMap(execCwd, forceRefresh = false) {
     // Ignore git log errors
   }
   gitRepoCommitMapByTop.set(topKey, commitMap);
+  gitRepoCommitHashByTop.set(topKey, commitHashMap);
+  gitRepoCommitFilesByTop.set(topKey, commitFilesMap);
   return commitMap;
 }
 
@@ -709,6 +741,64 @@ function getGitLastModifiedISO(filePath, cwd) {
   return gitIso;
 }
 
+function isPathDirty(filePath, execCwd) {
+  const absFile = path.resolve(filePath);
+  const cacheKey = absFile.toLowerCase();
+  const dirtySet = getRepoDirtySet(execCwd || path.dirname(absFile));
+  if (dirtySet.has(cacheKey)) return true;
+  if (fs.existsSync(absFile)) {
+    try {
+      const stat = fs.statSync(absFile);
+      if (stat.isDirectory()) {
+        const prefix = cacheKey.endsWith(path.sep) ? cacheKey : cacheKey + path.sep;
+        for (const d of dirtySet) {
+          if (d.startsWith(prefix)) return true;
+        }
+      }
+    } catch (e) {}
+  }
+  return false;
+}
+
+function isCoModifiedInLatestCommit(conceptFilePath, resourcePath, workspaceRoot) {
+  const execCwd = workspaceRoot || path.dirname(path.resolve(conceptFilePath));
+  if (isPathDirty(resourcePath, execCwd)) return false;
+  const topLevel = getGitTopLevel(execCwd);
+  if (!topLevel) return false;
+  const topKey = path.resolve(topLevel).toLowerCase();
+  getRepoCommitTimeMap(execCwd);
+  const commitMap = gitRepoCommitMapByTop.get(topKey);
+  const commitHashMap = gitRepoCommitHashByTop.get(topKey);
+  const commitFilesMap = gitRepoCommitFilesByTop.get(topKey);
+  if (!commitMap || !commitHashMap || !commitFilesMap) return false;
+
+  const absConceptKey = path.resolve(conceptFilePath).toLowerCase();
+  const absRes = path.resolve(resourcePath);
+  const absResKey = absRes.toLowerCase();
+
+  let latestResHash = commitHashMap.get(absResKey) || null;
+  if (!latestResHash && fs.existsSync(absRes)) {
+    try {
+      const stat = fs.statSync(absRes);
+      if (stat.isDirectory()) {
+        const prefix = absResKey.endsWith(path.sep) ? absResKey : absResKey + path.sep;
+        let latestIso = null;
+        for (const [trackedPath, iso] of commitMap.entries()) {
+          if (trackedPath.startsWith(prefix)) {
+            if (!latestIso || new Date(iso) > new Date(latestIso)) {
+              latestIso = iso;
+              latestResHash = commitHashMap.get(trackedPath) || null;
+            }
+          }
+        }
+      }
+    } catch (e) {}
+  }
+  if (!latestResHash) return false;
+  const touchedFiles = commitFilesMap.get(latestResHash);
+  return Boolean(touchedFiles && touchedFiles.has(absConceptKey));
+}
+
 function getEffectiveConceptTime(conceptFilePath, rawLastModified, workspaceRoot) {
   if (!rawLastModified) return null;
   const fmDate = new Date(rawLastModified);
@@ -724,8 +814,43 @@ function getEffectiveConceptTime(conceptFilePath, rawLastModified, workspaceRoot
         return commitDate;
       }
     }
+  } else if (fs.existsSync(absConcept)) {
+    try {
+      const mtime = fs.statSync(absConcept).mtime;
+      const diffMs = mtime.getTime() - fmDate.getTime();
+      if (diffMs >= 0 && diffMs <= 2000) {
+        return mtime;
+      }
+    } catch (e) {}
   }
   return fmDate;
+}
+
+function getResourceEffectiveModifiedISO(resourcePath, workspaceRoot, bundleRoot) {
+  const absRes = path.resolve(resourcePath);
+  if (bundleRoot && absRes.toLowerCase().endsWith('.md') && !isReservedBundleFile(absRes, bundleRoot)) {
+    const absBundle = path.resolve(bundleRoot).toLowerCase();
+    if (absRes.toLowerCase().startsWith(absBundle + path.sep) && fs.existsSync(absRes)) {
+      try {
+        const stat = fs.statSync(absRes);
+        if (stat.isFile()) {
+          const fm = parseFrontmatter(fs.readFileSync(absRes, 'utf8'));
+          const resLastMod = fm && (fm.timestamp || (fm.generated && fm.generated.at));
+          if (resLastMod) {
+            const fmDate = new Date(resLastMod);
+            if (!isNaN(fmDate.getTime())) {
+              const dirty = isPathDirty(absRes, workspaceRoot);
+              if (!dirty || Math.abs(stat.mtime.getTime() - fmDate.getTime()) <= 5000) {
+                const eff = getEffectiveConceptTime(absRes, resLastMod, workspaceRoot);
+                if (eff) return eff.toISOString();
+              }
+            }
+          }
+        }
+      } catch (e) {}
+    }
+  }
+  return getGitLastModifiedISO(absRes, workspaceRoot);
 }
 
 function resolveWorkspaceAndBundle(args) {
@@ -1069,7 +1194,9 @@ function isAcknowledgedInBundle(relPath, bundleMarkdownLower) {
 }
 
 function updateIndexFrontier(indexPath, frontierList, documentedResources, workspaceRoot = null) {
-  if (!fs.existsSync(indexPath)) return false;
+  if (!fs.existsSync(indexPath)) {
+    return { updated: false, added: 0, removed: 0, alreadyListed: 0 };
+  }
   let content = fs.readFileSync(indexPath, 'utf8');
 
   const eol = content.includes('\r\n') ? '\r\n' : '\n';
@@ -1089,7 +1216,9 @@ function updateIndexFrontier(indexPath, frontierList, documentedResources, works
     section = content.slice(start, end);
     after = content.slice(end);
   } else {
-    if (frontierList.length === 0) return false;
+    if (frontierList.length === 0) {
+      return { updated: false, added: 0, removed: 0, alreadyListed: 0 };
+    }
     before = content.trimEnd() + eol + eol;
     section = '## Not yet specified' + eol;
     after = '';
@@ -1097,6 +1226,7 @@ function updateIndexFrontier(indexPath, frontierList, documentedResources, works
 
   const lines = section.split(/\r?\n/);
   let modified = !headingMatch;
+  let removedCount = 0;
   const bundleRel = workspaceRoot
     ? path.relative(workspaceRoot, path.dirname(indexPath)).replace(/\\/g, '/').toLowerCase()
     : '';
@@ -1126,6 +1256,7 @@ function updateIndexFrontier(indexPath, frontierList, documentedResources, works
           !frontierSet.has(key)
         ) {
           modified = true;
+          removedCount++;
           continue;
         }
       }
@@ -1146,7 +1277,10 @@ function updateIndexFrontier(indexPath, frontierList, documentedResources, works
     .sort((a, b) => a.path.localeCompare(b.path))
     .map(f => `- \`${f.path}\` — Undocumented codebase file.`);
 
-  if (!headingMatch && additions.length === 0) return false;
+  const alreadyListedCount = Math.max(0, frontierList.length - additions.length);
+  if (!headingMatch && additions.length === 0) {
+    return { updated: false, added: 0, removed: 0, alreadyListed: alreadyListedCount };
+  }
 
   if (additions.length > 0) {
     modified = true;
@@ -1164,13 +1298,20 @@ function updateIndexFrontier(indexPath, frontierList, documentedResources, works
     kept.splice(insertAt, 0, ...additions);
   }
 
-  if (!modified) return false;
+  if (!modified) {
+    return { updated: false, added: 0, removed: 0, alreadyListed: alreadyListedCount };
+  }
 
   let newSection = kept.join(eol);
   if (after && !/(\r?\n){2}$/.test(newSection)) newSection = newSection.trimEnd() + eol + eol;
   if (!after) newSection = newSection.trimEnd() + eol;
   fs.writeFileSync(indexPath, before + newSection + after, 'utf8');
-  return true;
+  return {
+    updated: true,
+    added: additions.length,
+    removed: removedCount,
+    alreadyListed: alreadyListedCount
+  };
 }
 
 function appendLogEntry(logPath, entries, dateStr) {
@@ -1446,8 +1587,11 @@ async function main() {
     console.log('==========================================================');
     console.log(`OKF Skill Self-Improvement Report${c.conversationId ? ` (Conversation: ${c.conversationId})` : ''}`);
     console.log('==========================================================');
-    if (c.found) {
-      console.log(`Session Metrics:     ${c.stepCount} steps | ${c.userTurnCount} user turns | ${c.durationMinutes} min`);
+    if (c.warning) {
+      console.log(`⚠️  Warning:          ${c.warning}`);
+    }
+    if (c.found && c.transcriptFormat !== 'unrecognized' && c.transcriptFormat !== 'empty') {
+      console.log(`Session Metrics:     ${c.stepCount} steps | ${c.userTurnCount} user turns | ${c.durationMinutes} min${c.transcriptFormat ? ` | Format: ${c.transcriptFormat}` : ''}`);
       console.log(`Gate Compliance:     ${c.gateCompliance.scorePercent}%`);
       console.log(`  - Session-start lint --drift:   ${c.gateCompliance.sessionStartLint ? 'PASS' : 'MISS'}`);
       console.log(`  - Pre-work okf-query calls:     ${c.gateCompliance.preWorkQueries > 0 ? `PASS (${c.gateCompliance.preWorkQueries} calls)` : 'MISS'}`);
@@ -1594,7 +1738,10 @@ async function main() {
     if (effectiveConceptTime && !isNaN(effectiveConceptTime.getTime())) {
       for (const res of resourcesToCheck) {
         if (fs.existsSync(res.path) && !isReservedBundleFile(res.path, bundleRoot)) {
-          const gitTimeStr = getGitLastModifiedISO(res.path, workspaceRoot);
+          if (isCoModifiedInLatestCommit(cFile, res.path, workspaceRoot)) {
+            continue;
+          }
+          const gitTimeStr = getResourceEffectiveModifiedISO(res.path, workspaceRoot, bundleRoot);
           if (gitTimeStr) {
             const gitTime = new Date(gitTimeStr);
             if (gitTime > effectiveConceptTime) {
@@ -1748,11 +1895,18 @@ async function main() {
   const dateStr = nowISO.slice(0, 10);
 
   // 3b. Update timestamps for drifted concepts (and align mtime to syncDate so transitive concept checks never see mtime > generated.at)
+  const updatedConceptPaths = [];
   for (const drift of driftedConcepts) {
     const ok = updateConceptTimestamp(drift.fullPath, nowISO, actor, syncDate);
     if (ok) {
       updatedFiles.push(drift.file);
+      updatedConceptPaths.push(drift.fullPath);
     }
+  }
+  for (const fullP of updatedConceptPaths) {
+    try {
+      fs.utimesSync(fullP, syncDate, syncDate);
+    } catch (e) {}
   }
   if (updatedFiles.length > 0) {
     logEntries.push(`Synchronized timestamp for ${updatedFiles.length} drifted concept(s): ${updatedFiles.join(', ')}.`);
@@ -1761,14 +1915,18 @@ async function main() {
   // 3c. Auto-index unindexed active concepts and update index.md frontier
   let conceptsIndexed = false;
   let indexUpdated = false;
+  let frontierDelta = { updated: false, added: 0, removed: 0, alreadyListed: 0 };
   if (fs.existsSync(indexPath)) {
     conceptsIndexed = updateIndexConcepts(indexPath, unindexedRecords);
     if (conceptsIndexed) {
       logEntries.push(`Indexed ${unindexedRecords.length} active concept(s) in \`index.md\`: ${unindexedConcepts.join(', ')}.`);
     }
-    indexUpdated = updateIndexFrontier(indexPath, frontierList, documentedResources, workspaceRoot);
+    frontierDelta = updateIndexFrontier(indexPath, frontierList, documentedResources, workspaceRoot);
+    indexUpdated = Boolean(frontierDelta && frontierDelta.updated);
     if (indexUpdated) {
-      logEntries.push(`Synchronized workspace frontier mapping in \`index.md\` (${frontierList.length} undocumented files mapped).`);
+      logEntries.push(
+        `Synchronized workspace frontier mapping in \`index.md\` (+${frontierDelta.added} new, -${frontierDelta.removed} removed, ${frontierDelta.alreadyListed} already listed; ${frontierList.length} undocumented files mapped).`
+      );
     }
   }
 
@@ -1826,17 +1984,21 @@ async function main() {
       updatedConcepts: updatedFiles,
       indexedConcepts: conceptsIndexed ? unindexedConcepts : [],
       indexFrontierUpdated: indexUpdated,
+      frontierDelta,
       steeringUpdated: updatedSteering,
       logUpdated,
       vizGenerated,
       lintPassed
     }, null, 2));
   } else {
+    const frontierSummary = indexUpdated
+      ? `Yes (+${frontierDelta.added} new, -${frontierDelta.removed} removed, ${frontierDelta.alreadyListed} already listed)`
+      : 'Up to date';
     console.log(`OKF Maintenance Sync Complete 🎉`);
     console.log(`----------------------------------------`);
     console.log(`Concepts synchronized: ${updatedFiles.length}`);
     console.log(`Concepts indexed:      ${conceptsIndexed ? unindexedConcepts.length : 'Up to date'}`);
-    console.log(`Frontier updated:       ${indexUpdated ? 'Yes' : 'Up to date'}`);
+    console.log(`Frontier updated:       ${frontierSummary}`);
     console.log(`Steering updated:       ${updatedSteering.length > 0 ? updatedSteering.join(', ') : 'Up to date'}`);
     console.log(`Log recorded:           ${logUpdated ? 'Yes' : 'Up to date'}`);
     if (withViz) console.log(`Visualization updated:  ${vizGenerated ? 'Yes' : 'N/A'}`);

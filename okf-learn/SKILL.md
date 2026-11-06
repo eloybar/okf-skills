@@ -15,7 +15,7 @@ Close the self-improvement feedback loop across coding sessions by auditing pass
    - **Action:** Run `node okf-learn/scripts/learn.js --bind <missed-file> --concept <concept-rel-path>` to fix project-level `query_miss` gaps immediately, or run `node okf-learn/scripts/learn.js --note "<finding>" --skill <skill-name>` if the friction requires a code/prompt change in `okf-skills`.
 2. **Centralized Skill Evolution (Inside the `okf-skills` Repo):**
    - Triggered when the user runs `/okf-learn` or asks to evaluate/improve OKF skills from inside `okf-skills`.
-   - **Smart `--latest` & `--recent` Discovery:** Because transcripts (`~/.gemini/antigravity-cli/brain/`) and telemetry (`~/.okf/`) are stored globally in `$HOME`, running `learn.js --latest --recent 5` inside `okf-skills` automatically skips short `<6` step meta-sessions (like a freshly opened `/okf-learn` chat) and evaluates the most recent substantive coding session(s) from any repository on the machine alongside `~/.okf/skill-learnings.jsonl`.
+   - **Smart `--latest` & `--recent` Multi-Runtime Discovery:** Because transcripts (Antigravity `~/.gemini/antigravity-cli/brain/` and Claude Code `~/.claude/projects/<slug>/<session-id>.jsonl` / `$CLAUDE_CONFIG_DIR/projects/`) and telemetry (`~/.okf/`) are stored globally in `$HOME`, running `learn.js --latest --recent 5` inside `okf-skills` automatically skips short `<6` step meta-sessions (like a freshly opened `/okf-learn` chat), auto-detects the transcript format (`antigravity` or `claude-code`), and evaluates the most recent substantive coding session(s) from any repository on the machine alongside `~/.okf/skill-learnings.jsonl`.
 
 ## Usage
 

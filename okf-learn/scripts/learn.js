@@ -275,7 +275,8 @@ function bindSourceToConcept({ workspaceRoot, bundleRoot, filePath, conceptRelPa
   }
 
   let fmLines = fmMatch[1].split(/\r?\n/);
-  const nowIso = new Date().toISOString();
+  const nowDate = new Date();
+  const nowIso = nowDate.toISOString();
 
   // Update generated.at or timestamp if present
   for (let i = 0; i < fmLines.length; i++) {
@@ -311,6 +312,9 @@ function bindSourceToConcept({ workspaceRoot, bundleRoot, filePath, conceptRelPa
   const newFrontmatterBlock = `---${eol}${fmLines.join(eol)}${eol}---`;
   const updatedContent = raw.replace(/^---\r?\n[\s\S]*?\r?\n---/, newFrontmatterBlock);
   fs.writeFileSync(targetConceptPath, updatedContent, 'utf8');
+  try {
+    fs.utimesSync(targetConceptPath, nowDate, nowDate);
+  } catch (e) {}
 
   return {
     success: true,
@@ -355,10 +359,76 @@ function inferWorkspaceFromPath(rawPath) {
   return null;
 }
 
+function sanitizeUserTurnText(rawText) {
+  if (!rawText || typeof rawText !== 'string') return '';
+  if (/^\s*Base directory for this skill:/i.test(rawText)) return '';
+  return rawText
+    .replace(/<pasted_content>[\s\S]*?<\/pasted_content>/gi, ' ')
+    .replace(/<system-reminder>[\s\S]*?<\/system-reminder>/gi, ' ')
+    .replace(/<task-notification>[\s\S]*?<\/task-notification>/gi, ' ')
+    .replace(/<local-command-caveat>[\s\S]*?<\/local-command-caveat>/gi, ' ')
+    .replace(/<local-command-stdout>[\s\S]*?<\/local-command-stdout>/gi, ' ')
+    .replace(/<local-command-stderr>[\s\S]*?<\/local-command-stderr>/gi, ' ')
+    .replace(/<command-name>[\s\S]*?<\/command-name>/gi, ' ')
+    .replace(/<command-message>[\s\S]*?<\/command-message>/gi, ' ')
+    .replace(/<command-args>[\s\S]*?<\/command-args>/gi, ' ')
+    .replace(/<bash-input>[\s\S]*?<\/bash-input>/gi, ' ')
+    .replace(/<bash-stdout>[\s\S]*?<\/bash-stdout>/gi, ' ')
+    .replace(/<bash-stderr>[\s\S]*?<\/bash-stderr>/gi, ' ')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .trim();
+}
+
+function detectTranscriptFormat(records) {
+  if (!Array.isArray(records) || records.length === 0) return 'empty';
+  for (const r of records) {
+    if (!r || typeof r !== 'object') continue;
+    if (
+      r.step_index !== undefined ||
+      r.type === 'USER_INPUT' ||
+      r.type === 'PLANNER_RESPONSE'
+    ) {
+      return 'antigravity';
+    }
+    if (
+      ((r.type === 'user' || r.type === 'assistant') && r.message && typeof r.message === 'object') ||
+      r.sessionId !== undefined ||
+      r.type === 'file-history-snapshot' ||
+      r.type === 'permission-mode'
+    ) {
+      return 'claude-code';
+    }
+  }
+  return 'unrecognized';
+}
+
+function extractClaudeToolResultText(blockContent, toolUseResult) {
+  const parts = [];
+  if (typeof blockContent === 'string') {
+    parts.push(blockContent);
+  } else if (Array.isArray(blockContent)) {
+    for (const item of blockContent) {
+      if (typeof item === 'string') parts.push(item);
+      else if (item && typeof item.text === 'string') parts.push(item.text);
+    }
+  }
+  if (toolUseResult && typeof toolUseResult === 'object') {
+    if (typeof toolUseResult.stdout === 'string' && !parts.join('\n').includes(toolUseResult.stdout)) {
+      parts.push(toolUseResult.stdout);
+    }
+    if (typeof toolUseResult.stderr === 'string' && !parts.join('\n').includes(toolUseResult.stderr)) {
+      parts.push(toolUseResult.stderr);
+    }
+  }
+  return parts.join('\n');
+}
+
 function analyzeSingleTranscript(transcriptPath, convId) {
   const conversation = {
     conversationId: convId,
     found: false,
+    transcriptFormat: null,
+    warning: null,
     inferredWorkspace: null,
     stepCount: 0,
     userTurnCount: 0,
@@ -386,129 +456,303 @@ function analyzeSingleTranscript(transcriptPath, convId) {
   const userCorrections = [];
 
   if (!transcriptPath || !fs.existsSync(transcriptPath)) {
+    if (convId) {
+      conversation.warning = `Transcript file not found for conversation '${convId}'.`;
+    }
     return { conversation, userCorrections };
   }
 
   conversation.found = true;
   const lines = fs.readFileSync(transcriptPath, 'utf8').split(/\r?\n/).filter(Boolean);
+  const parsedRecords = [];
+  for (const line of lines) {
+    try {
+      parsedRecords.push(JSON.parse(line));
+    } catch (e) {}
+  }
+
+  const format = detectTranscriptFormat(parsedRecords);
+  conversation.transcriptFormat = format;
+  if (format === 'unrecognized' || format === 'empty') {
+    conversation.warning = `Transcript at '${transcriptPath}' has ${format} schema (${parsedRecords.length} valid JSON line(s)).`;
+    return { conversation, userCorrections };
+  }
+
   let firstTimeMs = null;
   let lastTimeMs = null;
 
-  for (const line of lines) {
-    let step;
-    try { step = JSON.parse(line); } catch (e) { continue; }
-    conversation.stepCount++;
-    if (step.created_at) {
-      const ms = new Date(step.created_at).getTime();
-      if (!isNaN(ms)) {
-        if (firstTimeMs === null || ms < firstTimeMs) firstTimeMs = ms;
-        if (lastTimeMs === null || ms > lastTimeMs) lastTimeMs = ms;
-      }
-    }
-    if (step.type === 'USER_INPUT') {
-      conversation.userTurnCount++;
-      const rawReqMatch = String(step.content || '').match(/<USER_REQUEST>([\s\S]*?)<\/USER_REQUEST>/i);
-      const userText = (rawReqMatch ? rawReqMatch[1] : String(step.content || '')).trim();
-      if (/\b(no[,\s]|instead\b|don't\b|wrong\b|not working\b|still broken\b|should be\b|why did you\b)/i.test(userText)) {
-        userCorrections.push({
-          step: step.step_index,
-          excerpt: userText.slice(0, 240)
-        });
-      }
-    }
-    if (step.type === 'PLANNER_RESPONSE') {
-      conversation.tokens.inputTokens += Number(step.input_tokens || 0);
-      conversation.tokens.cacheReadTokens += Number(step.cache_read_tokens || 0);
-      conversation.tokens.outputTokens += Number(step.output_tokens || 0);
-      const content = String(step.content || '');
-      if (/OKF Check|OKF Citations|docs\/okf\/|\/okf\/concepts\//i.test(content)) {
-        conversation.gateCompliance.conceptCitations++;
-      }
-      if (Array.isArray(step.tool_calls)) {
-        for (const tc of step.tool_calls) {
-          const tcArgs = (tc && tc.args) || {};
-          if (tcArgs.Path && typeof tcArgs.Path === 'string') {
-            if (!conversation.inferredWorkspace) {
-              const inferred = inferWorkspaceFromPath(tcArgs.Path);
-              if (inferred) conversation.inferredWorkspace = inferred;
-            }
-            if (tc.name === 'read_file' && /(?:^|[\/\\])okf[\/\\]index\.md["']*$/i.test(tcArgs.Path)) {
-              conversation.gateCompliance.preWorkQueries++;
-            }
-          }
-          const cmd = tcArgs.CommandLine ? String(tcArgs.CommandLine) : '';
-          if (/lint\.js\b/.test(cmd) && /--drift\b/.test(cmd)) {
-            conversation.gateCompliance.sessionStartLint = true;
-          }
-          const qMatches = cmd.match(/query\.js\b/g);
-          if (qMatches) {
-            conversation.gateCompliance.preWorkQueries += qMatches.length;
-          }
-          if (/maintain\.js\b/.test(cmd)) {
-            conversation.gateCompliance.preCompletionMaintain = true;
-          }
+  if (format === 'claude-code') {
+    const seenAssistantMsgIds = new Set();
+    const citedAssistantMsgIds = new Set();
+    const toolUseById = new Map();
+
+    for (let idx = 0; idx < parsedRecords.length; idx++) {
+      const rec = parsedRecords[idx];
+      const stepNum = idx + 1;
+      conversation.stepCount++;
+
+      const tsRaw = rec.timestamp || rec.created_at || (rec.snapshot && rec.snapshot.timestamp);
+      if (tsRaw) {
+        const ms = new Date(tsRaw).getTime();
+        if (!isNaN(ms)) {
+          if (firstTimeMs === null || ms < firstTimeMs) firstTimeMs = ms;
+          if (lastTimeMs === null || ms > lastTimeMs) lastTimeMs = ms;
         }
       }
-    }
 
-    const stepContent = String(step.content || '');
-    const isReadFileOutput = /\n(?:Showing lines \d+-\d+ of \d+|Partial read \(lines \d+-\d+ of \d+\))\r?\n/.test(stepContent);
-    if (!isReadFileOutput) {
-      const missFileMatch = stepContent.match(/^No matching OKF concepts found for file:\s*([^\r\n]+)$/m);
-      if (missFileMatch && !/[$`/*?<>|();]/.test(missFileMatch[1])) {
-        conversation.friction.queryMisses.push({
-          step: step.step_index,
-          missedTarget: missFileMatch[1].trim()
-        });
-      } else if (/^No matching OKF concepts found\.$/m.test(stepContent)) {
-        conversation.friction.queryMisses.push({
-          step: step.step_index,
-          missedTarget: '(search query)'
-        });
+      if (!conversation.inferredWorkspace && rec.cwd && typeof rec.cwd === 'string') {
+        conversation.inferredWorkspace = rec.cwd.replace(/\\+/g, '/');
       }
 
-      if (stepContent.includes('output was truncated due to being too long')) {
-        const uriMatch = stepContent.match(/file:\/\/\/[^\s)"']+/);
-        if (uriMatch) {
-          const cleanedUri = uriMatch[0].replace(/\.$/, '');
-          const localOutPath = fileUriToPath(cleanedUri);
-          const belongsToConv = !convId || localOutPath.toLowerCase().includes(String(convId).toLowerCase());
-          if (belongsToConv && fs.existsSync(localOutPath)) {
-            try {
-              const stat = fs.statSync(localOutPath);
-              const head = fs.readFileSync(localOutPath, 'utf8').slice(0, 2048);
-              if (head.includes('OKF CONTEXT BLOCK') && stat.size > 40000) {
-                conversation.friction.contextBloat.push({
-                  step: step.step_index,
-                  bytes: stat.size,
-                  file: localOutPath
+      if (rec.type === 'assistant' && rec.message && typeof rec.message === 'object') {
+        const msg = rec.message;
+        const msgKey = msg.id || `line_${stepNum}`;
+        if (msg.usage && typeof msg.usage === 'object' && !seenAssistantMsgIds.has(msgKey)) {
+          seenAssistantMsgIds.add(msgKey);
+          conversation.tokens.inputTokens +=
+            Number(msg.usage.input_tokens || 0) + Number(msg.usage.cache_creation_input_tokens || 0);
+          conversation.tokens.cacheReadTokens += Number(msg.usage.cache_read_input_tokens || 0);
+          conversation.tokens.outputTokens += Number(msg.usage.output_tokens || 0);
+        }
+
+        const blocks = Array.isArray(msg.content) ? msg.content : [];
+        for (const block of blocks) {
+          if (!block || typeof block !== 'object') continue;
+          if (block.type === 'text' && typeof block.text === 'string') {
+            if (
+              !citedAssistantMsgIds.has(msgKey) &&
+              /OKF Check|OKF Citations|docs\/okf\/|(?:\b|[\/\\])okf\/(?:concepts|playbooks|index\.md)\b/i.test(block.text)
+            ) {
+              citedAssistantMsgIds.add(msgKey);
+              conversation.gateCompliance.conceptCitations++;
+            }
+          } else if (block.type === 'tool_use') {
+            const toolName = String(block.name || '');
+            const input = (block.input && typeof block.input === 'object') ? block.input : {};
+            if (block.id) {
+              toolUseById.set(block.id, { name: toolName, input });
+            }
+            const filePath = input.file_path || input.path || input.Path || '';
+            if (filePath && typeof filePath === 'string') {
+              if (!conversation.inferredWorkspace) {
+                const inferred = inferWorkspaceFromPath(filePath);
+                if (inferred) conversation.inferredWorkspace = inferred;
+              }
+              if (/^(?:Read|read_file)$/i.test(toolName) && /(?:^|[\/\\])okf[\/\\]index\.md["']*$/i.test(filePath)) {
+                conversation.gateCompliance.preWorkQueries++;
+              }
+            }
+            if (/^(?:Bash|bash|run_command)$/i.test(toolName)) {
+              const cmd = String(input.command || input.CommandLine || '');
+              if (/lint\.js\b/.test(cmd) && /--drift\b/.test(cmd)) {
+                conversation.gateCompliance.sessionStartLint = true;
+              }
+              const qMatches = cmd.match(/query\.js\b/g);
+              if (qMatches) {
+                conversation.gateCompliance.preWorkQueries += qMatches.length;
+              }
+              if (/maintain\.js\b/.test(cmd)) {
+                conversation.gateCompliance.preCompletionMaintain = true;
+              }
+            }
+          }
+        }
+      } else if (rec.type === 'user' && rec.message && typeof rec.message === 'object') {
+        const msg = rec.message;
+        const blocks = Array.isArray(msg.content) ? msg.content : null;
+        const toolResults = blocks ? blocks.filter(b => b && b.type === 'tool_result') : [];
+
+        if (toolResults.length > 0) {
+          for (const tr of toolResults) {
+            const origin = tr.tool_use_id ? toolUseById.get(tr.tool_use_id) : null;
+            const isReadTool = origin && /^(?:Read|read_file)$/i.test(origin.name);
+            const toolText = extractClaudeToolResultText(tr.content, rec.toolUseResult);
+
+            if (!isReadTool && toolText) {
+              const missFileMatch = toolText.match(/^No matching OKF concepts found for file:\s*([^\r\n]+)$/m);
+              if (missFileMatch && !/[$`*?<>|();]/.test(missFileMatch[1])) {
+                conversation.friction.queryMisses.push({
+                  step: stepNum,
+                  missedTarget: missFileMatch[1].trim()
+                });
+              } else if (/^No matching OKF concepts found\.$/m.test(toolText)) {
+                conversation.friction.queryMisses.push({
+                  step: stepNum,
+                  missedTarget: '(search query)'
                 });
               }
-            } catch (e) {}
+
+              const outBytes = Buffer.byteLength(toolText, 'utf8');
+              if (toolText.includes('OKF CONTEXT BLOCK') && outBytes > 40000) {
+                conversation.friction.contextBloat.push({
+                  step: stepNum,
+                  bytes: outBytes,
+                  file: transcriptPath
+                });
+              }
+            }
+
+            if (tr.is_error === true) {
+              conversation.friction.toolErrors.total++;
+              if (/target content not found|String to replace not found|old_string not found/i.test(toolText)) {
+                conversation.friction.toolErrors.editFileTargetNotFound++;
+              } else if (/file does not exist|ENOENT/i.test(toolText)) {
+                conversation.friction.toolErrors.fileDoesNotExist++;
+              } else {
+                conversation.friction.toolErrors.other++;
+              }
+            }
+          }
+        } else if (!rec.isMeta && !rec.isSidechain) {
+          let rawUserText = '';
+          if (typeof msg.content === 'string') {
+            rawUserText = msg.content;
+          } else if (blocks) {
+            rawUserText = blocks
+              .filter(b => b && b.type === 'text' && typeof b.text === 'string')
+              .map(b => b.text)
+              .join('\n');
+          }
+          if (!/^\s*Base directory for this skill:/i.test(rawUserText)) {
+            const hasSlashCmd = /<command-name>[\s\S]*?<\/command-name>/i.test(rawUserText);
+            const cleanedText = sanitizeUserTurnText(rawUserText);
+            if (cleanedText || hasSlashCmd) {
+              conversation.userTurnCount++;
+            }
+            if (
+              cleanedText &&
+              /\b(no[,\s]|instead\b|don't\b|wrong\b|not working\b|still broken\b|should be\b|why did you\b)/i.test(cleanedText)
+            ) {
+              userCorrections.push({
+                step: stepNum,
+                excerpt: cleanedText.slice(0, 240)
+              });
+            }
           }
         }
       }
     }
-
-    if (stepContent.includes('Tool is running as a background task')) {
-      const descMatch = stepContent.match(/Task Description:\s*([^\r\n]+)/);
-      if (descMatch && /okf-(?:query|maintain|lint|prune|visualize|wayfinder|learn)|(?:query|maintain|lint|learn)\.js/i.test(descMatch[1])) {
-        conversation.friction.slowCommands.push({
-          step: step.step_index,
-          command: descMatch[1].trim(),
-          backgrounded: true
-        });
+  } else {
+    for (const step of parsedRecords) {
+      conversation.stepCount++;
+      if (step.created_at) {
+        const ms = new Date(step.created_at).getTime();
+        if (!isNaN(ms)) {
+          if (firstTimeMs === null || ms < firstTimeMs) firstTimeMs = ms;
+          if (lastTimeMs === null || ms > lastTimeMs) lastTimeMs = ms;
+        }
       }
-    }
+      if (step.type === 'USER_INPUT') {
+        const rawReqMatch = String(step.content || '').match(/<USER_REQUEST>([\s\S]*?)<\/USER_REQUEST>/i);
+        const rawUserText = (rawReqMatch ? rawReqMatch[1] : String(step.content || '')).trim();
+        if (!/^\s*Base directory for this skill:/i.test(rawUserText)) {
+          conversation.userTurnCount++;
+          const userText = sanitizeUserTurnText(rawUserText);
+          if (
+            userText &&
+            /\b(no[,\s]|instead\b|don't\b|wrong\b|not working\b|still broken\b|should be\b|why did you\b)/i.test(userText)
+          ) {
+            userCorrections.push({
+              step: step.step_index,
+              excerpt: userText.slice(0, 240)
+            });
+          }
+        }
+      }
+      if (step.type === 'PLANNER_RESPONSE') {
+        conversation.tokens.inputTokens += Number(step.input_tokens || 0);
+        conversation.tokens.cacheReadTokens += Number(step.cache_read_tokens || 0);
+        conversation.tokens.outputTokens += Number(step.output_tokens || 0);
+        const content = String(step.content || '');
+        if (/OKF Check|OKF Citations|docs\/okf\/|\/okf\/concepts\//i.test(content)) {
+          conversation.gateCompliance.conceptCitations++;
+        }
+        if (Array.isArray(step.tool_calls)) {
+          for (const tc of step.tool_calls) {
+            const tcArgs = (tc && tc.args) || {};
+            if (tcArgs.Path && typeof tcArgs.Path === 'string') {
+              if (!conversation.inferredWorkspace) {
+                const inferred = inferWorkspaceFromPath(tcArgs.Path);
+                if (inferred) conversation.inferredWorkspace = inferred;
+              }
+              if (tc.name === 'read_file' && /(?:^|[\/\\])okf[\/\\]index\.md["']*$/i.test(tcArgs.Path)) {
+                conversation.gateCompliance.preWorkQueries++;
+              }
+            }
+            const cmd = tcArgs.CommandLine ? String(tcArgs.CommandLine) : '';
+            if (/lint\.js\b/.test(cmd) && /--drift\b/.test(cmd)) {
+              conversation.gateCompliance.sessionStartLint = true;
+            }
+            const qMatches = cmd.match(/query\.js\b/g);
+            if (qMatches) {
+              conversation.gateCompliance.preWorkQueries += qMatches.length;
+            }
+            if (/maintain\.js\b/.test(cmd)) {
+              conversation.gateCompliance.preCompletionMaintain = true;
+            }
+          }
+        }
+      }
 
-    if (step.status === 'ERROR') {
-      conversation.friction.toolErrors.total++;
-      if (stepContent.includes('target content not found in the file')) {
-        conversation.friction.toolErrors.editFileTargetNotFound++;
-      } else if (stepContent.includes('file does not exist')) {
-        conversation.friction.toolErrors.fileDoesNotExist++;
-      } else {
-        conversation.friction.toolErrors.other++;
+      const stepContent = String(step.content || '');
+      const isReadFileOutput = /\n(?:Showing lines \d+-\d+ of \d+|Partial read \(lines \d+-\d+ of \d+\))\r?\n/.test(stepContent);
+      if (!isReadFileOutput) {
+        const missFileMatch = stepContent.match(/^No matching OKF concepts found for file:\s*([^\r\n]+)$/m);
+        if (missFileMatch && !/[$`*?<>|();]/.test(missFileMatch[1])) {
+          conversation.friction.queryMisses.push({
+            step: step.step_index,
+            missedTarget: missFileMatch[1].trim()
+          });
+        } else if (/^No matching OKF concepts found\.$/m.test(stepContent)) {
+          conversation.friction.queryMisses.push({
+            step: step.step_index,
+            missedTarget: '(search query)'
+          });
+        }
+
+        if (stepContent.includes('output was truncated due to being too long')) {
+          const uriMatch = stepContent.match(/file:\/\/\/[^\s)"']+/);
+          if (uriMatch) {
+            const cleanedUri = uriMatch[0].replace(/\.$/, '');
+            const localOutPath = fileUriToPath(cleanedUri);
+            const belongsToConv = !convId || localOutPath.toLowerCase().includes(String(convId).toLowerCase());
+            if (belongsToConv && fs.existsSync(localOutPath)) {
+              try {
+                const stat = fs.statSync(localOutPath);
+                const head = fs.readFileSync(localOutPath, 'utf8').slice(0, 2048);
+                if (head.includes('OKF CONTEXT BLOCK') && stat.size > 40000) {
+                  conversation.friction.contextBloat.push({
+                    step: step.step_index,
+                    bytes: stat.size,
+                    file: localOutPath
+                  });
+                }
+              } catch (e) {}
+            }
+          }
+        }
+      }
+
+      if (stepContent.includes('Tool is running as a background task')) {
+        const descMatch = stepContent.match(/Task Description:\s*([^\r\n]+)/);
+        if (descMatch && /okf-(?:query|maintain|lint|prune|visualize|wayfinder|learn)|(?:query|maintain|lint|learn)\.js/i.test(descMatch[1])) {
+          conversation.friction.slowCommands.push({
+            step: step.step_index,
+            command: descMatch[1].trim(),
+            backgrounded: true
+          });
+        }
+      }
+
+      if (step.status === 'ERROR') {
+        conversation.friction.toolErrors.total++;
+        if (stepContent.includes('target content not found in the file')) {
+          conversation.friction.toolErrors.editFileTargetNotFound++;
+        } else if (stepContent.includes('file does not exist')) {
+          conversation.friction.toolErrors.fileDoesNotExist++;
+        } else {
+          conversation.friction.toolErrors.other++;
+        }
       }
     }
   }
@@ -527,6 +771,126 @@ function analyzeSingleTranscript(transcriptPath, convId) {
   return { conversation, userCorrections };
 }
 
+function scanTranscriptDirectory(rootDir, excludeConvId, seenPaths, candidates) {
+  if (!rootDir || !fs.existsSync(rootDir)) return;
+  let entries;
+  try {
+    entries = fs.readdirSync(rootDir, { withFileTypes: true });
+  } catch (e) {
+    return;
+  }
+  for (const entry of entries) {
+    const fullEntryPath = path.join(rootDir, entry.name);
+    if (entry.isFile() && entry.name.endsWith('.jsonl')) {
+      const id = path.basename(entry.name, '.jsonl');
+      if (excludeConvId && id === excludeConvId) continue;
+      const normKey = path.resolve(fullEntryPath).toLowerCase();
+      if (seenPaths.has(normKey)) continue;
+      seenPaths.add(normKey);
+      try {
+        const rawLines = fs.readFileSync(fullEntryPath, 'utf8').split(/\r?\n/).filter(Boolean);
+        candidates.push({
+          id,
+          tPath: fullEntryPath,
+          mtimeMs: fs.statSync(fullEntryPath).mtimeMs,
+          stepCount: rawLines.length
+        });
+      } catch (e) {}
+    } else if (entry.isDirectory()) {
+      if (excludeConvId && entry.name === excludeConvId) continue;
+      // 1. Antigravity layout: <brainDir>/<convId>/.system_generated/logs/transcript.jsonl
+      const agyPath = path.join(fullEntryPath, '.system_generated', 'logs', 'transcript.jsonl');
+      if (fs.existsSync(agyPath)) {
+        const normKey = path.resolve(agyPath).toLowerCase();
+        if (!seenPaths.has(normKey)) {
+          seenPaths.add(normKey);
+          try {
+            const rawLines = fs.readFileSync(agyPath, 'utf8').split(/\r?\n/).filter(Boolean);
+            candidates.push({
+              id: entry.name,
+              tPath: agyPath,
+              mtimeMs: fs.statSync(agyPath).mtimeMs,
+              stepCount: rawLines.length
+            });
+          } catch (e) {}
+        }
+        continue;
+      }
+      // 2. Claude Code layout: <dir>/<project-slug>/<session-id>.jsonl (or <dir>/projects/<project-slug>/<session-id>.jsonl)
+      try {
+        for (const sub of fs.readdirSync(fullEntryPath, { withFileTypes: true })) {
+          const subPath = path.join(fullEntryPath, sub.name);
+          if (sub.isFile() && sub.name.endsWith('.jsonl')) {
+            const id = path.basename(sub.name, '.jsonl');
+            if (excludeConvId && id === excludeConvId) continue;
+            const normKey = path.resolve(subPath).toLowerCase();
+            if (seenPaths.has(normKey)) continue;
+            seenPaths.add(normKey);
+            const rawLines = fs.readFileSync(subPath, 'utf8').split(/\r?\n/).filter(Boolean);
+            candidates.push({
+              id,
+              tPath: subPath,
+              mtimeMs: fs.statSync(subPath).mtimeMs,
+              stepCount: rawLines.length
+            });
+          } else if (sub.isDirectory() && entry.name === 'projects') {
+            for (const leaf of fs.readdirSync(subPath, { withFileTypes: true })) {
+              if (!leaf.isFile() || !leaf.name.endsWith('.jsonl')) continue;
+              const id = path.basename(leaf.name, '.jsonl');
+              if (excludeConvId && id === excludeConvId) continue;
+              const leafPath = path.join(subPath, leaf.name);
+              const normKey = path.resolve(leafPath).toLowerCase();
+              if (seenPaths.has(normKey)) continue;
+              seenPaths.add(normKey);
+              const rawLines = fs.readFileSync(leafPath, 'utf8').split(/\r?\n/).filter(Boolean);
+              candidates.push({
+                id,
+                tPath: leafPath,
+                mtimeMs: fs.statSync(leafPath).mtimeMs,
+                stepCount: rawLines.length
+              });
+            }
+          }
+        }
+      } catch (e) {}
+    }
+  }
+}
+
+function discoverTranscriptCandidates(options = {}) {
+  const explicitBrainDir = options.brainDir || process.env.OKF_BRAIN_DIR || null;
+  const excludeConvId = options.excludeConversationId || process.env.OKF_CURRENT_CONVERSATION_ID || null;
+  const candidates = [];
+  const seenPaths = new Set();
+
+  if (explicitBrainDir) {
+    scanTranscriptDirectory(explicitBrainDir, excludeConvId, seenPaths, candidates);
+  } else {
+    const home = os.homedir();
+    const defaultAgyDir = path.join(home, '.gemini', 'antigravity-cli', 'brain');
+    scanTranscriptDirectory(defaultAgyDir, excludeConvId, seenPaths, candidates);
+
+    const claudeProjectDirs = [];
+    if (process.env.CLAUDE_CONFIG_DIR) {
+      claudeProjectDirs.push(path.join(process.env.CLAUDE_CONFIG_DIR, 'projects'));
+    }
+    claudeProjectDirs.push(path.join(home, '.claude', 'projects'));
+    try {
+      for (const d of fs.readdirSync(home, { withFileTypes: true })) {
+        if (d.isDirectory() && d.name.startsWith('.claude-')) {
+          claudeProjectDirs.push(path.join(home, d.name, 'projects'));
+        }
+      }
+    } catch (e) {}
+    for (const cDir of claudeProjectDirs) {
+      scanTranscriptDirectory(cDir, excludeConvId, seenPaths, candidates);
+    }
+  }
+
+  candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return candidates;
+}
+
 function evaluateSkillsPerformance(options = {}) {
   const brainDir = options.brainDir || process.env.OKF_BRAIN_DIR || path.join(os.homedir(), '.gemini', 'antigravity-cli', 'brain');
   const telemetryPath = options.telemetryPath;
@@ -536,25 +900,10 @@ function evaluateSkillsPerformance(options = {}) {
   const excludeConvId = options.excludeConversationId || process.env.OKF_CURRENT_CONVERSATION_ID || null;
   let targetConvId = options.conversationId || null;
 
-  const candidates = [];
-  if (fs.existsSync(brainDir)) {
-    for (const entry of fs.readdirSync(brainDir)) {
-      if (excludeConvId && entry === excludeConvId) continue;
-      const tPath = path.join(brainDir, entry, '.system_generated', 'logs', 'transcript.jsonl');
-      if (fs.existsSync(tPath)) {
-        try {
-          const rawLines = fs.readFileSync(tPath, 'utf8').split(/\r?\n/).filter(Boolean);
-          candidates.push({
-            id: entry,
-            tPath,
-            mtimeMs: fs.statSync(tPath).mtimeMs,
-            stepCount: rawLines.length
-          });
-        } catch (e) {}
-      }
-    }
-    candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
-  }
+  const candidates = discoverTranscriptCandidates({
+    brainDir: options.brainDir || process.env.OKF_BRAIN_DIR || null,
+    excludeConversationId: excludeConvId
+  });
 
   if (!targetConvId && candidates.length > 0) {
     // Smart --latest: prefer the most recent substantive session (>= 6 steps) so running /okf-learn
@@ -630,9 +979,22 @@ function evaluateSkillsPerformance(options = {}) {
     }
   }
 
-  const targetTranscriptPath = targetConvId
-    ? path.join(brainDir, targetConvId, '.system_generated', 'logs', 'transcript.jsonl')
-    : null;
+  let targetTranscriptPath = null;
+  if (targetConvId) {
+    if (targetConvId.endsWith('.jsonl') && fs.existsSync(targetConvId)) {
+      targetTranscriptPath = path.resolve(targetConvId);
+      targetConvId = path.basename(targetConvId, '.jsonl');
+    } else {
+      const matchedCandidate = candidates.find(c => c.id === targetConvId);
+      if (matchedCandidate) {
+        targetTranscriptPath = matchedCandidate.tPath;
+      } else {
+        const agyFallback = path.join(brainDir, targetConvId, '.system_generated', 'logs', 'transcript.jsonl');
+        const flatFallback = path.join(brainDir, `${targetConvId}.jsonl`);
+        targetTranscriptPath = fs.existsSync(flatFallback) ? flatFallback : agyFallback;
+      }
+    }
+  }
   const { conversation, userCorrections } = analyzeSingleTranscript(targetTranscriptPath, targetConvId);
   learningSignals.userCorrections = userCorrections;
 
@@ -644,6 +1006,7 @@ function evaluateSkillsPerformance(options = {}) {
       const { conversation: cSummary } = analyzeSingleTranscript(cand.tPath, cand.id);
       recentSessions.push({
         conversationId: cand.id,
+        transcriptFormat: cSummary.transcriptFormat,
         inferredWorkspace: cSummary.inferredWorkspace,
         stepCount: cSummary.stepCount,
         userTurnCount: cSummary.userTurnCount,
@@ -889,8 +1252,11 @@ function main() {
   console.log('==========================================================');
   console.log(`OKF Skill Self-Improvement Report${c.conversationId ? ` (Conversation: ${c.conversationId})` : ''}`);
   console.log('==========================================================');
-  if (c.found) {
-    console.log(`Session Metrics:     ${c.stepCount} steps | ${c.userTurnCount} user turns | ${c.durationMinutes} min${c.inferredWorkspace ? ` | Workspace: ${c.inferredWorkspace}` : ''}`);
+  if (c.warning) {
+    console.log(`⚠️  Warning:          ${c.warning}`);
+  }
+  if (c.found && c.transcriptFormat !== 'unrecognized' && c.transcriptFormat !== 'empty') {
+    console.log(`Session Metrics:     ${c.stepCount} steps | ${c.userTurnCount} user turns | ${c.durationMinutes} min${c.transcriptFormat ? ` | Format: ${c.transcriptFormat}` : ''}${c.inferredWorkspace ? ` | Workspace: ${c.inferredWorkspace}` : ''}`);
     console.log(`Gate Compliance:     ${c.gateCompliance.scorePercent}%`);
     console.log(`  - Session-start lint --drift:   ${c.gateCompliance.sessionStartLint ? 'PASS' : 'MISS'}`);
     console.log(`  - Pre-work okf-query calls:     ${c.gateCompliance.preWorkQueries > 0 ? `PASS (${c.gateCompliance.preWorkQueries} calls)` : 'MISS'}`);

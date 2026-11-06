@@ -1787,6 +1787,262 @@ Body.
     'okf-maintain frontier must exclude .bin, .rdb, scratch/, and content-hashed build assets'
   );
 
+  // 19f. Test Claude Code transcript parsing (F1), userCorrections false-positive filtering (F2),
+  //      same-commit co-modification & concept-to-concept drift (F3 & F4), curated frontier surgery (F5),
+  //      and frontier delta logging/reporting (F6 & F7).
+  const claudeProjectsDir = path.join(mockBrainDir, 'projects', 'home-user-webapp');
+  fs.mkdirSync(claudeProjectsDir, { recursive: true });
+  const claudeSessionId = '00000000-0000-4000-8000-000000000001';
+  const claudeTranscriptPath = path.join(claudeProjectsDir, `${claudeSessionId}.jsonl`);
+  const claudeLines = [
+    JSON.stringify({
+      type: 'user',
+      timestamp: '2026-11-06T10:00:00Z',
+      cwd: '/home/user/projects/webapp',
+      sessionId: claudeSessionId,
+      message: {
+        role: 'user',
+        content: '<command-message>okf-learn</command-message>\n<command-name>/okf-learn</command-name>'
+      }
+    }),
+    // Injected skill body with isMeta: true and "Base directory for this skill:" containing trigger words
+    JSON.stringify({
+      type: 'user',
+      isMeta: true,
+      timestamp: '2026-11-06T10:00:01Z',
+      cwd: '/home/user/projects/webapp',
+      sessionId: claudeSessionId,
+      message: {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: "Base directory for this skill: /home/user/.claude/skills/okf-learn\nDon't do the wrong thing; if not working or still broken, use this instead."
+          }
+        ]
+      }
+    }),
+    // User message with pasted terminal output containing trigger words, plus a real human sentence
+    JSON.stringify({
+      type: 'user',
+      timestamp: '2026-11-06T10:01:00Z',
+      cwd: '/home/user/projects/webapp',
+      sessionId: claudeSessionId,
+      message: {
+        role: 'user',
+        content: 'Here is the log:\n<pasted_content>\nError: wrong token, still broken, not working, instead use v2\n</pasted_content>\n```text\nno, wrong output\n```\nPlease inspect the deployment script.'
+      }
+    }),
+    // Genuine human correction turn
+    JSON.stringify({
+      type: 'user',
+      timestamp: '2026-11-06T10:02:00Z',
+      cwd: '/home/user/projects/webapp',
+      sessionId: claudeSessionId,
+      message: {
+        role: 'user',
+        content: 'No, use the provisioning playbook instead of hardcoding the host.'
+      }
+    }),
+    // Assistant message split across 3 JSONL records with the SAME message.id and usage (must deduplicate tokens!)
+    JSON.stringify({
+      type: 'assistant',
+      timestamp: '2026-11-06T10:02:10Z',
+      cwd: '/home/user/projects/webapp',
+      sessionId: claudeSessionId,
+      message: {
+        id: 'msg_claude_01',
+        role: 'assistant',
+        usage: { input_tokens: 100, cache_creation_input_tokens: 50, cache_read_input_tokens: 500, output_tokens: 40 },
+        content: [{ type: 'thinking', thinking: 'Checking OKF gates...' }]
+      }
+    }),
+    JSON.stringify({
+      type: 'assistant',
+      timestamp: '2026-11-06T10:02:12Z',
+      cwd: '/home/user/projects/webapp',
+      sessionId: claudeSessionId,
+      message: {
+        id: 'msg_claude_01',
+        role: 'assistant',
+        usage: { input_tokens: 100, cache_creation_input_tokens: 50, cache_read_input_tokens: 500, output_tokens: 40 },
+        content: [
+          {
+            type: 'tool_use',
+            id: 'toolu_bash_1',
+            name: 'Bash',
+            input: {
+              command: 'node okf-lint/scripts/lint.js --drift && node okf-query/scripts/query.js --file webapp/cli.py && node okf-maintain/scripts/maintain.js'
+            }
+          }
+        ]
+      }
+    }),
+    JSON.stringify({
+      type: 'assistant',
+      timestamp: '2026-11-06T10:02:15Z',
+      cwd: '/home/user/projects/webapp',
+      sessionId: claudeSessionId,
+      message: {
+        id: 'msg_claude_01',
+        role: 'assistant',
+        usage: { input_tokens: 100, cache_creation_input_tokens: 50, cache_read_input_tokens: 500, output_tokens: 40 },
+        content: [{ type: 'text', text: 'OKF Check: cited okf/playbooks/webapp-cli.md.' }]
+      }
+    }),
+    // Tool result with a query miss
+    JSON.stringify({
+      type: 'user',
+      timestamp: '2026-11-06T10:06:00Z',
+      cwd: '/home/user/projects/webapp',
+      sessionId: claudeSessionId,
+      message: {
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: 'toolu_bash_1',
+            is_error: false,
+            content: 'No matching OKF concepts found for file: webapp/unmapped.py\n'
+          }
+        ]
+      }
+    })
+  ];
+  fs.writeFileSync(claudeTranscriptPath, claudeLines.join('\n') + '\n', 'utf8');
+
+  const claudeEvalReport = JSON.parse(
+    execSync(`node "${scripts.learn}" --conversation ${claudeSessionId} --brain-dir "${mockBrainDir}" --json`, {
+      cwd: queryPerfWorkspace,
+      env: learnEnv
+    }).toString()
+  );
+  assert.equal(claudeEvalReport.conversation.found, true, 'F1: Claude Code transcript must be discovered and parsed');
+  assert.equal(claudeEvalReport.conversation.transcriptFormat, 'claude-code', 'F1: transcriptFormat must be claude-code');
+  assert.equal(claudeEvalReport.conversation.inferredWorkspace, '/home/user/projects/webapp', 'F1: cwd must populate inferredWorkspace');
+  assert.equal(claudeEvalReport.conversation.gateCompliance.scorePercent, 100, 'F1: all 4 OKF gates must be detected from Claude Code Bash & text blocks');
+  assert.equal(claudeEvalReport.conversation.tokens.inputTokens, 150, 'F1: assistant usage must be deduplicated by message.id (100 + 50)');
+  assert.equal(claudeEvalReport.conversation.tokens.cacheReadTokens, 500, 'F1: cache_read_input_tokens must be deduplicated by message.id');
+  assert.equal(claudeEvalReport.conversation.friction.queryMisses.length, 1, 'F1: tool_result query miss must be extracted');
+  assert.equal(claudeEvalReport.conversation.friction.queryMisses[0].missedTarget, 'webapp/unmapped.py');
+  assert.equal(
+    claudeEvalReport.learningSignals.userCorrections.length,
+    1,
+    'F2: userCorrections must ignore isMeta skill injection, <pasted_content>, and fenced code blocks, keeping only the 1 real correction'
+  );
+  assert.ok(
+    claudeEvalReport.learningSignals.userCorrections[0].excerpt.includes('provisioning playbook'),
+    'F2: genuine user correction must be captured'
+  );
+
+  // Missing transcript must populate conversation.warning
+  const missingConvReport = JSON.parse(
+    execSync(`node "${scripts.learn}" --conversation non-existent-session-id --brain-dir "${mockBrainDir}" --json`, {
+      cwd: queryPerfWorkspace,
+      env: learnEnv
+    }).toString()
+  );
+  assert.ok(
+    missingConvReport.conversation.warning && missingConvReport.conversation.warning.includes('Transcript file not found'),
+    'F1: missing transcript must emit an explicit warning instead of silent failure'
+  );
+
+  // F4: Concept-to-concept source dependency (A lists B in sources:) must sync in a SINGLE maintain.js run with 0 lint warnings
+  const conceptBPath = path.join(queryPerfBundle, 'z_frontend', 'remote_provisioning.md');
+  const conceptAPath = path.join(queryPerfBundle, 'z_frontend', 'webapp_cli.md');
+  const oldConceptTime = '2026-01-01T00:00:00.000Z';
+  fs.writeFileSync(
+    conceptBPath,
+    `---\ntype: Playbook\ntitle: Remote Provisioning\ngenerated:\n  by: Claude/4.6\n  at: ${oldConceptTime}\nsources:\n  - admin_panel.js\n---\nProvisioning steps.\n`
+  );
+  fs.writeFileSync(
+    conceptAPath,
+    `---\ntype: Playbook\ntitle: WebApp CLI\ngenerated:\n  by: Claude/4.6\n  at: ${oldConceptTime}\nsources:\n  - z_frontend/remote_provisioning.md\n  - admin_panel.js\n---\nCLI playbook referencing [Remote Provisioning](/z_frontend/remote_provisioning.md).\n`
+  );
+  const singleSyncOut = JSON.parse(
+    execSync(`node "${scripts.maintain}" --json`, { cwd: queryPerfWorkspace, env: learnEnv }).toString()
+  );
+  assert.equal(singleSyncOut.lintPassed, true, 'F4: single maintain.js run must pass lint verification when concept A lists concept B as a source');
+  const postConceptSourceLint = JSON.parse(
+    execSync(`node "${scripts.lint}" --drift --json`, { cwd: queryPerfWorkspace, env: learnEnv }).toString()
+  );
+  assert.equal(postConceptSourceLint.driftCount, 0, 'F4: 0 drift warnings immediately after a single maintain.js run on concept-to-concept sources');
+
+  // F5, F6 & F7: Curated ## Not yet specified preservation + delta logging (+1 new, -0 removed, N already listed)
+  const f5Sandbox = fs.mkdtempSync(path.join(tempDir, 'f5-curated-frontier-'));
+  execSync('git init', { cwd: f5Sandbox, stdio: 'ignore' });
+  execSync('git config user.name "Test Bot"', { cwd: f5Sandbox, stdio: 'ignore' });
+  execSync('git config user.email "bot@test.com"', { cwd: f5Sandbox, stdio: 'ignore' });
+  const f5Bundle = path.join(f5Sandbox, 'okf');
+  fs.mkdirSync(path.join(f5Bundle, 'concepts'), { recursive: true });
+  fs.writeFileSync(path.join(f5Sandbox, 'CLAUDE.md'), '# Steering\n\n## Knowledge Bundle / OKF\n<!-- okf-steering-version: 1.8.2 -->\n');
+  fs.writeFileSync(path.join(f5Sandbox, 'app.py'), 'print("documented")\n');
+  fs.writeFileSync(path.join(f5Sandbox, 'secret_helper.py'), 'print("secret")\n');
+  fs.writeFileSync(path.join(f5Sandbox, 'legacy_tool.py'), 'print("legacy")\n');
+  fs.writeFileSync(
+    path.join(f5Bundle, 'concepts', 'core.md'),
+    `---\ntype: Subsystem\ntitle: Core App\nresource: app.py\ngenerated:\n  by: Claude/4.6\n  at: ${new Date().toISOString()}\n---\nCore app.\n`
+  );
+  fs.writeFileSync(path.join(f5Bundle, 'log.md'), '# Change Log\n');
+
+  const curatedSectionHeader = [
+    '---',
+    'okf_version: 0.2',
+    '---',
+    '',
+    '# Index',
+    '',
+    '## Concepts',
+    '- [Core App](/concepts/core.md)',
+    '',
+    '## Not yet specified',
+    '- `secret_helper.py` — **Security Warning:** contains live provisioning credentials;',
+    '  never commit raw `.env` dumps or expose this helper over HTTP.',
+    '',
+    '### Not worth documenting',
+    'The one-off script `legacy_tool.py` is a deprecated migration scratchpad and does not warrant a concept.'
+  ].join('\n') + '\n';
+  fs.writeFileSync(path.join(f5Bundle, 'index.md'), curatedSectionHeader, 'utf8');
+
+  // Introduce 1 new undocumented file
+  fs.writeFileSync(path.join(f5Sandbox, 'new_worker.py'), 'print("new frontier file")\n');
+
+  const f5MaintainJson = JSON.parse(
+    execSync(`node "${scripts.maintain}" --json`, { cwd: f5Sandbox, env: learnEnv }).toString()
+  );
+  assert.equal(f5MaintainJson.indexFrontierUpdated, true, 'F5: maintain must update index.md for the 1 new file');
+  assert.deepStrictEqual(
+    f5MaintainJson.frontierDelta,
+    { updated: true, added: 1, removed: 0, alreadyListed: 2 },
+    'F6/F7: frontierDelta must report +1 added, -0 removed, 2 already listed'
+  );
+  const f5IndexAfter = fs.readFileSync(path.join(f5Bundle, 'index.md'), 'utf8');
+  assert.ok(
+    f5IndexAfter.includes(
+      '- `secret_helper.py` — **Security Warning:** contains live provisioning credentials;\n  never commit raw `.env` dumps or expose this helper over HTTP.'
+    ),
+    'F5: curated multi-line bullet with security warning must be preserved byte-for-byte'
+  );
+  assert.ok(
+    f5IndexAfter.includes(
+      '### Not worth documenting\nThe one-off script `legacy_tool.py` is a deprecated migration scratchpad and does not warrant a concept.'
+    ),
+    'F5: curated Not worth documenting paragraph must be preserved byte-for-byte'
+  );
+  assert.ok(
+    f5IndexAfter.includes('- `new_worker.py` — Undocumented codebase file.'),
+    'F5: new_worker.py must be appended as a single managed bullet'
+  );
+  assert.ok(
+    !f5IndexAfter.includes('okf/') && !f5IndexAfter.includes('CLAUDE.md'),
+    'F5: okf/ bundle files and CLAUDE.md steering file must never be listed in ## Not yet specified'
+  );
+  const f5LogAfter = fs.readFileSync(path.join(f5Bundle, 'log.md'), 'utf8');
+  assert.ok(
+    f5LogAfter.includes('(+1 new, -0 removed, 2 already listed'),
+    'F6: log.md must record the exact (+1 new, -0 removed, 2 already listed) frontier delta'
+  );
+
   console.log('✓ okf-learn session audit, learning signals extraction, and --bind auto-remediation verified.');
   console.log('✓ Skill self-improvement telemetry, pre-completion nudge, and --evaluate transcript analyzer verified.');
   console.log('✓ okf-query primary ranking, basename fallback, search output budgeting, and batched git log verified.');

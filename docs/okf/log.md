@@ -3,6 +3,14 @@
 Newest changes recorded chronologically.
 
 
+## 2026-11-06
+- Synchronized timestamp for 4 drifted concept(s): concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/skill-catalog-sync.md.
+- Synchronized timestamp for 1 drifted concept(s): concepts/okf-lint-skill.md.
+- Synchronized timestamp for 2 drifted concept(s): concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md.
+- Synchronized timestamp for 4 drifted concept(s): concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/skill-catalog-sync.md.
+- Synchronized timestamp for 6 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/skill-catalog-sync.md.
+- Applied remote `/okf-learn` handoff findings (`F1`–`F7` from Claude Code session `00000000-0000-4000-8000-000000000001`): added multi-runtime transcript discovery (`~/.claude/projects/<slug>/<session-id>.jsonl`, `~/.claude-*/projects/`, `$CLAUDE_CONFIG_DIR/projects/`, and Antigravity `brain/`) and Claude Code `.jsonl` schema adapter (`detectTranscriptFormat`, `message.usage` deduplication by `message.id`, and explicit `conversation.warning` on missing/unrecognized transcripts) plus `sanitizeUserTurnText` filtering (`isMeta`, `Base directory for this skill:`, `<command-name>`, `<pasted_content>`, and fenced code blocks) in `okf-learn/scripts/learn.js` and `okf-maintain/scripts/maintain.js`; added same-commit co-modification drift tolerance (`isCoModifiedInLatestCommit`) and concept-to-concept frontmatter timestamp resolution (`getResourceEffectiveModifiedISO`) in `okf-lint/scripts/lint.js` and `okf-maintain/scripts/maintain.js`; updated `updateIndexFrontier` in `okf-maintain/scripts/maintain.js` to report and log exact frontier deltas (`+X new, -Y removed, Z already listed`); and added Step 19f regression tests (including curated `## Not yet specified` preservation) in `scripts/test-lifecycle.js`.
+
 ## 2026-11-05
 - Synchronized timestamp for 3 drifted concept(s): concepts/interactive-simulator.md, concepts/okf-learn-skill.md, concepts/skill-catalog-sync.md.
 - Synchronized timestamp for 6 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md, concepts/skill-catalog-sync.md.
