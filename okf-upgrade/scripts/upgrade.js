@@ -486,10 +486,21 @@ function tryGitFastForward(repoDir) {
       stdio: ['ignore', 'pipe', 'ignore']
     }).trim();
     if (dirty) return false;
-    execFileSync('git', ['pull', '--ff-only'], {
-      cwd: repoDir,
-      stdio: ['ignore', 'pipe', 'ignore']
-    });
+    try {
+      execFileSync('git', ['pull', '--ff-only'], {
+        cwd: repoDir,
+        stdio: ['ignore', 'pipe', 'ignore']
+      });
+    } catch {
+      execFileSync('git', ['fetch', 'origin', 'main'], {
+        cwd: repoDir,
+        stdio: ['ignore', 'pipe', 'ignore']
+      });
+      execFileSync('git', ['reset', '--hard', 'origin/main'], {
+        cwd: repoDir,
+        stdio: ['ignore', 'pipe', 'ignore']
+      });
+    }
     return true;
   } catch (e) {
     return false;
