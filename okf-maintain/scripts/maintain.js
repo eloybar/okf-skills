@@ -1321,24 +1321,67 @@ function appendLogEntry(logPath, entries, dateStr) {
   const content = rawContent.replace(/\r\n/g, '\n');
   const dateHeading = `## ${dateStr}`;
 
-  let newEntriesText = entries.map(e => `- ${e}`).join('\n');
+  const newEntriesText = entries.map(e => `- ${e}`).join('\n');
+  const headingDates = [];
+  const headingRe = /^## (\d{4}-\d{2}-\d{2})\b/gm;
+  let hm;
+  while ((hm = headingRe.exec(content)) !== null) {
+    headingDates.push(hm[1]);
+  }
+  const isChronological =
+    /newest\s+(?:entries|changes)\s+at\s+the\s+bottom/i.test(content) ||
+    (headingDates.length >= 2 && headingDates[0] < headingDates[headingDates.length - 1]);
+  const hasBlankLineAfterHeading = /^## \d{4}-\d{2}-\d{2}[ \t]*\n\n/m.test(content);
+  const headingSep = hasBlankLineAfterHeading ? '\n\n' : '\n';
   let newContent;
 
-  if (content.includes(dateHeading)) {
-    const parts = content.split(dateHeading);
-    newContent = parts[0] + dateHeading + '\n' + newEntriesText + '\n' + parts[1].replace(/^\n/, '');
+  const escapedHeading = dateHeading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const exactHeadingRe = new RegExp(`^${escapedHeading}[ \\t]*$`, 'm');
+  const existingMatch = exactHeadingRe.exec(content);
+
+  if (existingMatch) {
+    const headingStart = existingMatch.index;
+    const afterHeadingIdx = headingStart + existingMatch[0].length;
+    const restAfterHeading = content.slice(afterHeadingIdx);
+    const nextSectionMatch = restAfterHeading.match(/\n## \d{4}-\d{2}-\d{2}\b/);
+    const sectionBody = nextSectionMatch ? restAfterHeading.slice(0, nextSectionMatch.index) : restAfterHeading;
+    const afterSection = nextSectionMatch ? restAfterHeading.slice(nextSectionMatch.index) : '';
+
+    if (isChronological && sectionBody.trim().length > 0) {
+      const trimmedSection = sectionBody.replace(/\n+$/, '');
+      const trailingGap = afterSection ? '\n' : '\n';
+      newContent =
+        content.slice(0, afterHeadingIdx) +
+        trimmedSection +
+        '\n' +
+        newEntriesText +
+        trailingGap +
+        afterSection;
+    } else {
+      const localSep = /^\n\n/.test(sectionBody) || (sectionBody.trim().length === 0 && hasBlankLineAfterHeading) ? '\n\n' : '\n';
+      const cleanedBody = sectionBody.replace(/^\n+/, '');
+      newContent =
+        content.slice(0, headingStart) +
+        dateHeading +
+        localSep +
+        newEntriesText +
+        (cleanedBody ? '\n' + cleanedBody : '\n') +
+        afterSection;
+    }
+  } else if (isChronological) {
+    newContent = content.trimEnd() + `\n\n${dateHeading}${headingSep}${newEntriesText}\n`;
   } else {
     const firstHeadingMatch = content.match(/\n(## \d{4}-\d{2}-\d{2}|[-\*]\s+(?:\*\*|\[)?\d{4}-\d{2}-\d{2})/);
     if (firstHeadingMatch) {
       const idx = firstHeadingMatch.index;
       const isBullet = firstHeadingMatch[1].startsWith('-') || firstHeadingMatch[1].startsWith('*');
       if (isBullet) {
-        newContent = content.slice(0, idx).trimEnd() + `\n\n${dateHeading}\n${newEntriesText}\n\n` + content.slice(idx + 1);
+        newContent = content.slice(0, idx).trimEnd() + `\n\n${dateHeading}${headingSep}${newEntriesText}\n\n` + content.slice(idx + 1);
       } else {
-        newContent = content.slice(0, idx) + `\n\n${dateHeading}\n${newEntriesText}\n` + content.slice(idx);
+        newContent = content.slice(0, idx) + `\n\n${dateHeading}${headingSep}${newEntriesText}\n` + content.slice(idx);
       }
     } else {
-      newContent = content.trimEnd() + `\n\n${dateHeading}\n${newEntriesText}\n`;
+      newContent = content.trimEnd() + `\n\n${dateHeading}${headingSep}${newEntriesText}\n`;
     }
   }
 
