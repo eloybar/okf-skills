@@ -8,10 +8,6 @@ status: stable
 generated:
   by: Antigravity/3.8-Flash
   at: 2026-11-05T21:10:58.762Z
-sources:
-  - id: chronotrader-workflow
-    resource: file:///D:/chronotrader/okf/operations/git-development-workflow.md
-    title: Chronotrader Git Development Playbook
 ---
 
 # Git Development and Pull Request Workflow

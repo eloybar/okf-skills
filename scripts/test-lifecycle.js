@@ -1025,7 +1025,7 @@ Body.
   );
 
   // 17a. Run okf-upgrade with --bundle okf from inside sub-package
-  execSync(`node "${scripts.upgrade}" --bundle okf --user lbarrios`, { cwd: subPkgDir, stdio: 'ignore' });
+  execSync(`node "${scripts.upgrade}" --bundle okf --user jdoe`, { cwd: subPkgDir, stdio: 'ignore' });
 
   const upgradedSubIndex = fs.readFileSync(path.join(subBundleDir, 'index.md'), 'utf8');
   assert.ok(upgradedSubIndex.includes('\r\n'), 'okf-upgrade must preserve CRLF in root index.md');
@@ -1064,21 +1064,21 @@ Body.
   // === STEP 18: PERCENT-ENCODED (%20) & FRAGMENT (#) FILE URIS, GIT: URIS, BACKTICK LINK LABELS, AND HAND-WRITTEN FRONTIER NOTES ===
   console.log('Step 18: Testing %20/fragment/git: URIs, backtick link labels, and multi-line hand-written frontier notes...');
 
-  const spaceWorkspaceDir = path.join(tempDir, 'BluB0X DDE Integrations', 'OtisAuditor');
+  const spaceWorkspaceDir = path.join(tempDir, 'Acme Cloud Integrations', 'GatewayAuditor');
   const spaceBundleDir = path.join(spaceWorkspaceDir, 'okf');
   fs.mkdirSync(spaceBundleDir, { recursive: true });
 
-  const spaceCodeFile = path.join(spaceWorkspaceDir, 'OtisCommsAI.cs');
-  const spaceCompanionFile = path.join(spaceWorkspaceDir, 'otis_journal_parse.py');
-  const spaceEllipsisSqlFile = path.join(spaceWorkspaceDir, 'GetPersonAuthorizedFloorStopsWithTurnstiles_2026_09_28_denialfix.sql');
-  const childSubPkgOkfDir = path.join(spaceWorkspaceDir, 'troubleshoot_dde_access', 'okf');
+  const spaceCodeFile = path.join(spaceWorkspaceDir, 'GatewayComms.cs');
+  const spaceCompanionFile = path.join(spaceWorkspaceDir, 'gateway_journal_parse.py');
+  const spaceEllipsisSqlFile = path.join(spaceWorkspaceDir, 'GetAuthorizedEndpointsWithRouting_2026_09_28_patch.sql');
+  const childSubPkgOkfDir = path.join(spaceWorkspaceDir, 'troubleshoot_gateway_access', 'okf');
   fs.mkdirSync(childSubPkgOkfDir, { recursive: true });
   fs.writeFileSync(path.join(childSubPkgOkfDir, 'index.md'), '---\r\nokf_version: 0.2\r\n---\r\n# Nested Bundle\r\n');
-  fs.writeFileSync(path.join(spaceWorkspaceDir, 'troubleshoot_dde_access', 'otis_floor_access_check.py'), 'def check(): pass\r\n');
-  fs.writeFileSync(spaceCodeFile, 'class OtisCommsAI {}\r\n');
+  fs.writeFileSync(path.join(spaceWorkspaceDir, 'troubleshoot_gateway_access', 'gateway_access_check.py'), 'def check(): pass\r\n');
+  fs.writeFileSync(spaceCodeFile, 'class GatewayComms {}\r\n');
   fs.writeFileSync(spaceCompanionFile, 'def parse(): pass\r\n');
-  fs.writeFileSync(spaceEllipsisSqlFile, 'ALTER PROCEDURE Otis.GetPersonAuthorizedFloorStopsWithTurnstiles AS RETURN;\r\n');
-  fs.writeFileSync(path.join(spaceWorkspaceDir, 'README.md'), '# OtisAuditor\r\n');
+  fs.writeFileSync(spaceEllipsisSqlFile, 'ALTER PROCEDURE Core.GetAuthorizedEndpointsWithRouting AS RETURN;\r\n');
+  fs.writeFileSync(path.join(spaceWorkspaceDir, 'README.md'), '# GatewayAuditor\r\n');
   fs.writeFileSync(path.join(spaceWorkspaceDir, 'CLAUDE.md'), '# Non-OKF notes\r\n');
 
   const encodedWorkspaceUri = 'file:///' + spaceWorkspaceDir.replace(/\\/g, '/').replace(/ /g, '%20');
@@ -1100,9 +1100,9 @@ Body.
     [
       '---',
       'type: Log Format',
-      'title: OtisInterface Journal Anatomy',
-      'description: How to read an OtisInterface.service journald capture.',
-      `resource: ${encodedWorkspaceUri}/OtisCommsAI.cs`,
+      'title: GatewayService Journal Anatomy',
+      'description: How to read a GatewayService.service journald capture.',
+      `resource: ${encodedWorkspaceUri}/GatewayComms.cs`,
       'generated:',
       '  by: claude-code/opus-5.5',
       `  at: ${spaceNowISO}`,
@@ -1110,14 +1110,14 @@ Body.
       '  - id: field-confirmation',
       `    resource: ${encodedWorkspaceUri}/okf/log.md#2026-09-29`,
       '    title: "Log confirmation entry"',
-      '    author: human:lbarrios',
+      '    author: human:jdoe',
       '  - id: historical-git-source',
-      '    resource: git:323eae6:OtisInterface/OtisComms.cs',
-      '    title: "Historical OtisComms.cs removed after 323eae6"',
+      '    resource: git:323eae6:GatewayService/LegacyGatewayComms.cs',
+      '    title: "Historical LegacyGatewayComms.cs removed after 323eae6"',
       '---',
       '',
-      '# OtisInterface Journal Anatomy',
-      'Cross-references [`OtisCommsAI.cs`](/interface-journal.md), parses with `otis_journal_parse.py`, and applies `…_2026_09_28_denialfix.sql`.'
+      '# GatewayService Journal Anatomy',
+      'Cross-references [`GatewayComms.cs`](/interface-journal.md), parses with `gateway_journal_parse.py`, and applies `…_2026_09_28_patch.sql`.'
     ].join('\r\n') + '\r\n',
     'utf8'
   );
@@ -1127,21 +1127,21 @@ Body.
     'okf_version: 0.2',
     '---',
     '',
-    '# OtisAuditor Knowledge Bundle',
+    '# GatewayAuditor Knowledge Bundle',
     '',
     '## Concepts',
-    '- [OtisInterface Journal Anatomy](/interface-journal.md)',
+    '- [GatewayService Journal Anatomy](/interface-journal.md)',
     '',
     '## Not yet specified',
     '',
     'Observed in this directory tree, not yet captured as concepts:',
     '',
-    '- `192.168.2.250` — the non-keypad Otis peer that emitted every duplicate-packet NAK. Which',
+    '- `192.168.2.250` — the upstream gateway peer that emitted every duplicate-packet NAK. Which',
     '  device it is, and whether the retransmissions matter, is unestablished.',
-    '- `SignalRComms.SimulateFloorRequest` — an operator-triggered simulated floor request, observed failing with',
-    '  `Can not find a keypad for the swiped card.` Its keypad-resolution path is undocumented.',
-    '- `OtisCommsAI.cs` — the UDP loop side is still unread in detail,',
-    '  only the card lookup lines are covered.',
+    '- `SignalRComms.SimulateRouteRequest` — an operator-triggered simulated route request, observed failing with',
+    '  `Can not find a route for the requested endpoint.` Its resolution path is undocumented.',
+    '- `GatewayComms.cs` — the UDP loop side is still unread in detail,',
+    '  only the lookup lines are covered.',
     '- `stale_deleted_auto.py` — Undocumented codebase file.'
   ].join('\r\n') + '\r\n';
   fs.writeFileSync(path.join(spaceBundleDir, 'index.md'), handWrittenIndex, 'utf8');
@@ -1154,24 +1154,24 @@ Body.
   assert.equal(spaceLintBefore.warnings.length, 0, `Lint must report 0 warnings, got: ${JSON.stringify(spaceLintBefore.warnings)}`);
 
   // 18b. Query --file should resolve %20 resource binding
-  const spaceQueryOut = execSync(`node "${scripts.query}" --file OtisCommsAI.cs`, { cwd: spaceWorkspaceDir }).toString();
-  assert.ok(spaceQueryOut.includes('OtisInterface Journal Anatomy'), 'okf-query --file must match concept bound via %20-encoded file:// URI');
+  const spaceQueryOut = execSync(`node "${scripts.query}" --file GatewayComms.cs`, { cwd: spaceWorkspaceDir }).toString();
+  assert.ok(spaceQueryOut.includes('GatewayService Journal Anatomy'), 'okf-query --file must match concept bound via %20-encoded file:// URI');
 
   // 18c. Maintain must remove only the stale auto-generated bullet, preserve all 3 multi-line hand-written notes intact,
-  //      not add README.md/CLAUDE.md or concept-acknowledged otis_journal_parse.py, and insert log entry at top of bullet-dated log.md
+  //      not add README.md/CLAUDE.md or concept-acknowledged gateway_journal_parse.py, and insert log entry at top of bullet-dated log.md
   execSync(`node "${scripts.maintain}"`, { cwd: spaceWorkspaceDir, stdio: 'ignore' });
   const spaceIndexAfter = fs.readFileSync(path.join(spaceBundleDir, 'index.md'), 'utf8');
   assert.ok(!spaceIndexAfter.includes('stale_deleted_auto.py'), 'Maintain must remove stale auto-generated bullet');
   assert.ok(
-    spaceIndexAfter.includes('- `192.168.2.250` — the non-keypad Otis peer that emitted every duplicate-packet NAK. Which\r\n  device it is, and whether the retransmissions matter, is unestablished.'),
+    spaceIndexAfter.includes('- `192.168.2.250` — the upstream gateway peer that emitted every duplicate-packet NAK. Which\r\n  device it is, and whether the retransmissions matter, is unestablished.'),
     'Maintain must preserve multi-line hand-written note starting with IP address'
   );
   assert.ok(
-    spaceIndexAfter.includes('- `SignalRComms.SimulateFloorRequest` — an operator-triggered simulated floor request, observed failing with\r\n  `Can not find a keypad for the swiped card.` Its keypad-resolution path is undocumented.'),
+    spaceIndexAfter.includes('- `SignalRComms.SimulateRouteRequest` — an operator-triggered simulated route request, observed failing with\r\n  `Can not find a route for the requested endpoint.` Its resolution path is undocumented.'),
     'Maintain must preserve multi-line hand-written note starting with symbol name'
   );
   assert.ok(
-    spaceIndexAfter.includes('- `OtisCommsAI.cs` — the UDP loop side is still unread in detail,\r\n  only the card lookup lines are covered.'),
+    spaceIndexAfter.includes('- `GatewayComms.cs` — the UDP loop side is still unread in detail,\r\n  only the lookup lines are covered.'),
     'Maintain must preserve multi-line hand-written note starting with covered file path'
   );
   assert.ok(!spaceIndexAfter.includes('Undocumented codebase file.'), 'Maintain must not add %20-bound, concept-mentioned, or README/CLAUDE files as undocumented');
@@ -1189,7 +1189,7 @@ Body.
   // === STEP 19: OKF-UPGRADE --SKILLS MULTI-AGENT SKILL INSTALLER & UPDATER ===
   console.log('Step 19: Testing okf-upgrade --skills multi-agent skill installation (Antigravity, Claude profiles, Codex, Universal)...');
   const fakeHomeDir = path.join(tempDir, 'fake-home');
-  fs.mkdirSync(path.join(fakeHomeDir, '.claude-blub0x'), { recursive: true });
+  fs.mkdirSync(path.join(fakeHomeDir, '.claude-enterprise'), { recursive: true });
   fs.mkdirSync(path.join(fakeHomeDir, '.codex-work'), { recursive: true });
   fs.mkdirSync(path.join(fakeHomeDir, '.agents', 'skills', 'okf'), { recursive: true });
   fs.mkdirSync(path.join(fakeHomeDir, '.claude', 'skills'), { recursive: true });
@@ -1209,7 +1209,7 @@ Body.
   const expectedAgentDirs = [
     path.join(fakeHomeDir, '.gemini', 'config', 'skills'),
     path.join(fakeHomeDir, '.claude', 'skills'),
-    path.join(fakeHomeDir, '.claude-blub0x', 'skills'),
+    path.join(fakeHomeDir, '.claude-enterprise', 'skills'),
     path.join(fakeHomeDir, '.codex', 'skills'),
     path.join(fakeHomeDir, '.codex-work', 'skills'),
     path.join(fakeHomeDir, '.agents', 'skills')
