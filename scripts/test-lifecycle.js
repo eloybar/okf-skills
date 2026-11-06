@@ -2043,6 +2043,171 @@ Body.
     'F6: log.md must record the exact (+1 new, -0 removed, 2 already listed) frontier delta'
   );
 
+  // 19g. Test chronological log.md ordering ("Newest entries at the bottom"), attribute-bearing closing tags
+  //      (</pasted_content id="ecdd">), compaction summary filtering, flat-bundle citations/reads, search miss
+  //      recommendations, and >6 step /okf-learn meta-session skipping.
+  const chronoLogPath = path.join(f5Bundle, 'log.md');
+  const todayIsoDate = new Date().toISOString().slice(0, 10);
+  fs.writeFileSync(
+    chronoLogPath,
+    [
+      '# Log',
+      '',
+      'Newest entries at the bottom.',
+      '',
+      '## 2026-08-06',
+      '',
+      '- Initial bundle bootstrap.',
+      '',
+      `## ${todayIsoDate}`,
+      '',
+      '- Manual entry added earlier today.'
+    ].join('\n') + '\n',
+    'utf8'
+  );
+  fs.writeFileSync(path.join(f5Sandbox, 'second_worker.py'), 'print("second")\n');
+  execSync(`node "${scripts.maintain}"`, { cwd: f5Sandbox, env: learnEnv, stdio: 'ignore' });
+  const chronoLogAfter = fs.readFileSync(chronoLogPath, 'utf8');
+  const manualIdx = chronoLogAfter.indexOf('- Manual entry added earlier today.');
+  const syncIdx = chronoLogAfter.indexOf('- Synchronized workspace frontier mapping');
+  assert.ok(
+    manualIdx !== -1 && syncIdx > manualIdx,
+    'Chronological log.md must append new maintain entries at the bottom of today\'s section after earlier entries'
+  );
+
+  const searchMissOut = execSync(`node "${scripts.query}" --search non_existent_xyz_topic_999`, {
+    cwd: f5Sandbox,
+    env: { ...learnEnv, OKF_DISABLE_TELEMETRY: '1' }
+  }).toString();
+  assert.ok(
+    searchMissOut.includes('No matching OKF concepts found for search: non_existent_xyz_topic_999'),
+    'okf-query --search miss must include the searched query string'
+  );
+
+  // Create a 10-step /okf-learn meta-session newer than everything else and verify --latest still skips it
+  const longMetaConvId = 'conv-meta-long-003';
+  const longMetaDir = path.join(mockBrainDir, longMetaConvId, '.system_generated', 'logs');
+  fs.mkdirSync(longMetaDir, { recursive: true });
+  const longMetaTranscript = path.join(longMetaDir, 'transcript.jsonl');
+  const longMetaSteps = [
+    { step_index: 0, type: 'USER_INPUT', status: 'DONE', created_at: '2026-11-06T12:00:00Z', content: '<USER_REQUEST>\n/okf-learn\n</USER_REQUEST>' }
+  ];
+  for (let s = 1; s <= 9; s++) {
+    longMetaSteps.push({ step_index: s, type: 'GENERIC', status: 'DONE', created_at: '2026-11-06T12:01:00Z', content: 'step ' + s });
+  }
+  fs.writeFileSync(longMetaTranscript, longMetaSteps.map(s => JSON.stringify(s)).join('\n') + '\n');
+  const futureTime2 = new Date(Date.now() + 120000);
+  fs.utimesSync(longMetaTranscript, futureTime2, futureTime2);
+
+  // Update claudeSessionId with compaction summary, </pasted_content id="ecdd">, flat okf/<slug>.md citation, and search miss
+  const claudeLines2 = [
+    JSON.stringify({
+      type: 'user',
+      timestamp: '2026-11-06T11:00:00Z',
+      cwd: '/home/user/projects/flatbundle',
+      sessionId: claudeSessionId,
+      message: {
+        role: 'user',
+        content: 'This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.\nNo, instead of wrong behavior this should be ignored.'
+      }
+    }),
+    JSON.stringify({
+      type: 'user',
+      timestamp: '2026-11-06T11:01:00Z',
+      cwd: '/home/user/projects/flatbundle',
+      sessionId: claudeSessionId,
+      message: {
+        role: 'user',
+        content: 'Document vendor response:\n<pasted_content id="ecdd">\nThe address device number should be 00 01, not 09. Instead of wrong mode.\n</pasted_content id="ecdd">'
+      }
+    }),
+    JSON.stringify({
+      type: 'assistant',
+      timestamp: '2026-11-06T11:02:00Z',
+      cwd: '/home/user/projects/flatbundle',
+      sessionId: claudeSessionId,
+      message: {
+        id: 'msg_flat_01',
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool_use',
+            id: 'toolu_flat_1',
+            name: 'Bash',
+            input: {
+              command: 'node okf-lint/scripts/lint.js --drift && cat okf/system-architecture.md && node okf-maintain/scripts/maintain.js'
+            }
+          },
+          {
+            type: 'tool_use',
+            id: 'toolu_flat_2',
+            name: 'Bash',
+            input: {
+              command: 'node okf-query/scripts/query.js --search "noise lab pull-up"'
+            }
+          },
+          {
+            type: 'text',
+            text: 'Updated [System Architecture](okf/system-architecture.md).'
+          }
+        ]
+      }
+    }),
+    JSON.stringify({
+      type: 'user',
+      timestamp: '2026-11-06T11:03:00Z',
+      cwd: '/home/user/projects/flatbundle',
+      sessionId: claudeSessionId,
+      message: {
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: 'toolu_flat_2',
+            is_error: false,
+            content: 'No matching OKF concepts found.\n'
+          }
+        ]
+      }
+    }),
+    JSON.stringify({ type: 'system', timestamp: '2026-11-06T11:03:01Z' }),
+    JSON.stringify({ type: 'system', timestamp: '2026-11-06T11:03:02Z' })
+  ];
+  fs.writeFileSync(claudeTranscriptPath, claudeLines2.join('\n') + '\n', 'utf8');
+  fs.utimesSync(claudeTranscriptPath, new Date(Date.now() + 90000), new Date(Date.now() + 90000));
+
+  const latestSkipLongMeta = JSON.parse(
+    execSync(`node "${scripts.learn}" --latest --brain-dir "${mockBrainDir}" --json`, {
+      cwd: queryPerfWorkspace,
+      env: { ...learnEnv, OKF_TELEMETRY_PATH: path.join(tempDir, 'empty-tel.jsonl') }
+    }).toString()
+  );
+  assert.equal(
+    latestSkipLongMeta.conversation.conversationId,
+    claudeSessionId,
+    'okf-learn --latest must skip >6 step single-turn /okf-learn meta-sessions'
+  );
+  assert.equal(
+    latestSkipLongMeta.conversation.gateCompliance.scorePercent,
+    100,
+    'Flat okf/<slug>.md citation and cat okf/<slug>.md pre-work read must achieve 100% gate compliance'
+  );
+  assert.equal(
+    latestSkipLongMeta.learningSignals.userCorrections.length,
+    0,
+    'Compaction summary and </pasted_content id="ecdd"> must not trigger false-positive userCorrections'
+  );
+  assert.equal(
+    latestSkipLongMeta.conversation.friction.queryMisses[0].missedTarget,
+    'noise lab pull-up',
+    'Legacy search miss must extract --search query from originating command'
+  );
+  assert.ok(
+    latestSkipLongMeta.recommendations.some(r => r.category === 'search-coverage') &&
+      !latestSkipLongMeta.recommendations.some(r => r.category === 'concept-coverage'),
+    'Search query miss must emit search-coverage recommendation instead of --bind file recommendation'
+  );
+
   console.log('✓ okf-learn session audit, learning signals extraction, and --bind auto-remediation verified.');
   console.log('✓ Skill self-improvement telemetry, pre-completion nudge, and --evaluate transcript analyzer verified.');
   console.log('✓ okf-query primary ranking, basename fallback, search output budgeting, and batched git log verified.');

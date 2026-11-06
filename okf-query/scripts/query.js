@@ -579,6 +579,8 @@ function main() {
       console.log(`No matching OKF concepts found for file: ${relTarget}`);
       console.log(`Tip: Try searching by keyword: node okf-query/scripts/query.js --search <module-or-topic>`);
       console.log(`Or inspect the catalog index at: ${fs.existsSync(path.join(bundleRoot, 'index.md')) ? path.relative(workspaceRoot, path.join(bundleRoot, 'index.md')).replace(/\\/g, '/') : 'docs/okf/index.md'}`);
+    } else if (rawSearchString) {
+      console.log(`No matching OKF concepts found for search: ${rawSearchString}`);
     } else {
       console.log('No matching OKF concepts found.');
     }

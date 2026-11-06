@@ -6,7 +6,7 @@ resource: index.html
 tags: [simulation, onboarding, visual-brief, playground]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-06T13:29:11.500Z
+  at: 2026-11-06T17:43:31.875Z
 sources:
   - scripts/sync-skills.js
 ---
