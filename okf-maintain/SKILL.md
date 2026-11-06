@@ -9,13 +9,13 @@ Keep an existing **OKF bundle** current so it doesn't rot. This skill handles bo
 > **Model-Tier Steering:** Post-implementation upkeep (`okf-maintain`) should run on the **Medium** setting of the active model once the implementation plan has been laid out and executed. Reserve the **High** setting for initial bundle bootstrapping (`okf`, `okf-wayfinder`) or architectural planning.
 
 ### ⚡ Fast Mechanical Upkeep (CLI Automation)
-Whenever code modifications touch existing resources or introduce untracked workspace files, run the automated maintainer script:
+Whenever code modifications touch existing resources or introduce untracked workspace files, run the automated maintainer script (you can run `--check` first to preview drift and unindexed frontier changes without mutating files):
 ```bash
+node okf-maintain/scripts/maintain.js --check # Audit mode: previews drift, unindexed concepts, and frontier without mutating files
 node okf-maintain/scripts/maintain.js        # Auto-syncs drift timestamps, frontier, steering, and log (add --viz to rebuild viz.html)
-node okf-maintain/scripts/maintain.js --check # Audit mode: checks drift and frontier without changes
 node okf-maintain/scripts/maintain.js --evaluate --latest # Self-improvement analyzer: evaluates session transcript & ~/.okf/telemetry.jsonl
 ```
-This automatically updates timestamps for drifted concepts, updates `## Not yet specified` in `index.md`, records the entry in `log.md`, and runs `okf-lint --drift` (pass `--viz` or run `okf-visualize` to generate `viz.html`).
+This automatically updates timestamps for drifted concepts, surgically updates managed `- \`<path>\` — Undocumented codebase file.` bullets in `## Not yet specified` in `index.md` (preserving curated multi-line notes and prose byte-for-byte), prints and logs the exact frontier delta (`+X new, -Y removed, Z already listed`), and runs `okf-lint --drift` (pass `--viz` or run `okf-visualize` to generate `viz.html`).
 
 > **Conditional `okf-learn` Agent Trigger:** If `maintain.js` outputs a `💡 [OKF Self-Improvement]` anomaly nudge at the end of its run (e.g., reporting `query_miss`, `context_bloat`, or `slow_exec`), immediately invoke the `okf-learn` skill: bind missed workspace files into the relevant concept via `node okf-learn/scripts/learn.js --bind <file> --concept <concept>` or queue a cross-repo skill improvement note via `node okf-learn/scripts/learn.js --note "<finding>" --skill <skill-name>`.
 
