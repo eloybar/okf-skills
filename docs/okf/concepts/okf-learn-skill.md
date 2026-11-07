@@ -7,7 +7,7 @@ status: stable
 tags: [self-improvement, telemetry, evaluation, learning]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-07T16:09:03.827Z
+  at: 2026-11-07T18:00:14.574Z
 sources:
   - okf-learn/scripts/learn.js
   - scripts/test-lifecycle.js
@@ -30,5 +30,5 @@ The `okf-learn` skill closes the retrospective self-improvement loop in [The Kno
 - **Cross-Repo Skill Note Queueing (`node okf-learn/scripts/learn.js --note "<message>" [--skill <name>] [--category <cat>]`)**:
   - Appends a structured skill improvement item (`{ timestamp, workspaceRoot, skill, category, message }`) to `~/.okf/skill-learnings.jsonl` during any external project session so it can be applied inside the `okf-skills` repository.
 - **Queue, Telemetry & Session Watermark Reset (`node okf-learn/scripts/learn.js --clear-notes | --reset`)**:
-  - `--clear-notes` empties `~/.okf/skill-learnings.jsonl` after skill improvements are applied; `--reset` clears both `~/.okf/telemetry.jsonl` and `~/.okf/skill-learnings.jsonl` and writes a `resetAt` watermark timestamp to `~/.okf/learn-state.json` (overridable via `OKF_LEARN_STATE_PATH` or `--state`) so subsequent `--latest` and `--recent` audits skip pre-reset transcripts and slice continued project sessions to only steps recorded after `resetAt`.
+  - `--clear-notes` empties `~/.okf/skill-learnings.jsonl` after skill improvements are applied; `--reset` clears both `~/.okf/telemetry.jsonl` and `~/.okf/skill-learnings.jsonl` and writes a `resetAt` watermark timestamp to `~/.okf/learn-state.json` (overridable via `OKF_LEARN_STATE_PATH` or `--state`) so subsequent `--latest` and `--recent` audits skip pre-reset transcripts and slice continued project sessions to only steps recorded after `resetAt`. Step 4 of `okf-learn/SKILL.md` mandates running `learn.js --reset` unconditionally at the end of every `/okf-learn` execution (across project repos, `okf-skills`, and zero-issue audits alike).
 - **Mandatory Fixture Sanitization**: When translating live session findings into regression tests (`scripts/test-lifecycle.js`), concept examples, or `docs/okf/log.md` entries inside `okf-skills`, all real project names, usernames, LAN IPs, drive URIs, and session UUIDs must be anonymized into generic fixtures (`webapp`, `GatewayService`, `Acme`, `jdoe`, `192.0.2.10`, `00000000-0000-4000-8000-000000000001`), enforced by `verifyPublicRepoSanitization` in [Skill Lifecycle & Documentation Synchronization Playbook](/concepts/skill-catalog-sync.md).

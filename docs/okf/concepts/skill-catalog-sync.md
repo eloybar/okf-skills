@@ -7,7 +7,7 @@ status: stable
 tags: [synchronization, documentation, skills, simulator, readme, invariants]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-07T16:09:03.827Z
+  at: 2026-11-07T18:00:14.574Z
 sources:
   - README.md
   - index.html
