@@ -382,11 +382,12 @@ function resolveWorkspaceAndBundle(args) {
 
 function printHelp() {
   console.log(`
-OKF Concept Pruner (okf-prune)
+OKF Concept Pruner (okf-maintain --prune)
 Automated lifecycle cleanup, archiving, and garbage collection for OKF bundles.
 
 Usage:
-  node okf-prune/scripts/prune.js [options]
+  node okf-maintain/scripts/maintain.js --prune [options]
+  node okf-maintain/scripts/prune.js [options]
 
 Modes:
   --check, --dry-run     Audit bundle for prunable concepts without making modifications.
@@ -478,7 +479,7 @@ async function main() {
         checkLocalBound(c.fm.resource, 'resource');
       }
       if (Array.isArray(c.fm.sources)) {
-        for (const src of c.fm.sources) {
+        for (const src of fmSources(c.fm.sources)) {
           const rawResource = typeof src === 'string' ? src : (src && src.resource);
           if (rawResource) {
             checkLocalBound(rawResource, 'source');
@@ -585,7 +586,7 @@ async function main() {
           console.log(`- [${item.concept.fm.title || item.concept.relPath}] (${item.concept.relPath})`);
           item.reasons.forEach(r => console.log(`    ↳ Reason: ${r}`));
         }
-        console.log(`\nRun 'node okf-prune/scripts/prune.js' to archive or '--delete' to remove.`);
+        console.log(`\nRun 'node okf-maintain/scripts/maintain.js --prune' to archive or '--delete' to remove.`);
       }
     }
     process.exit(candidates.length === 0 ? 0 : 1);
@@ -660,6 +661,10 @@ async function main() {
     }
     console.log(`\nUpdated index.md and recorded changes in log.md.`);
   }
+}
+
+function fmSources(sources) {
+  return Array.isArray(sources) ? sources : [];
 }
 
 if (require.main === module) {

@@ -45,8 +45,8 @@ const taxonomyScript = path.join(rootDir, 'okf-wayfinder', 'scripts', 'wayfinder
 const taxOut = JSON.parse(execSync(`node "${taxonomyScript}"`, { cwd: sandboxDir }).toString());
 assert.ok(taxOut.frontier.some(f => f.path === 'src/invoice-tax-engine.js'), 'Wayfinder taxonomy should detect undocumented src/invoice-tax-engine.js');
 
-// 4. Verify okf-prune --dry-run detects expired-auth-flow.md without deleting it
-const pruneScript = path.join(rootDir, 'okf-prune', 'scripts', 'prune.js');
+// 4. Verify okf-maintain --prune --dry-run detects expired-auth-flow.md without deleting it
+const pruneScript = path.join(rootDir, 'okf-maintain', 'scripts', 'prune.js');
 const pruneRes = spawnSync(
   'node',
   [pruneScript, '--dry-run', '--json'],

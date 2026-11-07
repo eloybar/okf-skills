@@ -76,4 +76,4 @@ node okf-learn/scripts/learn.js --reset
 
 4. **Verify, Commit via Git PR Workflow, Deploy & Reset**
    - Run `node okf-maintain/scripts/maintain.js` and `node okf-lint/scripts/lint.js --drift` (must report 0 errors and 0 warnings).
-   - When modifying `okf-skills`, run `npm test`, follow the Git PR workflow (`git checkout -b feat/...`, commit, `git push -u origin HEAD`, `gh pr create`, `gh pr merge --rebase --delete-branch`, `git checkout main && git pull --ff-only`), deploy updated skills to all local agent directories via `node okf-upgrade/scripts/upgrade.js --skills`, and reset processed telemetry, notes, and the session history watermark via `node okf-learn/scripts/learn.js --reset`.
+   - When modifying `okf-skills`, run `npm test`, follow the Git PR workflow (`git checkout -b feat/...`, commit, `git push -u origin HEAD`, `gh pr create`, `gh pr merge --rebase --delete-branch`, `git checkout main && git pull --ff-only`), deploy updated skills to all local agent directories via `node okf-maintain/scripts/maintain.js --upgrade --skills`, and reset processed telemetry, notes, and the session history watermark via `node okf-learn/scripts/learn.js --reset`.

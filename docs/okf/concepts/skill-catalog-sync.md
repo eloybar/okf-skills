@@ -7,18 +7,18 @@ status: stable
 tags: [synchronization, documentation, skills, simulator, readme, invariants]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-07T15:16:19.789Z
+  at: 2026-11-07T16:09:03.827Z
 sources:
   - README.md
   - index.html
   - package.json
   - install.ps1
   - install.sh
-  - okf-upgrade/scripts/upgrade.js
+  - okf-maintain/scripts/upgrade.js
   - scripts/test-parser.js
   - scripts/test-lifecycle.js
   - docs/okf/index.md
-  - okf-upgrade/SKILL.md
+  - okf-maintain/SKILL.md
   - course.html
   - docs/course/01-why-okf-and-codebase-amnesia.md
   - docs/course/07-capstone-self-documenting-repo.md
@@ -39,7 +39,7 @@ Running `node scripts/sync-skills.js` (automatically invoked by [OKF Maintain Sk
    - **Disk vs. `SKILLS` Registry**: Scans the repository root for all `okf` / `okf-*` directories containing a `SKILL.md` file and fails if any on-disk skill is missing from `SKILLS` or if any entry in `SKILLS` lacks `<skill>/SKILL.md` on disk.
    - **`index.html` Simulator Coverage**: Verifies every skill in `SKILLS` has a `<skill>/SKILL.md` entry in `PANEL_MAPPINGS` and a matching panel ID in `index.html`.
    - **`README.md` Documentation Coverage**: Verifies every skill in `SKILLS` is linked in both `## 🔄 The Knowledge Loop Lifecycle` (`[<skill>/SKILL.md](<skill>/SKILL.md)`) and `## 🛠️ Repository Contents` (`**[<skill>/](<skill>/)**`).
-   - **Installer & Bundle Index Coverage**: Verifies every skill in `SKILLS` is registered in [OKF Upgrade Skill](/concepts/okf-upgrade-skill.md) (`okf-upgrade/scripts/upgrade.js`), [Skill Installer Scripts](/concepts/skill-installers.md) (`install.ps1` and `install.sh`), and `docs/okf/index.md` (`concepts/<skill>-skill.md`).
+   - **Installer & Bundle Index Coverage**: Verifies every skill in `SKILLS` is registered in [OKF Upgrade Skill](/concepts/okf-upgrade-skill.md) (`okf-maintain/scripts/upgrade.js`), [Skill Installer Scripts](/concepts/skill-installers.md) (`install.ps1` and `install.sh`), [OKF Maintain Skill](/concepts/okf-maintain-skill.md) (`okf-maintain/SKILL.md`), and `docs/okf/index.md` (`concepts/<skill>-skill.md`).
 
 3. **Public-Repo Sanitization Gate (`verifyPublicRepoSanitization`)**:
    - **Zero-Knowledge Dynamic Environment Check**: At runtime (`discoverDynamicLocalTokens`), inspects the OS username (`os.userInfo().username`), sibling/parent workspace folder names (`path.resolve(workspaceRoot, '..')` and `../..`), and custom `~/.claude-*` profiles, and fails if any local project or user identifier appears in any git-tracked file.
@@ -64,7 +64,7 @@ Running `node scripts/sync-skills.js` (automatically invoked by [OKF Maintain Sk
    - Add the step node to the `## 🔄 The Knowledge Loop Lifecycle` Mermaid diagram and add a numbered `### N.` subsection with `* **Component**: [okf-<name>/SKILL.md](okf-<name>/SKILL.md)`.
    - Add `* **[okf-<name>/](okf-<name>/)**: ...` under `## 🛠️ Repository Contents`.
 5. **Register in Installers, Upgrader & `package.json`**:
-   - Add `'okf-<name>'` to `SKILLS` in `okf-upgrade/scripts/upgrade.js`, `$skills` in `install.ps1`, and `SKILLS` in `install.sh`.
+   - Add `'okf-<name>'` to `OKF_SKILLS` in `okf-maintain/scripts/upgrade.js`, `$skills` in `install.ps1`, and `SKILLS` in `install.sh`.
    - Add `okf:<name>` npm script in `package.json`.
    - If the skill exports `parseFrontmatter`, add it to `parsers` in `scripts/test-parser.js`.
 6. **Create OKF Concept**:
@@ -74,5 +74,5 @@ Running `node scripts/sync-skills.js` (automatically invoked by [OKF Maintain Sk
 
 ## 3. Deleting or Deprecating a Skill
 1. Remove the skill directory (or archive its concept via [OKF Prune Skill](/concepts/okf-prune-skill.md)).
-2. Remove the skill entry from `SKILLS` and `PANEL_MAPPINGS` in `scripts/sync-skills.js`, `index.html`, `README.md`, `okf-upgrade/scripts/upgrade.js`, `install.ps1`, `install.sh`, `package.json`, and `scripts/test-parser.js`.
+2. Remove the skill entry from `SKILLS` and `PANEL_MAPPINGS` in `scripts/sync-skills.js`, `index.html`, `README.md`, `okf-maintain/scripts/upgrade.js`, `install.ps1`, `install.sh`, `package.json`, and `scripts/test-parser.js`.
 3. Run `node scripts/sync-skills.js --check` and `npm test` to confirm zero dangling references remain.

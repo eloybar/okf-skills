@@ -10,9 +10,7 @@ const isCheck = process.argv.includes('--check');
 const SKILLS = [
   'okf',
   'okf-wayfinder',
-  'okf-upgrade',
   'okf-query',
-  'okf-prune',
   'okf-lint',
   'okf-maintain',
   'okf-visualize',
@@ -32,8 +30,8 @@ const PANEL_MAPPINGS = [
   { panelId: 's5-panel-3', header: null, relFile: 'okf-visualize/templates/viz.html' },
   { panelId: 's5-panel-4', header: null, relFile: 'okf-visualize/static/viz.js' },
   { panelId: 's5-panel-5', header: null, relFile: 'okf-visualize/static/viz.css' },
-  { panelId: 's9u-panel-1', header: '# okf-upgrade/SKILL.md', relFile: 'okf-upgrade/SKILL.md' },
-  { panelId: 's10p-panel-1', header: '# okf-prune/SKILL.md', relFile: 'okf-prune/SKILL.md' },
+  { panelId: 's9u-panel-1', header: '# okf-maintain/SKILL.md (--upgrade)', relFile: 'okf-maintain/SKILL.md' },
+  { panelId: 's10p-panel-1', header: '# okf-maintain/SKILL.md (--prune)', relFile: 'okf-maintain/SKILL.md' },
   { panelId: 's11l-panel-1', header: '# okf-learn/SKILL.md', relFile: 'okf-learn/SKILL.md' }
 ];
 
@@ -129,11 +127,11 @@ function verifyCatalogInvariants() {
 
   // 4. Verify installers & upgrader include every skill in SKILLS
   const installerChecks = [
-    { rel: 'okf-upgrade/scripts/upgrade.js', token: s => `'${s}'` },
+    { rel: 'okf-maintain/scripts/upgrade.js', token: s => `'${s}'` },
     { rel: 'install.ps1', token: s => `"${s}"` },
     { rel: 'install.sh', token: s => `"${s}"` },
     { rel: 'docs/okf/index.md', token: s => `concepts/${s}-skill.md` },
-    { rel: 'okf-upgrade/SKILL.md', token: s => `\`${s}\`` }
+    { rel: 'okf-maintain/SKILL.md', token: s => `\`${s}\`` }
   ];
   for (const check of installerChecks) {
     const abs = path.join(workspaceRoot, check.rel);

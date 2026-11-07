@@ -400,9 +400,12 @@ const OKF_SKILLS = [
   'okf-wayfinder',
   'okf-lint',
   'okf-query',
-  'okf-upgrade',
-  'okf-prune',
   'okf-learn'
+];
+
+const DEPRECATED_OKF_SKILLS = [
+  'okf-upgrade',
+  'okf-prune'
 ];
 
 const DEFAULT_SKILLS_REPO_URL = 'https://github.com/eloybar/okf-skills.git';
@@ -590,6 +593,18 @@ function upgradeInstalledSkills(options = {}) {
         }
         copyDirContentsSync(srcPath, effectiveDest);
         console.log(`[+] Copied ${skill}`);
+      }
+      for (const deprecatedSkill of DEPRECATED_OKF_SKILLS) {
+        const depPath = path.join(targetDir, deprecatedSkill);
+        if (
+          fs.existsSync(depPath) &&
+          path.resolve(sourceDir, deprecatedSkill).toLowerCase() !== path.resolve(depPath).toLowerCase()
+        ) {
+          try {
+            fs.rmSync(depPath, { recursive: true, force: true });
+            console.log(`[-] Removed consolidated legacy skill ${deprecatedSkill}`);
+          } catch (e) {}
+        }
       }
     }
 
@@ -853,15 +868,17 @@ function main() {
   console.log(`----------------------------------------`);
 
   // Run lint check post-upgrade
-  const siblingLinter = path.join(__dirname, '../../okf-lint/scripts/lint.js');
-  const workspaceLinter = path.join(workspaceRoot, 'okf-lint', 'scripts', 'lint.js');
-  const linterScript = fs.existsSync(siblingLinter) ? siblingLinter : workspaceLinter;
-  if (fs.existsSync(linterScript)) {
-    console.log(`Running lint verification post-upgrade...`);
-    try {
-      execFileSync(process.execPath, [linterScript, '--bundle', bundleRoot], { stdio: 'inherit' });
-    } catch (e) {
-      console.error(`Post-upgrade lint check failed. Please resolve errors manually.`);
+  if (!args.includes('--no-lint')) {
+    const siblingLinter = path.join(__dirname, '../../okf-lint/scripts/lint.js');
+    const workspaceLinter = path.join(workspaceRoot, 'okf-lint', 'scripts', 'lint.js');
+    const linterScript = fs.existsSync(siblingLinter) ? siblingLinter : workspaceLinter;
+    if (fs.existsSync(linterScript)) {
+      console.log(`Running lint verification post-upgrade...`);
+      try {
+        execFileSync(process.execPath, [linterScript, '--bundle', bundleRoot], { stdio: 'inherit' });
+      } catch (e) {
+        console.error(`Post-upgrade lint check failed. Please resolve errors manually.`);
+      }
     }
   }
 }
@@ -871,6 +888,8 @@ if (require.main === module) {
 }
 
 module.exports = {
+  OKF_SKILLS,
+  DEPRECATED_OKF_SKILLS,
   parseFrontmatter,
   serializeFrontmatter,
   discoverAgentSkillDirs,
