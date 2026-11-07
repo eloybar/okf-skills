@@ -238,6 +238,16 @@ function fileUriToPath(uri) {
   return path.normalize(cleaned);
 }
 
+function measureOkfContextBlockBytes(rawText) {
+  if (!rawText || typeof rawText !== 'string') return 0;
+  const startIdx = rawText.indexOf('=== OKF CONTEXT BLOCK');
+  if (startIdx === -1) return 0;
+  const sep = '========================================';
+  const lastSepIdx = rawText.lastIndexOf(sep);
+  const slice = lastSepIdx > startIdx ? rawText.slice(startIdx, lastSepIdx + sep.length) : rawText.slice(startIdx);
+  return Buffer.byteLength(slice, 'utf8');
+}
+
 function walkBundleConcepts(dir, bundleRoot, results = []) {
   if (!fs.existsSync(dir)) return results;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -758,8 +768,8 @@ function analyzeSingleTranscript(transcriptPath, convId, options = {}) {
                 });
               }
 
-              const outBytes = Buffer.byteLength(toolText, 'utf8');
-              if (toolText.includes('OKF CONTEXT BLOCK') && outBytes > 40000) {
+              const outBytes = measureOkfContextBlockBytes(toolText);
+              if (outBytes > 40000) {
                 conversation.friction.contextBloat.push({
                   step: stepNum,
                   bytes: outBytes,
@@ -908,13 +918,16 @@ function analyzeSingleTranscript(transcriptPath, convId, options = {}) {
             if (belongsToConv && fs.existsSync(localOutPath)) {
               try {
                 const stat = fs.statSync(localOutPath);
-                const head = fs.readFileSync(localOutPath, 'utf8').slice(0, 2048);
-                if (head.includes('OKF CONTEXT BLOCK') && stat.size > 40000) {
-                  conversation.friction.contextBloat.push({
-                    step: step.step_index,
-                    bytes: stat.size,
-                    file: localOutPath
-                  });
+                if (stat.size > 40000) {
+                  const fullOut = fs.readFileSync(localOutPath, 'utf8');
+                  const contextBytes = measureOkfContextBlockBytes(fullOut);
+                  if (contextBytes > 40000) {
+                    conversation.friction.contextBloat.push({
+                      step: step.step_index,
+                      bytes: contextBytes,
+                      file: localOutPath
+                    });
+                  }
                 }
               } catch (e) {}
             }

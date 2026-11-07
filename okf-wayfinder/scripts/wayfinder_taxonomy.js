@@ -275,12 +275,20 @@ function scanBundleTaxonomy(
 const IGNORED_FRONTIER_EXTENSIONS = new Set([
   '.pyc', '.pyo', '.pyd', '.dll', '.exe', '.so', '.dylib',
   '.class', '.o', '.obj', '.a', '.lib', '.pdb',
+  '.bin', '.rdb', '.elf', '.hex', '.uf2', '.map',
   '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico', '.bmp', '.tiff', '.avif',
   '.mp4', '.webm', '.mov', '.avi', '.mkv', '.mp3', '.wav', '.ogg',
   '.woff', '.woff2', '.ttf', '.otf', '.eot',
   '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
   '.zip', '.tar', '.gz', '.tgz', '.7z', '.rar', '.pkpass'
 ]);
+
+function isHashedBuildAsset(relPath) {
+  const norm = relPath.replace(/\\/g, '/');
+  if (/(?:^|\/)assets\/[^/]+-[a-zA-Z0-9_-]{6,}\.(?:js|mjs|cjs|css)$/i.test(norm)) return true;
+  if (/\.bundle\.(?:js|css)$/i.test(norm) || /\.min\.(?:js|css)$/i.test(norm)) return true;
+  return false;
+}
 
 const IGNORED_FRONTIER_FILES = new Set([
   'skills-lock.json',
@@ -391,7 +399,7 @@ function scanWorkspace(dir, workspaceRoot, documentedResources, results = [], gi
   const files = fs.readdirSync(dir);
   const ignores = [
     '.git', 'node_modules', '.agents', '.claude', '.gemini', 'agent', 'docs',
-    'tmp', 'temp', '.idea', '.vscode', '.superpowers', '__pycache__',
+    'tmp', 'temp', 'scratch', '.scratch', '.idea', '.vscode', '.superpowers', '__pycache__',
     '.pytest_cache', '.mypy_cache', '.ruff_cache', '.venv', 'venv',
     'dist', 'build', 'coverage', '.next', 'target', 'bin', 'obj'
   ];
@@ -437,6 +445,7 @@ function scanWorkspace(dir, workspaceRoot, documentedResources, results = [], gi
     } else if (stat.isFile()) {
       const ext = path.extname(file).toLowerCase();
       if (IGNORED_FRONTIER_EXTENSIONS.has(ext)) continue;
+      if (isHashedBuildAsset(relPath)) continue;
       const normalized = path.normalize(fullPath);
       if (!isCoveredByResource(relPath, fullPath, documentedResources)) {
         // Skip common auxiliary and agent-steering files that do not warrant dedicated concept maps
@@ -569,37 +578,58 @@ function inspectFileTelemetry(targetFile, workspaceRoot, taxonomy) {
   }
 
   // 3. Match related concepts by imported files or shared subsystem directory
-  const relatedConcepts = [];
+  const GENERIC_TOP_CONTAINERS = new Set([
+    'src', 'lib', 'app', 'packages', 'apps', 'server', 'client', 'backend', 'frontend', 'services', 'modules'
+  ]);
+  const MAX_RELATED_CONCEPTS = 8;
+  const importedMatches = [];
+  const moduleMatches = [];
   const seenConcepts = new Set();
-  const targetTopDir = relPath.split('/')[0].toLowerCase();
+  const pathParts = relPath.toLowerCase().split('/').filter(Boolean);
+  const isGenericContainer = pathParts.length >= 2 && GENERIC_TOP_CONTAINERS.has(pathParts[0]);
+  const enclosingModulePrefix = pathParts.length >= 3 && isGenericContainer
+    ? `${pathParts[0]}/${pathParts[1]}`
+    : (pathParts.length >= 2 ? pathParts[0] : '');
+  const directContainerOnly = pathParts.length === 2 && isGenericContainer;
 
   for (const concept of (taxonomy.concepts || [])) {
     const cResources = (concept.resources || []).map(r => r.toLowerCase());
-    let reason = null;
+    let importedReason = null;
+    let moduleReason = null;
 
     for (const impPath of resolvedImportPaths) {
       if (cResources.includes(impPath.toLowerCase())) {
-        reason = `Documents imported dependency (${impPath})`;
+        importedReason = `Documents imported dependency (${impPath})`;
         break;
       }
     }
-    if (!reason && targetTopDir && targetTopDir !== relPath.toLowerCase()) {
-      if (cResources.some(r => r.startsWith(targetTopDir + '/'))) {
-        reason = `Shares enclosing module (${targetTopDir}/)`;
+    if (!importedReason && enclosingModulePrefix && enclosingModulePrefix !== relPath.toLowerCase()) {
+      const sharesModule = directContainerOnly
+        ? cResources.some(r => r.startsWith(enclosingModulePrefix + '/') && !r.slice(enclosingModulePrefix.length + 1).includes('/'))
+        : cResources.some(r => r.startsWith(enclosingModulePrefix + '/'));
+      if (sharesModule) {
+        moduleReason = `Shares enclosing module (${enclosingModulePrefix}/)`;
       }
     }
 
+    const reason = importedReason || moduleReason;
     if (reason && !seenConcepts.has(concept.bundlePath)) {
       seenConcepts.add(concept.bundlePath);
-      relatedConcepts.push({
+      const entry = {
         title: concept.title,
         type: concept.type,
         bundlePath: concept.bundlePath,
         markdownLink: concept.markdownLink,
         reason
-      });
+      };
+      if (importedReason) {
+        importedMatches.push(entry);
+      } else {
+        moduleMatches.push(entry);
+      }
     }
   }
+  const relatedConcepts = [...importedMatches, ...moduleMatches].slice(0, MAX_RELATED_CONCEPTS);
 
   // 4. Git telemetry (lastModified & primary contributors)
   let lastModified = null;
@@ -711,13 +741,24 @@ function main() {
   }
 
   // Scan for undocumented files (the frontier)
+  const includeFull = args.includes('--full');
   const frontier = scanWorkspace(workspaceRoot, workspaceRoot, taxonomy.resources, [], null, bundlePath);
   const frontierGroups = clusterFrontier(frontier);
   const subdirectories = Array.from(taxonomy.subdirectories).sort();
   const conceptCount = taxonomy.concepts.length;
   const layoutMode = conceptCount >= 10 || subdirectories.length > 0 ? 'nested' : 'flat';
 
-  console.log(JSON.stringify({
+  const serializedConcepts = includeFull
+    ? taxonomy.concepts
+    : taxonomy.concepts.map(c => ({
+        ...c,
+        resources: Array.isArray(c.resources) ? c.resources.slice(0, 3) : []
+      }));
+  const serializedFrontier = includeFull
+    ? frontier
+    : frontier.map(f => ({ path: f.path }));
+
+  const payload = {
     success: true,
     bundlePath,
     conceptCount,
@@ -725,10 +766,36 @@ function main() {
     subdirectories,
     types: Array.from(taxonomy.types),
     tags: Array.from(taxonomy.tags),
-    concepts: taxonomy.concepts,
-    frontier,
+    concepts: serializedConcepts,
+    frontier: serializedFrontier,
     frontierGroups
-  }, null, 2));
+  };
+
+  if (includeFull) {
+    console.log(JSON.stringify(payload, null, 2));
+  } else {
+    const lines = [
+      '{',
+      `  "success": true,`,
+      `  "bundlePath": ${JSON.stringify(bundlePath)},`,
+      `  "conceptCount": ${conceptCount},`,
+      `  "layoutMode": ${JSON.stringify(layoutMode)},`,
+      `  "subdirectories": ${JSON.stringify(subdirectories)},`,
+      `  "types": ${JSON.stringify(payload.types)},`,
+      `  "tags": ${JSON.stringify(payload.tags)},`,
+      `  "concepts": [`,
+      ...serializedConcepts.map((c, i) => `    ${JSON.stringify(c)}${i < serializedConcepts.length - 1 ? ',' : ''}`),
+      `  ],`,
+      `  "frontier": [`,
+      ...serializedFrontier.map((f, i) => `    ${JSON.stringify(f)}${i < serializedFrontier.length - 1 ? ',' : ''}`),
+      `  ],`,
+      `  "frontierGroups": [`,
+      ...frontierGroups.map((g, i) => `    ${JSON.stringify(g)}${i < frontierGroups.length - 1 ? ',' : ''}`),
+      `  ]`,
+      '}'
+    ];
+    console.log(lines.join('\n'));
+  }
 }
 
 if (require.main === module) {
