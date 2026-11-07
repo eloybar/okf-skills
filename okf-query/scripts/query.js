@@ -604,13 +604,15 @@ function main() {
   const forceFull = args.includes('--full');
   const MAX_CONCEPT_CHARS = 12000;
   const MAX_TOTAL_BODY_CHARS = 24000;
+  const MAX_FULL_SEARCH_BODY_CHARS = 32000;
   const MAX_FILE_FULL_CONCEPTS = 3;
   const MAX_SEARCH_FULL_CONCEPTS = 5;
+  const isMultiSearchFull = forceFull && searchIndex !== -1 && matchedEntries.length > 1;
   let totalBodyCharsPrinted = 0;
 
   function formatConceptBody(concept, maxChars = MAX_CONCEPT_CHARS) {
     const trimmed = concept.body.trim();
-    if (forceFull || trimmed.length <= maxChars) {
+    if ((forceFull && !isMultiSearchFull) || trimmed.length <= maxChars) {
       return trimmed;
     }
 
@@ -687,27 +689,31 @@ function main() {
     console.log(`Trust Tier:  ${trustTier}`);
     
     console.log(`----------------------------------------`);
-    const remainingBudget = MAX_TOTAL_BODY_CHARS - totalBodyCharsPrinted;
+    const effectiveTotalBudget = isMultiSearchFull ? MAX_FULL_SEARCH_BODY_CHARS : MAX_TOTAL_BODY_CHARS;
+    const remainingBudget = effectiveTotalBudget - totalBodyCharsPrinted;
     const withinCountBudget =
       entry.matchTier === 'search'
         ? idx < MAX_SEARCH_FULL_CONCEPTS
         : (entry.matchTier === 'primary' || idx < MAX_FILE_FULL_CONCEPTS);
-    const shouldPrintFull =
-      forceFull || (withinCountBudget && (idx === 0 || remainingBudget >= 1500));
+    const shouldPrintFull = isMultiSearchFull
+      ? (idx === 0 || remainingBudget >= 1500)
+      : (forceFull || (withinCountBudget && (idx === 0 || remainingBudget >= 1500)));
 
     if (shouldPrintFull) {
-      const perConceptBudget = forceFull
-        ? MAX_CONCEPT_CHARS
-        : (idx === 0 ? MAX_CONCEPT_CHARS : Math.min(MAX_CONCEPT_CHARS, Math.max(2000, remainingBudget)));
+      const perConceptBudget = isMultiSearchFull
+        ? (idx === 0 ? MAX_FULL_SEARCH_BODY_CHARS : Math.max(1500, remainingBudget))
+        : (forceFull
+            ? MAX_CONCEPT_CHARS
+            : (idx === 0 ? MAX_CONCEPT_CHARS : Math.min(MAX_CONCEPT_CHARS, Math.max(2000, remainingBudget))));
       const renderedBody = formatConceptBody(c, perConceptBudget);
       totalBodyCharsPrinted += renderedBody.length;
       console.log(renderedBody);
     } else if (!withinCountBudget && entry.matchTier === 'search') {
-      console.log(`(Additional search match [${idx + 1} of ${matchedEntries.length}]. Read ${c.relativePath} or pass --full for full concept body.)`);
+      console.log(`(Additional search match [${idx + 1} of ${matchedEntries.length}]. Query --file ${c.relativePath} --full or read ${c.relativePath} for full concept body.)`);
     } else if (!withinCountBudget) {
       console.log(`(Matched via secondary sources: binding [${idx + 1} of ${matchedEntries.length}]. Read ${c.relativePath} or pass --full for full concept body.)`);
     } else {
-      console.log(`(Omitted full body to stay within cumulative context budget [${idx + 1} of ${matchedEntries.length}]. Read ${c.relativePath} or pass --full for full concept body.)`);
+      console.log(`(Omitted full body to stay within cumulative context budget [${idx + 1} of ${matchedEntries.length}]. Query --file ${c.relativePath} --full or read ${c.relativePath} for full concept body.)`);
     }
     console.log(`\n========================================\n`);
   }

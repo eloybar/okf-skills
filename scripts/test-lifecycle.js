@@ -2208,6 +2208,87 @@ Body.
     'Search query miss must emit search-coverage recommendation instead of --bind file recommendation'
   );
 
+  // 19h. Test okf-query --search --full 32KB multi-concept cap, git/gh PR slowCommands exclusion,
+  //      first-person non-corrective "I don't have it" filtering, and read-only session preCompletionMaintain gate scoring.
+  const fullSearchHeavyOut = execSync(`node "${scripts.query}" --search "Spec" --full`, {
+    cwd: queryPerfWorkspace,
+    env: { ...learnEnv, OKF_DISABLE_TELEMETRY: '1' }
+  }).toString();
+  assert.ok(
+    Buffer.byteLength(fullSearchHeavyOut, 'utf8') < 40000,
+    'okf-query --search with --full across multiple matching concepts must cap cumulative output below 40KB to prevent context bloat'
+  );
+  assert.ok(
+    fullSearchHeavyOut.includes('Omitted full body to stay within cumulative context budget'),
+    'okf-query --search --full must omit trailing concept bodies once the 32KB cumulative budget is reached'
+  );
+
+  const readOnlyConvId = '00000000-0000-4000-8000-000000000002';
+  const readOnlyDir = path.join(mockBrainDir, readOnlyConvId, '.system_generated', 'logs');
+  fs.mkdirSync(readOnlyDir, { recursive: true });
+  const readOnlySteps = [
+    {
+      step_index: 0,
+      type: 'USER_INPUT',
+      status: 'DONE',
+      created_at: '2026-11-06T14:00:00Z',
+      content: '<USER_REQUEST>1 gateway.example.com:24463\n2 cannot provide the log\n3 i don\'t have it</USER_REQUEST>'
+    },
+    {
+      step_index: 1,
+      type: 'PLANNER_RESPONSE',
+      status: 'DONE',
+      created_at: '2026-11-06T14:00:05Z',
+      content: 'OKF Check: cited docs/okf/z_frontend/z_admin_panel.md.',
+      tool_calls: [
+        {
+          name: 'run_command',
+          args: {
+            CommandLine: 'node okf-lint/scripts/lint.js --drift; node okf-query/scripts/query.js --file admin_panel.js'
+          }
+        }
+      ]
+    },
+    {
+      step_index: 2,
+      type: 'GENERIC',
+      status: 'DONE',
+      created_at: '2026-11-06T14:00:10Z',
+      content: 'Tool is running as a background task\nTask Description: git checkout -b docs/okf-maintain-playbook; git commit -m "docs: add playbook via okf-wayfinder"; git push -u origin HEAD; gh pr create --title "docs" --body "ok"; gh pr merge --rebase --delete-branch; node okf-lint/scripts/lint.js --drift'
+    },
+    { step_index: 3, type: 'GENERIC', status: 'DONE', created_at: '2026-11-06T14:00:15Z', content: 'done 1' },
+    { step_index: 4, type: 'GENERIC', status: 'DONE', created_at: '2026-11-06T14:00:20Z', content: 'done 2' },
+    { step_index: 5, type: 'GENERIC', status: 'DONE', created_at: '2026-11-06T14:00:25Z', content: 'done 3' }
+  ];
+  fs.writeFileSync(path.join(readOnlyDir, 'transcript.jsonl'), readOnlySteps.map(s => JSON.stringify(s)).join('\n') + '\n', 'utf8');
+
+  const readOnlyReport = JSON.parse(
+    execSync(`node "${scripts.learn}" ${readOnlyConvId} --brain-dir "${mockBrainDir}" --json`, {
+      cwd: queryPerfWorkspace,
+      env: { ...learnEnv, OKF_TELEMETRY_PATH: path.join(tempDir, 'empty-tel.jsonl') }
+    }).toString()
+  );
+  assert.equal(
+    readOnlyReport.conversation.friction.slowCommands.length,
+    0,
+    'Git push / gh pr workflow commands and branch names mentioning okf-maintain must not trigger slowCommands'
+  );
+  assert.equal(
+    readOnlyReport.learningSignals.userCorrections.length,
+    0,
+    'First-person factual statement "i don\'t have it" must not trigger false-positive userCorrections'
+  );
+  assert.equal(
+    readOnlyReport.conversation.gateCompliance.preCompletionMaintain,
+    true,
+    'Read-only session with zero file edits must satisfy preCompletionMaintain gate'
+  );
+  assert.equal(
+    readOnlyReport.conversation.gateCompliance.scorePercent,
+    100,
+    'Read-only session that ran lint --drift, query, and cited concepts must score 100%'
+  );
+
   console.log('✓ okf-learn session audit, learning signals extraction, and --bind auto-remediation verified.');
   console.log('✓ Skill self-improvement telemetry, pre-completion nudge, and --evaluate transcript analyzer verified.');
   console.log('✓ okf-query primary ranking, basename fallback, search output budgeting, and batched git log verified.');

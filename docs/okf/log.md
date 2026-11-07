@@ -3,6 +3,10 @@
 Newest changes recorded chronologically.
 
 
+## 2026-11-07
+- Applied `/okf-learn` retrospective improvements across `okf-query/scripts/query.js` (capping multi-concept `--search ... --full` output at `MAX_FULL_SEARCH_BODY_CHARS = 32000` to prevent >40KB `context_bloat` truncations and updating progressive-disclosure hints to suggest `--file <concept> --full`), `okf-learn/scripts/learn.js` (excluding network-bound `git push` / `gh pr` commands and branch names from `slowCommands`, filtering first-person non-corrective `"I don't have it"` statements in `isUserCorrectionTurn`, and satisfying `preCompletionMaintain` for read-only Q&A sessions with zero file edits), and `scripts/test-lifecycle.js` (Step 19h).
+- Synchronized timestamp for 6 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md, concepts/skill-catalog-sync.md.
+
 ## 2026-11-06
 - Updated `README.md` Method 2 local script installer commands and `tryGitFastForward` in `okf-upgrade/scripts/upgrade.js` to use `git fetch origin main` + `git reset --hard origin/main` so existing clean `okf-skills` clones update seamlessly even after `origin/main` history rewrites or force-pushes without `fatal: refusing to merge unrelated histories`.
 - Added automated public-repo sanitization gate (`verifyPublicRepoSanitization` and `discoverDynamicLocalTokens`) to `scripts/sync-skills.js` and `scripts/test-parser.js`—blocking local workspace names, OS usernames, machine-specific `file:///<Drive>:/` URIs, `192.168.x.x` LAN IPs, non-synthetic UUIDs, and non-noreply git author emails—and documented the fixture anonymization mandate in `okf-learn/SKILL.md`, `docs/okf/concepts/skill-catalog-sync.md`, `docs/okf/concepts/okf-learn-skill.md`, and `docs/okf/concepts/git-development-workflow.md`.
