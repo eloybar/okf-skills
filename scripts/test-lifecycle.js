@@ -2458,6 +2458,57 @@ Body.
   const postClearFm = maintainMod.parseFrontmatter(fs.readFileSync(verifyTargetConcept, 'utf8'));
   assert.equal(postClearFm.stale_after, undefined, 'stale_after key must be absent after --clear-stale');
 
+  // 19k. Test subsystem-scoped relatedConcepts in wayfinder_taxonomy.js --inspect and hashed asset frontier exclusion
+  fs.mkdirSync(path.join(queryPerfWorkspace, 'src', 'services'), { recursive: true });
+  fs.mkdirSync(path.join(queryPerfWorkspace, 'src', 'unrelated'), { recursive: true });
+  fs.mkdirSync(path.join(queryPerfWorkspace, 'assets'), { recursive: true });
+  fs.writeFileSync(path.join(queryPerfWorkspace, 'assets', 'index-a1b2c3d4.js'), 'console.log("hashed");\n');
+  fs.writeFileSync(path.join(queryPerfWorkspace, 'dump.rdb'), 'redis-dump');
+  fs.writeFileSync(path.join(queryPerfWorkspace, 'src', 'services', 'svc_peer.js'), 'module.exports = {};\n');
+  fs.writeFileSync(
+    path.join(queryPerfWorkspace, 'src', 'services', 'svc_target.js'),
+    "const route = require('../routes/settings_route.js');\nexport function sendNotice() { return route; }\n"
+  );
+  fs.writeFileSync(path.join(queryPerfWorkspace, 'src', 'unrelated', 'other_mod.js'), 'module.exports = {};\n');
+  fs.writeFileSync(
+    path.join(queryPerfBundle, 'specs', 'svc_peer_concept.md'),
+    `---\ntype: Module\ntitle: Service Peer Concept\nresource: src/services/svc_peer.js\ngenerated:\n  by: Antigravity/4.0\n  at: 2026-11-04T00:00:00Z\n---\n# Service Peer\n`
+  );
+  fs.writeFileSync(
+    path.join(queryPerfBundle, 'specs', 'unrelated_src_concept.md'),
+    `---\ntype: Module\ntitle: Unrelated Src Concept\nresource: src/unrelated/other_mod.js\ngenerated:\n  by: Antigravity/4.0\n  at: 2026-11-04T00:00:00Z\n---\n# Unrelated\n`
+  );
+
+  const wfCompactTax = JSON.parse(
+    execSync(`node "${scripts.taxonomy}"`, { cwd: queryPerfWorkspace }).toString()
+  );
+  assert.ok(
+    !wfCompactTax.frontier.some(f => f.path.includes('index-a1b2c3d4.js') || f.path.includes('dump.rdb')),
+    'wayfinder_taxonomy.js must exclude hashed build assets and .rdb binary dumps from frontier'
+  );
+  assert.equal(
+    wfCompactTax.frontier[0].absolutePath,
+    undefined,
+    'Default wayfinder_taxonomy.js output must omit redundant absolutePath on frontier items'
+  );
+
+  const svcInspect = JSON.parse(
+    execSync(`node "${scripts.taxonomy}" --inspect src/services/svc_target.js`, { cwd: queryPerfWorkspace }).toString()
+  );
+  assert.equal(svcInspect.success, true, '--inspect on src/services/svc_target.js must succeed');
+  assert.ok(
+    svcInspect.relatedConcepts[0] && svcInspect.relatedConcepts[0].reason.startsWith('Documents imported dependency'),
+    'wayfinder --inspect must rank imported dependency concepts ahead of shared-module concepts'
+  );
+  assert.ok(
+    svcInspect.relatedConcepts.some(c => c.title === 'Service Peer Concept' && c.reason === 'Shares enclosing module (src/services/)'),
+    'wayfinder --inspect must scope generic src/ container to 2-segment subsystem (src/services/)'
+  );
+  assert.ok(
+    !svcInspect.relatedConcepts.some(c => c.title === 'Unrelated Src Concept'),
+    'wayfinder --inspect must not match unrelated concepts in sibling src/ subdirectories'
+  );
+
   console.log('✓ okf-learn session audit, learning signals extraction, and --bind auto-remediation verified.');
   console.log('✓ Concept verification (--verify, --stale-after, --all-stale, --clear-stale) and consolidated --prune/--upgrade verified.');
   console.log('✓ Skill self-improvement telemetry, pre-completion nudge, and --evaluate transcript analyzer verified.');

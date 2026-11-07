@@ -603,7 +603,7 @@ function main() {
 
   const forceFull = args.includes('--full');
   const MAX_CONCEPT_CHARS = 12000;
-  const MAX_TOTAL_BODY_CHARS = 24000;
+  const MAX_TOTAL_BODY_CHARS = 20000;
   const MAX_FULL_SEARCH_BODY_CHARS = 32000;
   const MAX_FILE_FULL_CONCEPTS = 3;
   const MAX_SEARCH_FULL_CONCEPTS = 5;
@@ -669,26 +669,6 @@ function main() {
   for (let idx = 0; idx < matchedEntries.length; idx++) {
     const entry = matchedEntries[idx];
     const c = entry.concept;
-    console.log(`[Concept: ${c.frontmatter.title || c.relativePath}]`);
-    console.log(`File:        ${c.relativePath}`);
-    console.log(`Type:        ${c.frontmatter.type}`);
-    if (c.frontmatter.description) console.log(`Description: ${c.frontmatter.description}`);
-    if (c.frontmatter.resource)    console.log(`Resource:    ${c.frontmatter.resource}`);
-    if (c.frontmatter.runtime)     console.log(`Runtime:     ${c.frontmatter.runtime}`);
-    if (c.frontmatter.computation) console.log(`Computation: ${c.frontmatter.computation}`);
-    if (c.frontmatter.tags)        console.log(`Tags:        ${c.frontmatter.tags.join(', ')}`);
-    if (c.frontmatter.status)      console.log(`Status:      ${c.frontmatter.status}`);
-    if (c.frontmatter.stale_after) console.log(`Stale After: ${c.frontmatter.stale_after}`);
-    
-    let trustTier = 'unverified';
-    if (c.frontmatter.verified) {
-      const verifications = Array.isArray(c.frontmatter.verified) ? c.frontmatter.verified : [c.frontmatter.verified];
-      const hasHuman = verifications.some(v => v && v.by && String(v.by).startsWith('human:'));
-      trustTier = hasHuman ? 'human-reviewed' : 'machine-confirmed';
-    }
-    console.log(`Trust Tier:  ${trustTier}`);
-    
-    console.log(`----------------------------------------`);
     const effectiveTotalBudget = isMultiSearchFull ? MAX_FULL_SEARCH_BODY_CHARS : MAX_TOTAL_BODY_CHARS;
     const remainingBudget = effectiveTotalBudget - totalBodyCharsPrinted;
     const withinCountBudget =
@@ -699,6 +679,28 @@ function main() {
       ? (idx === 0 || remainingBudget >= 1500)
       : (forceFull || (withinCountBudget && (idx === 0 || remainingBudget >= 1500)));
 
+    console.log(`[Concept: ${c.frontmatter.title || c.relativePath}]`);
+    console.log(`File:        ${c.relativePath}`);
+    console.log(`Type:        ${c.frontmatter.type}`);
+    if (shouldPrintFull) {
+      if (c.frontmatter.description) console.log(`Description: ${c.frontmatter.description}`);
+      if (c.frontmatter.resource)    console.log(`Resource:    ${c.frontmatter.resource}`);
+      if (c.frontmatter.runtime)     console.log(`Runtime:     ${c.frontmatter.runtime}`);
+      if (c.frontmatter.computation) console.log(`Computation: ${c.frontmatter.computation}`);
+      if (c.frontmatter.tags)        console.log(`Tags:        ${c.frontmatter.tags.join(', ')}`);
+      if (c.frontmatter.status)      console.log(`Status:      ${c.frontmatter.status}`);
+      if (c.frontmatter.stale_after) console.log(`Stale After: ${c.frontmatter.stale_after}`);
+
+      let trustTier = 'unverified';
+      if (c.frontmatter.verified) {
+        const verifications = Array.isArray(c.frontmatter.verified) ? c.frontmatter.verified : [c.frontmatter.verified];
+        const hasHuman = verifications.some(v => v && v.by && String(v.by).startsWith('human:'));
+        trustTier = hasHuman ? 'human-reviewed' : 'machine-confirmed';
+      }
+      console.log(`Trust Tier:  ${trustTier}`);
+    }
+
+    console.log(`----------------------------------------`);
     if (shouldPrintFull) {
       const perConceptBudget = isMultiSearchFull
         ? (idx === 0 ? MAX_FULL_SEARCH_BODY_CHARS : Math.max(1500, remainingBudget))
