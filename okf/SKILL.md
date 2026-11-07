@@ -8,6 +8,8 @@ version: 1.8.2
 Capture knowledge as an **OKF bundle**: a directory of markdown **concept** files, each carrying YAML **frontmatter** plus a free-form body. No SDK, no central authority — readable, diffable, portable. Spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md
 
 > **Model-Tier Steering:** Use the **High** reasoning setting of the active model when bootstrapping a new OKF bundle or synthesizing architectural concepts. Once the concept boundaries and implementation plan are laid out, switch back to the **Medium** setting of the same model for implementation and routine upkeep.
+>
+> **Help Mode (`--help` / `-h`):** If invoked with `--help` or `-h` (e.g., `/okf --help`), output a concise summary of the OKF v0.2 bundle layout, required/optional frontmatter fields, and the 7-skill OKF suite without creating or modifying any files.
 
 ## Authoring a concept
 

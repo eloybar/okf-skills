@@ -685,8 +685,28 @@ function inspectFileTelemetry(targetFile, workspaceRoot, taxonomy) {
   };
 }
 
+function printHelp() {
+  console.log(`
+OKF Wayfinder Taxonomy (v0.2) — Bundle Registry, Frontier Clustering & File Telemetry
+Usage: node okf-wayfinder/scripts/wayfinder_taxonomy.js [options]
+
+Modes:
+  (default)              Scan bundle types, tags, concepts, layoutMode, and undocumented frontierGroups.
+  --inspect <file-path>  Extract exported symbols, local imports, relatedConcepts, and Git history for a file.
+
+Options:
+  --bundle <path>        Custom OKF bundle path (default: 'docs/okf' or 'okf').
+  --full                 Include full resources arrays and frontier absolutePath entries in JSON output.
+  -h, --help             Show this help message and exit.
+`);
+}
+
 function main() {
   const args = process.argv.slice(2);
+  if (args.includes('-h') || args.includes('--help')) {
+    printHelp();
+    process.exit(0);
+  }
   const cwd = process.cwd();
 
   let bundleArg = null;

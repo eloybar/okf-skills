@@ -22,6 +22,9 @@ node okf-lint/scripts/lint.js --strict-links
 
 # Emit structured JSON summary for CI/CD and agent tooling
 node okf-lint/scripts/lint.js --drift --json
+
+# Show CLI usage and options (or when invoked as /okf-lint --help)
+node okf-lint/scripts/lint.js --help
 ```
 
 ## Steps

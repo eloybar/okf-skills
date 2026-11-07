@@ -1339,8 +1339,35 @@ function evaluateSkillsPerformance(options = {}) {
   };
 }
 
+function printHelp() {
+  console.log(`
+OKF Learn (v0.2) — Session Transcript & Telemetry Self-Improvement Engine
+Usage: node okf-learn/scripts/learn.js [<conversation-id> | --latest] [options]
+
+Modes:
+  --latest (or no args)            Evaluate the most recent post-reset coding session + ~/.okf/telemetry.jsonl.
+  <conversation-id>                Evaluate a specific conversation transcript ID or .jsonl path.
+  --recent [N]                     Summarize the last N (default 5) substantive post-reset sessions.
+  --bind <file> --concept <md>     Add <file> to <md>'s sources: frontmatter and refresh generated.at.
+  --note "<msg>" [--skill <name>]  Append a cross-repo skill improvement item to ~/.okf/skill-learnings.jsonl.
+  --clear-notes                    Clear queued notes in ~/.okf/skill-learnings.jsonl.
+  --reset                          Clear telemetry, skill notes, and advance the ~/.okf/learn-state.json watermark.
+
+Options:
+  --bundle <path>                  Custom OKF bundle path (default: 'docs/okf' or 'okf').
+  --brain-dir <path>               Custom transcript root directory.
+  --exclude <conversation-id>      Exclude a specific conversation ID from --latest / --recent discovery.
+  --json                           Emit structured JSON report.
+  -h, --help                       Show this help message and exit.
+`);
+}
+
 function main() {
   const args = process.argv.slice(2);
+  if (args.includes('-h') || args.includes('--help')) {
+    printHelp();
+    process.exit(0);
+  }
   const isJson = args.includes('--json');
   const telPath = resolveTelemetryPath(args) || path.join(os.homedir(), '.okf', 'telemetry.jsonl');
   const learningsPath = resolveSkillLearningsPath(args);

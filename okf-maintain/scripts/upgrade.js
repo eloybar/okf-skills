@@ -619,8 +619,31 @@ function upgradeInstalledSkills(options = {}) {
   }
 }
 
+function printHelp() {
+  console.log(`
+OKF Upgrade (v0.2) — Bundle Migrator & Multi-Agent Skill Updater
+Usage: node okf-maintain/scripts/maintain.js --upgrade [options]
+   or: node okf-maintain/scripts/upgrade.js [options]
+
+Modes & Options:
+  (default)              Upgrade OKF bundle at 'docs/okf' or 'okf' from v0.1 to v0.2.
+  --skills, --self       Pull latest OKF skills from Git and update all agent skill directories.
+  --all                  Upgrade both installed OKF skills and the current workspace's OKF bundle.
+  --bundle <path>        Custom OKF bundle path to upgrade.
+  --user <id>            Actor ID used when converting legacy timestamps (default: current OS user).
+  --agent <name>         Filter target agent for --skills (Antigravity, Claude, Codex, Universal, or All).
+  --home <path>          Override home directory for --skills installation discovery.
+  --source <path|url>    Override source repository directory or Git URL for --skills.
+  -h, --help             Show this help message and exit.
+`);
+}
+
 function main() {
   const args = process.argv.slice(2);
+  if (args.includes('-h') || args.includes('--help')) {
+    printHelp();
+    process.exit(0);
+  }
   const isSkillsUpdate = args.includes('--skills') || args.includes('--self');
   const isAllUpgrade = args.includes('--all');
 

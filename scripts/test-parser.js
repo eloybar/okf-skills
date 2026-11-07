@@ -250,6 +250,30 @@ assert.strictEqual(
 );
 console.log('✓ Public-repo test fixture & git author sanitization gate verified.');
 
+// Verify --help / -h switch across all OKF CLI scripts
+console.log('\nVerifying --help / -h switch across all OKF CLI scripts...');
+const helpTargets = [
+  ['okf-maintain/scripts/maintain.js', ['--help']],
+  ['okf-maintain/scripts/maintain.js', ['--prune', '--help']],
+  ['okf-maintain/scripts/maintain.js', ['--upgrade', '--help']],
+  ['okf-maintain/scripts/prune.js', ['--help']],
+  ['okf-maintain/scripts/upgrade.js', ['--help']],
+  ['okf-query/scripts/query.js', ['--help']],
+  ['okf-lint/scripts/lint.js', ['--help']],
+  ['okf-learn/scripts/learn.js', ['--help']],
+  ['okf-visualize/scripts/visualize.js', ['--help']],
+  ['okf-wayfinder/scripts/wayfinder_taxonomy.js', ['--help']]
+];
+for (const [relScript, flagArgs] of helpTargets) {
+  const scriptAbs = path.resolve(__dirname, '..', relScript);
+  const out = execFileSync(process.execPath, [scriptAbs, ...flagArgs], { encoding: 'utf8' });
+  assert.ok(
+    out.includes('Usage:') && out.includes('--help'),
+    `${relScript} ${flagArgs.join(' ')} must print Usage and --help, got:\n${out}`
+  );
+}
+console.log('✓ All OKF CLI scripts print Usage and exit 0 on --help.');
+
 console.log('\n======================================');
 console.log('🎉 ALL PARSER UNIT TESTS PASSED SUCCESSFULLY!');
 console.log('======================================');

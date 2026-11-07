@@ -1080,6 +1080,8 @@ version: 1.8.2
 Capture knowledge as an **OKF bundle**: a directory of markdown **concept** files, each carrying YAML **frontmatter** plus a free-form body. No SDK, no central authority — readable, diffable, portable. Spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md
 
 &gt; **Model-Tier Steering:** Use the **High** reasoning setting of the active model when bootstrapping a new OKF bundle or synthesizing architectural concepts. Once the concept boundaries and implementation plan are laid out, switch back to the **Medium** setting of the same model for implementation and routine upkeep.
+&gt;
+&gt; **Help Mode (`--help` / `-h`):** If invoked with `--help` or `-h` (e.g., `/okf --help`), output a concise summary of the OKF v0.2 bundle layout, required/optional frontmatter fields, and the 7-skill OKF suite without creating or modifying any files.
 
 ## Authoring a concept
 
@@ -1269,8 +1271,9 @@ Guide the developer through creating a brand new, fully conforming OKF v0.2 conc
    - Scan existing concepts to extract defined `types`, `tags`, existing `concepts` (with their `markdownLink` paths), bundle `layoutMode` (`flat` vs `nested`) and `subdirectories`, and untracked workspace files (`frontier` and clustered `frontierGroups`). This prevents vocabulary fragmentation and surfaces undocumented modules.
    - Run the utility script:
      ```bash
-     node &lt;path-to-skill-directory&gt;/scripts/wayfinder_taxonomy.js [--bundle &lt;path&gt;]
+     node &lt;path-to-skill-directory&gt;/scripts/wayfinder_taxonomy.js [--bundle &lt;path&gt;] [--full] [--help]
      ```
+     *(If the user invokes `/okf-wayfinder --help`, run `wayfinder_taxonomy.js --help` and display a brief overview of the 5-step Wayfinder interview workflow without creating files.)*
 
 2. **Categorize the Concept &amp; Propose Clustered Frontier Candidates**
    - Read the `frontierGroups` (clustered module candidates with a `primaryCandidate`, `companionFiles`, and `suggestedType`) and `frontier` returned by the taxonomy script.
@@ -1462,7 +1465,10 @@ node okf-query/scripts/query.js --file install.ps1 [--bundle &lt;path&gt;]
 node okf-query/scripts/query.js --file admin.html,api.js,src/routes/items.js [--bundle &lt;path&gt;]
 
 # Search all concepts by tags, provenance metadata, runtime, or text keywords
-node okf-query/scripts/query.js --search "maintenance" [--bundle &lt;path&gt;]
+node okf-query/scripts/query.js --search "maintenance" [--bundle &lt;path&gt;] [--full]
+
+# Show CLI usage and options (or when invoked as /okf-query --help)
+node okf-query/scripts/query.js --help
 ```
 
 ## Steps
@@ -1776,9 +1782,29 @@ function tokenizeSearchQuery(rawQuery) {
   return meaningful.length &gt; 0 ? meaningful : rawTokens;
 }
 
+function printHelp() {
+  console.log(`
+OKF Query (v0.2) — Context Retrieval &amp; Prompt Injection Engine
+Usage: node okf-query/scripts/query.js (--file &lt;path[,path2,...]&gt; | --search &lt;query&gt;) [options]
+
+Modes:
+  --file &lt;path[,...]&gt;    Retrieve concepts matching one or more file paths (comma/space-separated or repeated).
+  --search &lt;query&gt;       Search active concepts by title, tags, description, resources, runtime, or body text.
+
+Options:
+  --full                 Print full concept bodies without per-concept or secondary-source compaction.
+  --bundle &lt;path&gt;        Custom OKF bundle path (default: 'docs/okf' or 'okf').
+  -h, --help             Show this help message and exit.
+`);
+}
+
 function main() {
   const startTime = Date.now();
   const args = process.argv.slice(2);
+  if (args.includes('-h') || args.includes('--help')) {
+    printHelp();
+    process.exit(0);
+  }
   const fileIndex = args.indexOf('--file');
   const searchIndex = args.indexOf('--search');
 
@@ -2304,6 +2330,11 @@ node okf-maintain/scripts/maintain.js --upgrade --skills          # Self-updates
 
 # 5. Session &amp; Telemetry Self-Improvement Audit
 node okf-maintain/scripts/maintain.js --evaluate --latest
+
+# 6. CLI Help Reference (or when invoked as /okf-maintain --help)
+node okf-maintain/scripts/maintain.js --help
+node okf-maintain/scripts/maintain.js --prune --help
+node okf-maintain/scripts/maintain.js --upgrade --help
 ```
 The default sync automatically updates timestamps for drifted concepts, surgically updates managed `- \`&lt;path&gt;\` — Undocumented codebase file.` bullets in `## Not yet specified` in `index.md` (preserving curated multi-line notes and prose byte-for-byte), prints and logs the exact frontier delta (`+X new, -Y removed, Z already listed`), and runs `okf-lint --drift` (pass `--viz` or run `okf-visualize` to generate `viz.html`).
 
@@ -2405,6 +2436,9 @@ node okf-lint/scripts/lint.js --strict-links
 
 # Emit structured JSON summary for CI/CD and agent tooling
 node okf-lint/scripts/lint.js --drift --json
+
+# Show CLI usage and options (or when invoked as /okf-lint --help)
+node okf-lint/scripts/lint.js --help
 ```
 
 ## Steps
@@ -2524,8 +2558,9 @@ Generate a self-contained interactive Cytoscape.js HTML visualization of an Open
 2. **Run the visualization command.** Generate the `viz.html` file using the custom Node.js visualization script.
    * Run the command (resolving the path to this skill's folder):
      ```powershell
-     node &lt;path-to-skill-directory&gt;/scripts/visualize.js --bundle &lt;absolute-path-to-bundle&gt; --out &lt;absolute-path-to-bundle&gt;/viz.html [--no-open]
+     node &lt;path-to-skill-directory&gt;/scripts/visualize.js --bundle &lt;absolute-path-to-bundle&gt; --out &lt;absolute-path-to-bundle&gt;/viz.html [--no-open] [--help]
      ```
+     *(If the user invokes `/okf-visualize --help`, run `visualize.js --help` and summarize the workflow without generating or copying files.)*
    * **Done when**: The command finishes successfully and `viz.html` exists inside the bundle directory.
 
 3. **Copy to the active artifact directory.** Copy the generated `viz.html` file to the active conversation's artifact directory so it can be previewed/rendered in the chat UI.
@@ -2855,7 +2890,25 @@ function buildGraph(concepts) {
   };
 }
 
+function printHelp() {
+  console.log(`
+OKF Visualize (v0.2) — Interactive Cytoscape.js Knowledge Graph Generator
+Usage: node okf-visualize/scripts/visualize.js [options]
+
+Options:
+  --bundle &lt;path&gt;        Path to the OKF bundle directory (default: 'docs/okf' or 'okf').
+  --out &lt;path&gt;           Output HTML file path (default: '&lt;bundle&gt;/viz.html').
+  --no-open              Generate viz.html without opening a browser window.
+  -h, --help             Show this help message and exit.
+`);
+}
+
 function main() {
+  const rawArgs = process.argv.slice(2);
+  if (rawArgs.includes('-h') || rawArgs.includes('--help')) {
+    printHelp();
+    process.exit(0);
+  }
   const args = parseArgs();
   if (!args.bundle) {
     const defaultBundle = fs.existsSync(path.resolve('docs/okf'))
@@ -3681,6 +3734,11 @@ node okf-maintain/scripts/maintain.js --upgrade --skills          # Self-updates
 
 # 5. Session &amp; Telemetry Self-Improvement Audit
 node okf-maintain/scripts/maintain.js --evaluate --latest
+
+# 6. CLI Help Reference (or when invoked as /okf-maintain --help)
+node okf-maintain/scripts/maintain.js --help
+node okf-maintain/scripts/maintain.js --prune --help
+node okf-maintain/scripts/maintain.js --upgrade --help
 ```
 The default sync automatically updates timestamps for drifted concepts, surgically updates managed `- \`&lt;path&gt;\` — Undocumented codebase file.` bullets in `## Not yet specified` in `index.md` (preserving curated multi-line notes and prose byte-for-byte), prints and logs the exact frontier delta (`+X new, -Y removed, Z already listed`), and runs `okf-lint --drift` (pass `--viz` or run `okf-visualize` to generate `viz.html`).
 
@@ -3833,6 +3891,11 @@ node okf-maintain/scripts/maintain.js --upgrade --skills          # Self-updates
 
 # 5. Session &amp; Telemetry Self-Improvement Audit
 node okf-maintain/scripts/maintain.js --evaluate --latest
+
+# 6. CLI Help Reference (or when invoked as /okf-maintain --help)
+node okf-maintain/scripts/maintain.js --help
+node okf-maintain/scripts/maintain.js --prune --help
+node okf-maintain/scripts/maintain.js --upgrade --help
 ```
 The default sync automatically updates timestamps for drifted concepts, surgically updates managed `- \`&lt;path&gt;\` — Undocumented codebase file.` bullets in `## Not yet specified` in `index.md` (preserving curated multi-line notes and prose byte-for-byte), prints and logs the exact frontier delta (`+X new, -Y removed, Z already listed`), and runs `okf-lint --drift` (pass `--viz` or run `okf-visualize` to generate `viz.html`).
 
@@ -3984,6 +4047,9 @@ node okf-learn/scripts/learn.js --note "&lt;description of skill bug or ranking 
 # 5. Clear queued skill notes or reset the full telemetry + notes log:
 node okf-learn/scripts/learn.js --clear-notes
 node okf-learn/scripts/learn.js --reset
+
+# 6. Show CLI usage and options (or when invoked as /okf-learn --help):
+node okf-learn/scripts/learn.js --help
 ```
 
 ## Quick Reference

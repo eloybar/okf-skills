@@ -4,6 +4,7 @@ Newest changes recorded chronologically.
 
 
 ## 2026-11-07
+- Added `--help` / `-h` usage and options switches across all OKF CLI scripts (`maintain.js`, `prune.js`, `upgrade.js`, `query.js`, `lint.js`, `learn.js`, `visualize.js`, `wayfinder_taxonomy.js`), documented `--help` invocation in all 7 `SKILL.md` files, and added automated `--help` verification in `scripts/test-parser.js`.
 - Applied `/okf-learn --latest` audit improvements across `okf-query/scripts/query.js` (reducing `MAX_TOTAL_BODY_CHARS` to `20000` and compacting omitted match headers to 3-line summaries), `okf-wayfinder/scripts/wayfinder_taxonomy.js` (scoping `--inspect` `relatedConcepts` on generic containers like `src/` to 2-segment subsystems such as `src/services/`, ranking imported dependencies first, capping `relatedConcepts` at 8, syncing hashed asset/binary frontier exclusions, and compacting default JSON serialization), `okf-learn/scripts/learn.js` (`measureOkfContextBlockBytes` for chained shell commands), and `scripts/test-lifecycle.js` (Step 19k).
 - Updated Step 4 of `okf-wayfinder/SKILL.md` and `docs/okf/concepts/okf-wayfinder-skill.md` to support complexity-scaled focus interviews (1–3 questions by default for code-backed modules, 4–5 for multi-file subsystems/ADRs/playbooks, and a hard cap of 7 questions when needed for greenfield or `Attested Computation` specifications).
 - Updated Step 4 of `okf-learn/SKILL.md` and `docs/okf/concepts/okf-learn-skill.md` so `node okf-learn/scripts/learn.js --reset` is executed unconditionally at the end of every `/okf-learn` run (whether in a project workspace, inside `okf-skills`, or when zero issues are found).
@@ -16,6 +17,7 @@ Newest changes recorded chronologically.
 - Synchronized timestamp for 3 drifted concept(s): concepts/interactive-simulator.md, concepts/okf-learn-skill.md, concepts/skill-catalog-sync.md.
 - Synchronized timestamp for 3 drifted concept(s): concepts/interactive-simulator.md, concepts/okf-wayfinder-skill.md, concepts/skill-catalog-sync.md.
 - Synchronized timestamp for 7 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md, concepts/okf-wayfinder-skill.md, concepts/skill-catalog-sync.md.
+- Synchronized timestamp for 12 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-prune-skill.md, concepts/okf-query-skill.md, concepts/okf-skill.md, concepts/okf-upgrade-skill.md, concepts/okf-visualize-skill.md, concepts/okf-wayfinder-skill.md, concepts/skill-catalog-sync.md.
 
 ## 2026-11-06
 - Updated `README.md` Method 2 local script installer commands and `tryGitFastForward` in `okf-upgrade/scripts/upgrade.js` to use `git fetch origin main` + `git reset --hard origin/main` so existing clean `okf-skills` clones update seamlessly even after `origin/main` history rewrites or force-pushes without `fatal: refusing to merge unrelated histories`.

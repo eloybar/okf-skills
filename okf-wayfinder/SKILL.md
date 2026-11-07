@@ -17,8 +17,9 @@ Guide the developer through creating a brand new, fully conforming OKF v0.2 conc
    - Scan existing concepts to extract defined `types`, `tags`, existing `concepts` (with their `markdownLink` paths), bundle `layoutMode` (`flat` vs `nested`) and `subdirectories`, and untracked workspace files (`frontier` and clustered `frontierGroups`). This prevents vocabulary fragmentation and surfaces undocumented modules.
    - Run the utility script:
      ```bash
-     node <path-to-skill-directory>/scripts/wayfinder_taxonomy.js [--bundle <path>]
+     node <path-to-skill-directory>/scripts/wayfinder_taxonomy.js [--bundle <path>] [--full] [--help]
      ```
+     *(If the user invokes `/okf-wayfinder --help`, run `wayfinder_taxonomy.js --help` and display a brief overview of the 5-step Wayfinder interview workflow without creating files.)*
 
 2. **Categorize the Concept & Propose Clustered Frontier Candidates**
    - Read the `frontierGroups` (clustered module candidates with a `primaryCandidate`, `companionFiles`, and `suggestedType`) and `frontier` returned by the taxonomy script.
