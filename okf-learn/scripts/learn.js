@@ -149,6 +149,35 @@ function resolveSkillLearningsPath(args = []) {
   return path.join(os.homedir(), '.okf', 'skill-learnings.jsonl');
 }
 
+function resolveLearnStatePath(args = [], telPathOverride = null) {
+  const idx = args.indexOf('--state');
+  if (idx !== -1 && args[idx + 1]) return path.resolve(args[idx + 1]);
+  if (process.env.OKF_LEARN_STATE_PATH) return path.resolve(process.env.OKF_LEARN_STATE_PATH);
+  const telIdx = args.indexOf('--telemetry');
+  if (telIdx !== -1 && args[telIdx + 1]) {
+    return path.join(path.dirname(path.resolve(args[telIdx + 1])), 'learn-state.json');
+  }
+  if (process.env.OKF_TELEMETRY_PATH) {
+    return path.join(path.dirname(path.resolve(process.env.OKF_TELEMETRY_PATH)), 'learn-state.json');
+  }
+  if (telPathOverride) {
+    return path.join(path.dirname(path.resolve(telPathOverride)), 'learn-state.json');
+  }
+  return path.join(os.homedir(), '.okf', 'learn-state.json');
+}
+
+function readResetTimestampMs(statePath) {
+  if (!statePath || !fs.existsSync(statePath)) return null;
+  try {
+    const data = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+    if (data && data.resetAt) {
+      const ms = new Date(data.resetAt).getTime();
+      return isNaN(ms) ? null : ms;
+    }
+  } catch (e) {}
+  return null;
+}
+
 function recordTelemetry(entry, args = []) {
   const telPath = resolveTelemetryPath(args);
   if (!telPath) return;
@@ -473,7 +502,33 @@ function extractClaudeToolResultText(blockContent, toolUseResult) {
   return parts.join('\n');
 }
 
-function analyzeSingleTranscript(transcriptPath, convId) {
+function getRecordTimestampMs(rec) {
+  if (!rec || typeof rec !== 'object') return null;
+  const raw = rec.created_at || rec.timestamp || (rec.snapshot && rec.snapshot.timestamp);
+  if (!raw) return null;
+  const ms = new Date(raw).getTime();
+  return isNaN(ms) ? null : ms;
+}
+
+function filterRawLinesAfterReset(rawLines, resetAtMs) {
+  if (!resetAtMs || !Array.isArray(rawLines) || rawLines.length === 0) return rawLines;
+  const postLines = [];
+  let hasAnyPost = false;
+  for (const line of rawLines) {
+    try {
+      const r = JSON.parse(line);
+      const ms = getRecordTimestampMs(r);
+      if (ms !== null && ms > resetAtMs) {
+        hasAnyPost = true;
+        postLines.push(line);
+      }
+    } catch (e) {}
+  }
+  return hasAnyPost ? postLines : rawLines;
+}
+
+function analyzeSingleTranscript(transcriptPath, convId, options = {}) {
+  const resetAtMs = options.resetAtMs || null;
   const conversation = {
     conversationId: convId,
     found: false,
@@ -531,14 +586,71 @@ function analyzeSingleTranscript(transcriptPath, convId) {
   let firstTimeMs = null;
   let lastTimeMs = null;
   let hasFileModifications = false;
+  let recordsToAnalyze = parsedRecords;
+
+  if (resetAtMs) {
+    const postRecords = [];
+    const preRecords = [];
+    for (const r of parsedRecords) {
+      const ms = getRecordTimestampMs(r);
+      if (ms !== null && ms > resetAtMs) {
+        postRecords.push(r);
+      } else {
+        preRecords.push(r);
+      }
+    }
+    if (postRecords.length > 0) {
+      recordsToAnalyze = postRecords;
+      for (const pr of preRecords) {
+        if (!conversation.inferredWorkspace && pr.cwd && typeof pr.cwd === 'string') {
+          conversation.inferredWorkspace = pr.cwd.replace(/\\+/g, '/');
+        }
+        if (pr.type === 'assistant' && pr.message && Array.isArray(pr.message.content)) {
+          for (const b of pr.message.content) {
+            if (!b || b.type !== 'tool_use') continue;
+            const inp = (b.input && typeof b.input === 'object') ? b.input : {};
+            const fp = inp.file_path || inp.path || inp.Path || '';
+            if (!conversation.inferredWorkspace && fp) {
+              const inf = inferWorkspaceFromPath(fp);
+              if (inf) conversation.inferredWorkspace = inf;
+            }
+            const cmd = String(inp.command || inp.CommandLine || '');
+            if (/lint\.js\b/.test(cmd) && /--drift\b/.test(cmd)) {
+              conversation.gateCompliance.sessionStartLint = true;
+            }
+          }
+        } else if (pr.type === 'PLANNER_RESPONSE' && Array.isArray(pr.tool_calls)) {
+          for (const tc of pr.tool_calls) {
+            const tcArgs = (tc && tc.args) || {};
+            if (!conversation.inferredWorkspace && tcArgs.Path) {
+              const inf = inferWorkspaceFromPath(tcArgs.Path);
+              if (inf) conversation.inferredWorkspace = inf;
+            }
+            const cmd = tcArgs.CommandLine ? String(tcArgs.CommandLine) : '';
+            if (/lint\.js\b/.test(cmd) && /--drift\b/.test(cmd)) {
+              conversation.gateCompliance.sessionStartLint = true;
+            }
+          }
+        }
+      }
+    } else {
+      let mtimeAfterReset = false;
+      try {
+        mtimeAfterReset = fs.statSync(transcriptPath).mtimeMs > resetAtMs;
+      } catch (e) {}
+      if (!mtimeAfterReset) {
+        recordsToAnalyze = [];
+      }
+    }
+  }
 
   if (format === 'claude-code') {
     const seenAssistantMsgIds = new Set();
     const citedAssistantMsgIds = new Set();
     const toolUseById = new Map();
 
-    for (let idx = 0; idx < parsedRecords.length; idx++) {
-      const rec = parsedRecords[idx];
+    for (let idx = 0; idx < recordsToAnalyze.length; idx++) {
+      const rec = recordsToAnalyze[idx];
       const stepNum = idx + 1;
       conversation.stepCount++;
 
@@ -695,7 +807,7 @@ function analyzeSingleTranscript(transcriptPath, convId) {
     }
   } else {
     let lastSearchCmd = '';
-    for (const step of parsedRecords) {
+    for (const step of recordsToAnalyze) {
       conversation.stepCount++;
       if (step.created_at) {
         const ms = new Date(step.created_at).getTime();
@@ -894,7 +1006,7 @@ function isMetaLearnTranscript(rawLines) {
   );
 }
 
-function scanTranscriptDirectory(rootDir, excludeConvId, seenPaths, candidates) {
+function scanTranscriptDirectory(rootDir, excludeConvId, seenPaths, candidates, resetAtMs = null) {
   if (!rootDir || !fs.existsSync(rootDir)) return;
   let entries;
   try {
@@ -902,43 +1014,37 @@ function scanTranscriptDirectory(rootDir, excludeConvId, seenPaths, candidates) 
   } catch (e) {
     return;
   }
+  function pushCandidateFile(id, filePath) {
+    if (excludeConvId && id === excludeConvId) return;
+    const normKey = path.resolve(filePath).toLowerCase();
+    if (seenPaths.has(normKey)) return;
+    seenPaths.add(normKey);
+    try {
+      const mtimeMs = fs.statSync(filePath).mtimeMs;
+      if (resetAtMs && mtimeMs <= resetAtMs) return;
+      const rawLines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/).filter(Boolean);
+      const effectiveLines = filterRawLinesAfterReset(rawLines, resetAtMs);
+      candidates.push({
+        id,
+        tPath: filePath,
+        mtimeMs,
+        stepCount: effectiveLines.length,
+        isMetaLearn: isMetaLearnTranscript(effectiveLines)
+      });
+    } catch (e) {}
+  }
+
   for (const entry of entries) {
     const fullEntryPath = path.join(rootDir, entry.name);
     if (entry.isFile() && entry.name.endsWith('.jsonl')) {
       const id = path.basename(entry.name, '.jsonl');
-      if (excludeConvId && id === excludeConvId) continue;
-      const normKey = path.resolve(fullEntryPath).toLowerCase();
-      if (seenPaths.has(normKey)) continue;
-      seenPaths.add(normKey);
-      try {
-        const rawLines = fs.readFileSync(fullEntryPath, 'utf8').split(/\r?\n/).filter(Boolean);
-        candidates.push({
-          id,
-          tPath: fullEntryPath,
-          mtimeMs: fs.statSync(fullEntryPath).mtimeMs,
-          stepCount: rawLines.length,
-          isMetaLearn: isMetaLearnTranscript(rawLines)
-        });
-      } catch (e) {}
+      pushCandidateFile(id, fullEntryPath);
     } else if (entry.isDirectory()) {
       if (excludeConvId && entry.name === excludeConvId) continue;
       // 1. Antigravity layout: <brainDir>/<convId>/.system_generated/logs/transcript.jsonl
       const agyPath = path.join(fullEntryPath, '.system_generated', 'logs', 'transcript.jsonl');
       if (fs.existsSync(agyPath)) {
-        const normKey = path.resolve(agyPath).toLowerCase();
-        if (!seenPaths.has(normKey)) {
-          seenPaths.add(normKey);
-          try {
-            const rawLines = fs.readFileSync(agyPath, 'utf8').split(/\r?\n/).filter(Boolean);
-            candidates.push({
-              id: entry.name,
-              tPath: agyPath,
-              mtimeMs: fs.statSync(agyPath).mtimeMs,
-              stepCount: rawLines.length,
-              isMetaLearn: isMetaLearnTranscript(rawLines)
-            });
-          } catch (e) {}
-        }
+        pushCandidateFile(entry.name, agyPath);
         continue;
       }
       // 2. Claude Code layout: <dir>/<project-slug>/<session-id>.jsonl (or <dir>/projects/<project-slug>/<session-id>.jsonl)
@@ -947,35 +1053,12 @@ function scanTranscriptDirectory(rootDir, excludeConvId, seenPaths, candidates) 
           const subPath = path.join(fullEntryPath, sub.name);
           if (sub.isFile() && sub.name.endsWith('.jsonl')) {
             const id = path.basename(sub.name, '.jsonl');
-            if (excludeConvId && id === excludeConvId) continue;
-            const normKey = path.resolve(subPath).toLowerCase();
-            if (seenPaths.has(normKey)) continue;
-            seenPaths.add(normKey);
-            const rawLines = fs.readFileSync(subPath, 'utf8').split(/\r?\n/).filter(Boolean);
-            candidates.push({
-              id,
-              tPath: subPath,
-              mtimeMs: fs.statSync(subPath).mtimeMs,
-              stepCount: rawLines.length,
-              isMetaLearn: isMetaLearnTranscript(rawLines)
-            });
+            pushCandidateFile(id, subPath);
           } else if (sub.isDirectory() && entry.name === 'projects') {
             for (const leaf of fs.readdirSync(subPath, { withFileTypes: true })) {
               if (!leaf.isFile() || !leaf.name.endsWith('.jsonl')) continue;
               const id = path.basename(leaf.name, '.jsonl');
-              if (excludeConvId && id === excludeConvId) continue;
-              const leafPath = path.join(subPath, leaf.name);
-              const normKey = path.resolve(leafPath).toLowerCase();
-              if (seenPaths.has(normKey)) continue;
-              seenPaths.add(normKey);
-              const rawLines = fs.readFileSync(leafPath, 'utf8').split(/\r?\n/).filter(Boolean);
-              candidates.push({
-                id,
-                tPath: leafPath,
-                mtimeMs: fs.statSync(leafPath).mtimeMs,
-                stepCount: rawLines.length,
-                isMetaLearn: isMetaLearnTranscript(rawLines)
-              });
+              pushCandidateFile(id, path.join(subPath, leaf.name));
             }
           }
         }
@@ -987,15 +1070,16 @@ function scanTranscriptDirectory(rootDir, excludeConvId, seenPaths, candidates) 
 function discoverTranscriptCandidates(options = {}) {
   const explicitBrainDir = options.brainDir || process.env.OKF_BRAIN_DIR || null;
   const excludeConvId = options.excludeConversationId || process.env.OKF_CURRENT_CONVERSATION_ID || null;
+  const resetAtMs = options.resetAtMs || null;
   const candidates = [];
   const seenPaths = new Set();
 
   if (explicitBrainDir) {
-    scanTranscriptDirectory(explicitBrainDir, excludeConvId, seenPaths, candidates);
+    scanTranscriptDirectory(explicitBrainDir, excludeConvId, seenPaths, candidates, resetAtMs);
   } else {
     const home = os.homedir();
     const defaultAgyDir = path.join(home, '.gemini', 'antigravity-cli', 'brain');
-    scanTranscriptDirectory(defaultAgyDir, excludeConvId, seenPaths, candidates);
+    scanTranscriptDirectory(defaultAgyDir, excludeConvId, seenPaths, candidates, resetAtMs);
 
     const claudeProjectDirs = [];
     if (process.env.CLAUDE_CONFIG_DIR) {
@@ -1010,7 +1094,7 @@ function discoverTranscriptCandidates(options = {}) {
       }
     } catch (e) {}
     for (const cDir of claudeProjectDirs) {
-      scanTranscriptDirectory(cDir, excludeConvId, seenPaths, candidates);
+      scanTranscriptDirectory(cDir, excludeConvId, seenPaths, candidates, resetAtMs);
     }
   }
 
@@ -1022,6 +1106,8 @@ function evaluateSkillsPerformance(options = {}) {
   const brainDir = options.brainDir || process.env.OKF_BRAIN_DIR || path.join(os.homedir(), '.gemini', 'antigravity-cli', 'brain');
   const telemetryPath = options.telemetryPath;
   const skillLearningsPath = options.skillLearningsPath || resolveSkillLearningsPath();
+  const statePath = options.statePath || resolveLearnStatePath([], telemetryPath);
+  const resetAtMs = options.resetAtMs !== undefined ? options.resetAtMs : readResetTimestampMs(statePath);
   const workspaceRoot = options.workspaceRoot || process.cwd();
   const bundleRoot = options.bundleRoot || (fs.existsSync(path.join(workspaceRoot, 'docs', 'okf')) ? path.join(workspaceRoot, 'docs', 'okf') : path.join(workspaceRoot, 'okf'));
   const excludeConvId = options.excludeConversationId || process.env.OKF_CURRENT_CONVERSATION_ID || null;
@@ -1029,7 +1115,8 @@ function evaluateSkillsPerformance(options = {}) {
 
   const candidates = discoverTranscriptCandidates({
     brainDir: options.brainDir || process.env.OKF_BRAIN_DIR || null,
-    excludeConversationId: excludeConvId
+    excludeConversationId: excludeConvId,
+    resetAtMs
   });
 
   if (!targetConvId && candidates.length > 0) {
@@ -1122,7 +1209,7 @@ function evaluateSkillsPerformance(options = {}) {
       }
     }
   }
-  const { conversation, userCorrections } = analyzeSingleTranscript(targetTranscriptPath, targetConvId);
+  const { conversation, userCorrections } = analyzeSingleTranscript(targetTranscriptPath, targetConvId, { resetAtMs });
   learningSignals.userCorrections = userCorrections;
 
   const recentSessions = [];
@@ -1130,7 +1217,7 @@ function evaluateSkillsPerformance(options = {}) {
     const substantiveCandidates = candidates.filter(c => c.stepCount >= 6 && !c.isMetaLearn);
     const pool = substantiveCandidates.length > 0 ? substantiveCandidates : candidates;
     for (const cand of pool.slice(0, options.recentLimit)) {
-      const { conversation: cSummary } = analyzeSingleTranscript(cand.tPath, cand.id);
+      const { conversation: cSummary } = analyzeSingleTranscript(cand.tPath, cand.id, { resetAtMs });
       recentSessions.push({
         conversationId: cand.id,
         transcriptFormat: cSummary.transcriptFormat,
@@ -1244,6 +1331,7 @@ function main() {
   const isJson = args.includes('--json');
   const telPath = resolveTelemetryPath(args) || path.join(os.homedir(), '.okf', 'telemetry.jsonl');
   const learningsPath = resolveSkillLearningsPath(args);
+  const statePath = resolveLearnStatePath(args, telPath);
 
   if (args.includes('--clear-notes')) {
     try {
@@ -1260,6 +1348,7 @@ function main() {
   }
 
   if (args.includes('--reset')) {
+    const resetAt = new Date().toISOString();
     try {
       const dir = path.dirname(telPath);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -1267,11 +1356,14 @@ function main() {
       if (fs.existsSync(learningsPath)) {
         fs.writeFileSync(learningsPath, '', 'utf8');
       }
+      const stateDir = path.dirname(statePath);
+      if (!fs.existsSync(stateDir)) fs.mkdirSync(stateDir, { recursive: true });
+      fs.writeFileSync(statePath, JSON.stringify({ resetAt }, null, 2) + '\n', 'utf8');
     } catch (e) {}
     if (isJson) {
-      console.log(JSON.stringify({ success: true, reset: true, telemetryPath: telPath, learningsPath }, null, 2));
+      console.log(JSON.stringify({ success: true, reset: true, resetAt, telemetryPath: telPath, learningsPath, statePath }, null, 2));
     } else {
-      console.log('✓ OKF telemetry log and skill learnings queue cleared.');
+      console.log('✓ OKF telemetry log, skill learnings queue, and session history watermark cleared.');
     }
     return;
   }
@@ -1346,6 +1438,7 @@ function main() {
       '--bundle',
       '--telemetry',
       '--learnings',
+      '--state',
       '--conversation',
       '--evaluate',
       '--bind',
@@ -1380,6 +1473,7 @@ function main() {
     brainDir,
     telemetryPath: telPath,
     skillLearningsPath: learningsPath,
+    statePath,
     workspaceRoot,
     bundleRoot
   });

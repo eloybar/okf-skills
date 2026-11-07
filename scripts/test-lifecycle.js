@@ -2289,6 +2289,94 @@ Body.
     'Read-only session that ran lint --drift, query, and cited concepts must score 100%'
   );
 
+  // Test okf-learn --reset session history watermark & continued-session post-reset slicing
+  const resetOut = JSON.parse(
+    execSync(`node "${scripts.learn}" --reset --json`, {
+      cwd: queryPerfWorkspace,
+      env: learnEnv
+    }).toString()
+  );
+  assert.ok(resetOut.resetAt && fs.existsSync(resetOut.statePath), 'okf-learn --reset must write resetAt watermark to learn-state.json');
+
+  // Continued session: steps 0..2 occurred BEFORE resetAt (with a query miss and userCorrection),
+  // and steps 3..8 occurred AFTER resetAt (clean, 0 misses, 0 corrections).
+  const resetMs = new Date(resetOut.resetAt).getTime();
+  const preIso = new Date(resetMs - 60000).toISOString();
+  const postIso = new Date(resetMs + 5000).toISOString();
+  const continuedConvId = '00000000-0000-4000-8000-000000000003';
+  const continuedDir = path.join(mockBrainDir, continuedConvId, '.system_generated', 'logs');
+  fs.mkdirSync(continuedDir, { recursive: true });
+  const continuedTranscript = path.join(continuedDir, 'transcript.jsonl');
+  const continuedSteps = [
+    { step_index: 0, type: 'USER_INPUT', status: 'DONE', created_at: preIso, content: '<USER_REQUEST>No, wrong old turn before reset</USER_REQUEST>' },
+    {
+      step_index: 1,
+      type: 'PLANNER_RESPONSE',
+      status: 'DONE',
+      created_at: preIso,
+      tool_calls: [{ name: 'run_command', args: { CommandLine: 'node okf-lint/scripts/lint.js --drift' } }]
+    },
+    { step_index: 2, type: 'GENERIC', status: 'DONE', created_at: preIso, content: 'No matching OKF concepts found for file: old_pre_reset.js' },
+    { step_index: 3, type: 'USER_INPUT', status: 'DONE', created_at: postIso, content: '<USER_REQUEST>How does the admin panel work?</USER_REQUEST>' },
+    {
+      step_index: 4,
+      type: 'PLANNER_RESPONSE',
+      status: 'DONE',
+      created_at: postIso,
+      content: 'OKF Check: cited docs/okf/z_frontend/z_admin_panel.md.',
+      tool_calls: [{ name: 'run_command', args: { CommandLine: 'node okf-query/scripts/query.js --file admin_panel.js' } }]
+    },
+    { step_index: 5, type: 'GENERIC', status: 'DONE', created_at: postIso, content: '=== OKF CONTEXT BLOCK (1 concept(s) found) ===' },
+    { step_index: 6, type: 'GENERIC', status: 'DONE', created_at: postIso, content: 'post step 6' },
+    { step_index: 7, type: 'GENERIC', status: 'DONE', created_at: postIso, content: 'post step 7' },
+    { step_index: 8, type: 'GENERIC', status: 'DONE', created_at: postIso, content: 'post step 8' }
+  ];
+  fs.writeFileSync(continuedTranscript, continuedSteps.map(s => JSON.stringify(s)).join('\n') + '\n', 'utf8');
+  const postDate = new Date(resetMs + 10000);
+  fs.utimesSync(continuedTranscript, postDate, postDate);
+  // Ensure older sessions in mockBrainDir have mtime before resetMs
+  const oldDate = new Date(resetMs - 120000);
+  fs.utimesSync(path.join(readOnlyDir, 'transcript.jsonl'), oldDate, oldDate);
+  fs.utimesSync(claudeTranscriptPath, oldDate, oldDate);
+  fs.utimesSync(longMetaTranscript, oldDate, oldDate);
+
+  const postResetLatest = JSON.parse(
+    execSync(`node "${scripts.learn}" --latest --recent 5 --brain-dir "${mockBrainDir}" --json`, {
+      cwd: queryPerfWorkspace,
+      env: learnEnv
+    }).toString()
+  );
+  assert.equal(
+    postResetLatest.conversation.conversationId,
+    continuedConvId,
+    'After --reset, --latest must select the continued session modified after resetAt'
+  );
+  assert.equal(
+    postResetLatest.conversation.stepCount,
+    6,
+    'Continued session must slice out pre-reset steps and count only the 6 post-reset steps'
+  );
+  assert.equal(
+    postResetLatest.conversation.friction.queryMisses.length,
+    0,
+    'Pre-reset queryMisses in a continued session must be ignored after --reset'
+  );
+  assert.equal(
+    postResetLatest.learningSignals.userCorrections.length,
+    0,
+    'Pre-reset userCorrections in a continued session must be ignored after --reset'
+  );
+  assert.equal(
+    postResetLatest.conversation.gateCompliance.scorePercent,
+    100,
+    'Continued session must inherit pre-reset sessionStartLint and score 100% on clean post-reset turns'
+  );
+  assert.equal(
+    postResetLatest.recentSessions.length,
+    1,
+    'After --reset, --recent must exclude older transcripts modified before resetAt'
+  );
+
   console.log('✓ okf-learn session audit, learning signals extraction, and --bind auto-remediation verified.');
   console.log('✓ Skill self-improvement telemetry, pre-completion nudge, and --evaluate transcript analyzer verified.');
   console.log('✓ okf-query primary ranking, basename fallback, search output budgeting, and batched git log verified.');
