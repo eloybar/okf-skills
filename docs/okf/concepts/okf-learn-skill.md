@@ -7,7 +7,7 @@ status: stable
 tags: [self-improvement, telemetry, evaluation, learning]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-07T15:02:44.267Z
+  at: 2026-11-07T15:16:19.789Z
 sources:
   - okf-learn/scripts/learn.js
   - scripts/test-lifecycle.js
@@ -29,6 +29,6 @@ The `okf-learn` skill closes the retrospective self-improvement loop in [The Kno
   - Automatically adds a missed or newly discovered workspace file to the target concept's `sources:` frontmatter (preserving CRLF/LF line endings and refreshing `generated.at`) so future [OKF Query Skill](/concepts/okf-query-skill.md) `--file` lookups resolve at Tier 1.
 - **Cross-Repo Skill Note Queueing (`node okf-learn/scripts/learn.js --note "<message>" [--skill <name>] [--category <cat>]`)**:
   - Appends a structured skill improvement item (`{ timestamp, workspaceRoot, skill, category, message }`) to `~/.okf/skill-learnings.jsonl` during any external project session so it can be applied inside the `okf-skills` repository.
-- **Queue & Telemetry Reset (`node okf-learn/scripts/learn.js --clear-notes | --reset`)**:
-  - `--clear-notes` empties `~/.okf/skill-learnings.jsonl` after skill improvements are applied; `--reset` clears both `~/.okf/telemetry.jsonl` and `~/.okf/skill-learnings.jsonl`.
+- **Queue, Telemetry & Session Watermark Reset (`node okf-learn/scripts/learn.js --clear-notes | --reset`)**:
+  - `--clear-notes` empties `~/.okf/skill-learnings.jsonl` after skill improvements are applied; `--reset` clears both `~/.okf/telemetry.jsonl` and `~/.okf/skill-learnings.jsonl` and writes a `resetAt` watermark timestamp to `~/.okf/learn-state.json` (overridable via `OKF_LEARN_STATE_PATH` or `--state`) so subsequent `--latest` and `--recent` audits skip pre-reset transcripts and slice continued project sessions to only steps recorded after `resetAt`.
 - **Mandatory Fixture Sanitization**: When translating live session findings into regression tests (`scripts/test-lifecycle.js`), concept examples, or `docs/okf/log.md` entries inside `okf-skills`, all real project names, usernames, LAN IPs, drive URIs, and session UUIDs must be anonymized into generic fixtures (`webapp`, `GatewayService`, `Acme`, `jdoe`, `192.0.2.10`, `00000000-0000-4000-8000-000000000001`), enforced by `verifyPublicRepoSanitization` in [Skill Lifecycle & Documentation Synchronization Playbook](/concepts/skill-catalog-sync.md).

@@ -51,14 +51,14 @@ node okf-learn/scripts/learn.js --reset
 | `--bind <file> --concept <md>` | Adds `<file>` to `<md>`'s `sources:` frontmatter (if not already bound) and refreshes `generated.at` | Yes (concept file) |
 | `--note "<msg>" [--skill <name>]` | Appends a cross-repo skill improvement item to `~/.okf/skill-learnings.jsonl` | Yes (`skill-learnings.jsonl`) |
 | `--clear-notes` | Clears `~/.okf/skill-learnings.jsonl` after skill improvements are applied | Yes (`skill-learnings.jsonl`) |
-| `--reset` | Clears both `~/.okf/telemetry.jsonl` and `~/.okf/skill-learnings.jsonl` | Yes (telemetry & notes) |
+| `--reset` | Clears `~/.okf/telemetry.jsonl` and `~/.okf/skill-learnings.jsonl`, and records a `resetAt` watermark in `~/.okf/learn-state.json` so subsequent audits ignore pre-reset sessions and pre-reset steps in continued sessions | Yes (telemetry, notes & state) |
 | `--json` | Emits structured JSON report (`conversation`, `recentSessions`, `telemetry`, `skillLearningsQueue`, `learningSignals`, `recommendations`) | Same as mode |
 
 ## 4-Step Retrospective Playbook
 
 1. **Run the Session & Telemetry Audit**
-   - Execute `node okf-learn/scripts/learn.js --latest --recent 5 --json` (or pass a specific `<conversation-id>`).
-   - Inspect `conversation.friction`, `recentSessions`, `telemetry`, `skillLearningsQueue`, `learningSignals`, and `recommendations`.
+   - Execute `node okf-learn/scripts/learn.js --latest --json` to focus on the last substantive session (or pass `--recent 5` only when explicitly auditing multi-session trends).
+   - Inspect `conversation.friction`, `telemetry`, `skillLearningsQueue`, `learningSignals`, and `recommendations`.
 
 2. **Extract Qualitative Engineering Lessons**
    - Review `learningSignals.userCorrections` and `friction.toolErrors` from the report.
@@ -74,6 +74,6 @@ node okf-learn/scripts/learn.js --reset
      - Add regression tests to `scripts/test-lifecycle.js`.
      - **Sanitize Test Fixtures & Changelog Entries (MANDATORY):** Never copy real project names, client/company identifiers, OS usernames, private LAN IPs (`192.168.x.x`), machine-specific drive URIs (`file:///<Drive>:/...`), or real session UUIDs from audited transcripts into `scripts/test-*.js`, `docs/okf/log.md`, or `docs/okf/concepts/`. Always anonymize them into generic fixtures (`webapp`, `GatewayService`, `Acme`, `jdoe`, `192.0.2.10`, `00000000-0000-4000-8000-000000000001`). This is enforced automatically by `scripts/sync-skills.js --check` during `npm test`.
 
-4. **Verify, Commit via Git PR Workflow, Deploy & Clear Queue**
+4. **Verify, Commit via Git PR Workflow, Deploy & Reset**
    - Run `node okf-maintain/scripts/maintain.js` and `node okf-lint/scripts/lint.js --drift` (must report 0 errors and 0 warnings).
-   - When modifying `okf-skills`, run `npm test`, follow the Git PR workflow (`git checkout -b feat/...`, commit, `git push -u origin HEAD`, `gh pr create`, `gh pr merge --rebase --delete-branch`, `git checkout main && git pull --ff-only`), deploy updated skills to all local agent directories via `node okf-upgrade/scripts/upgrade.js --skills`, and clear processed notes via `node okf-learn/scripts/learn.js --clear-notes`.
+   - When modifying `okf-skills`, run `npm test`, follow the Git PR workflow (`git checkout -b feat/...`, commit, `git push -u origin HEAD`, `gh pr create`, `gh pr merge --rebase --delete-branch`, `git checkout main && git pull --ff-only`), deploy updated skills to all local agent directories via `node okf-upgrade/scripts/upgrade.js --skills`, and reset processed telemetry, notes, and the session history watermark via `node okf-learn/scripts/learn.js --reset`.
