@@ -999,9 +999,27 @@ function checkSkillsVersion() {
   });
 }
 
+function printHelp() {
+  console.log(`
+OKF Lint (v0.2) — Static Conformance, Link Integrity & Concept Drift Analyzer
+Usage: node okf-lint/scripts/lint.js [options]
+
+Options:
+  --drift                Enable Git commit + uncommitted working-tree concept drift and unmapped file checks.
+  --strict-links         Treat broken internal concept links as hard errors instead of warnings (§6.1).
+  --bundle <path>        Custom OKF bundle path (default: 'docs/okf' or 'okf').
+  --json                 Output structured JSON report.
+  -h, --help             Show this help message and exit.
+`);
+}
+
 async function main() {
   const startTime = Date.now();
   const args = process.argv.slice(2);
+  if (args.includes('-h') || args.includes('--help')) {
+    printHelp();
+    process.exit(0);
+  }
   const outputJson = args.includes('--json');
   if (!outputJson) {
     await checkSkillsVersion();

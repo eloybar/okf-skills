@@ -283,9 +283,29 @@ function tokenizeSearchQuery(rawQuery) {
   return meaningful.length > 0 ? meaningful : rawTokens;
 }
 
+function printHelp() {
+  console.log(`
+OKF Query (v0.2) — Context Retrieval & Prompt Injection Engine
+Usage: node okf-query/scripts/query.js (--file <path[,path2,...]> | --search <query>) [options]
+
+Modes:
+  --file <path[,...]>    Retrieve concepts matching one or more file paths (comma/space-separated or repeated).
+  --search <query>       Search active concepts by title, tags, description, resources, runtime, or body text.
+
+Options:
+  --full                 Print full concept bodies without per-concept or secondary-source compaction.
+  --bundle <path>        Custom OKF bundle path (default: 'docs/okf' or 'okf').
+  -h, --help             Show this help message and exit.
+`);
+}
+
 function main() {
   const startTime = Date.now();
   const args = process.argv.slice(2);
+  if (args.includes('-h') || args.includes('--help')) {
+    printHelp();
+    process.exit(0);
+  }
   const fileIndex = args.indexOf('--file');
   const searchIndex = args.indexOf('--search');
 

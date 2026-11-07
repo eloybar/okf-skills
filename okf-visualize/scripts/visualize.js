@@ -290,7 +290,25 @@ function buildGraph(concepts) {
   };
 }
 
+function printHelp() {
+  console.log(`
+OKF Visualize (v0.2) — Interactive Cytoscape.js Knowledge Graph Generator
+Usage: node okf-visualize/scripts/visualize.js [options]
+
+Options:
+  --bundle <path>        Path to the OKF bundle directory (default: 'docs/okf' or 'okf').
+  --out <path>           Output HTML file path (default: '<bundle>/viz.html').
+  --no-open              Generate viz.html without opening a browser window.
+  -h, --help             Show this help message and exit.
+`);
+}
+
 function main() {
+  const rawArgs = process.argv.slice(2);
+  if (rawArgs.includes('-h') || rawArgs.includes('--help')) {
+    printHelp();
+    process.exit(0);
+  }
   const args = parseArgs();
   if (!args.bundle) {
     const defaultBundle = fs.existsSync(path.resolve('docs/okf'))

@@ -31,6 +31,11 @@ node okf-maintain/scripts/maintain.js --upgrade --skills          # Self-updates
 
 # 5. Session & Telemetry Self-Improvement Audit
 node okf-maintain/scripts/maintain.js --evaluate --latest
+
+# 6. CLI Help Reference (or when invoked as /okf-maintain --help)
+node okf-maintain/scripts/maintain.js --help
+node okf-maintain/scripts/maintain.js --prune --help
+node okf-maintain/scripts/maintain.js --upgrade --help
 ```
 The default sync automatically updates timestamps for drifted concepts, surgically updates managed `- \`<path>\` — Undocumented codebase file.` bullets in `## Not yet specified` in `index.md` (preserving curated multi-line notes and prose byte-for-byte), prints and logs the exact frontier delta (`+X new, -Y removed, Z already listed`), and runs `okf-lint --drift` (pass `--viz` or run `okf-visualize` to generate `viz.html`).
 

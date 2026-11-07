@@ -16,8 +16,9 @@ Generate a self-contained interactive Cytoscape.js HTML visualization of an Open
 2. **Run the visualization command.** Generate the `viz.html` file using the custom Node.js visualization script.
    * Run the command (resolving the path to this skill's folder):
      ```powershell
-     node <path-to-skill-directory>/scripts/visualize.js --bundle <absolute-path-to-bundle> --out <absolute-path-to-bundle>/viz.html [--no-open]
+     node <path-to-skill-directory>/scripts/visualize.js --bundle <absolute-path-to-bundle> --out <absolute-path-to-bundle>/viz.html [--no-open] [--help]
      ```
+     *(If the user invokes `/okf-visualize --help`, run `visualize.js --help` and summarize the workflow without generating or copying files.)*
    * **Done when**: The command finishes successfully and `viz.html` exists inside the bundle directory.
 
 3. **Copy to the active artifact directory.** Copy the generated `viz.html` file to the active conversation's artifact directory so it can be previewed/rendered in the chat UI.

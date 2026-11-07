@@ -1888,6 +1888,33 @@ function inspectAndSyncSteeringFile(filePath, workspaceRoot, bundleRoot, targetV
   return { exists: true, outdated: true, updated: true };
 }
 
+function printHelp() {
+  console.log(`
+OKF Maintain (v0.2) — Drift Sync, Concept Verification, Pruning & Skill Updater
+Usage: node okf-maintain/scripts/maintain.js [options]
+
+Modes:
+  (default)                        Sync drifted concept timestamps, index.md frontier, steering files, and log.md.
+  --check                          Audit mode: preview drift, unindexed concepts, and frontier without mutating files.
+  --verify [<concept>...]          Stamp verified: [{ by, at }] on target concepts (or --all-stale / --all).
+  --stale-after <days>d|YYYY-MM-DD Set or roll forward stale_after expiration (or 'none' / --clear-stale to remove).
+  --prune [prune-options]          Delegate to lifecycle garbage collection (pass --prune --help for details).
+  --upgrade [upgrade-options]      Upgrade v0.1 bundles to v0.2 (pass --upgrade --help for details).
+  --skills, --upgrade --skills     Pull latest OKF skills from Git and sync all local/global agent skill folders.
+  --evaluate [<id> | --latest]     Audit session transcript and passive CLI telemetry.
+
+Options:
+  --by, --actor <actor>            Actor identifier for --verify or sync (e.g., human:alice, process:ci).
+  --all-stale                      Target all concepts whose stale_after deadline has expired (with --verify).
+  --all                            Target all active concepts in the bundle (with --verify).
+  --clear-stale                    Remove stale_after from target concept frontmatter.
+  --viz                            Regenerate interactive viz.html graph after sync.
+  --bundle <path>                  Custom OKF bundle path (default: 'docs/okf' or 'okf').
+  --json                           Emit structured JSON output.
+  -h, --help                       Show this help message and exit.
+`);
+}
+
 async function main() {
   const startTime = Date.now();
   const args = process.argv.slice(2);
@@ -1917,6 +1944,11 @@ async function main() {
     } catch (e) {
       process.exit(typeof e.status === 'number' ? e.status : 1);
     }
+  }
+
+  if (args.includes('-h') || args.includes('--help')) {
+    printHelp();
+    process.exit(0);
   }
 
   if (args.includes('--verify') || args.includes('--stale-after') || args.includes('--clear-stale')) {

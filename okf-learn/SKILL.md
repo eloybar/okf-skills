@@ -39,6 +39,9 @@ node okf-learn/scripts/learn.js --note "<description of skill bug or ranking gap
 # 5. Clear queued skill notes or reset the full telemetry + notes log:
 node okf-learn/scripts/learn.js --clear-notes
 node okf-learn/scripts/learn.js --reset
+
+# 6. Show CLI usage and options (or when invoked as /okf-learn --help):
+node okf-learn/scripts/learn.js --help
 ```
 
 ## Quick Reference

@@ -17,7 +17,10 @@ node okf-query/scripts/query.js --file install.ps1 [--bundle <path>]
 node okf-query/scripts/query.js --file admin.html,api.js,src/routes/items.js [--bundle <path>]
 
 # Search all concepts by tags, provenance metadata, runtime, or text keywords
-node okf-query/scripts/query.js --search "maintenance" [--bundle <path>]
+node okf-query/scripts/query.js --search "maintenance" [--bundle <path>] [--full]
+
+# Show CLI usage and options (or when invoked as /okf-query --help)
+node okf-query/scripts/query.js --help
 ```
 
 ## Steps
