@@ -387,6 +387,14 @@ function sanitizeUserTurnText(rawText) {
     .trim();
 }
 
+function isUserCorrectionTurn(cleanedText) {
+  if (!cleanedText || typeof cleanedText !== 'string') return false;
+  const normalized = cleanedText
+    .replace(/\b(?:i|we)\s+don't\s+(?:have|know|think|see|remember|need|mind|care)\b/gi, ' ')
+    .replace(/\bdon't\s+have\s+(?:it|that|them|the\s+\w+|any|access)\b/gi, ' ');
+  return /\b(no[,\s]|instead\b|don't\b|wrong\b|not working\b|still broken\b|should be\b|why did you\b)/i.test(normalized);
+}
+
 function extractSearchQueryFromCommand(cmd) {
   if (!cmd || typeof cmd !== 'string') return null;
   const m = cmd.match(/query\.js\b[^\r\n;&|]*?--search\s+(?:"([^"]+)"|'([^']+)'|([^\s;&|)"']+))/i);
@@ -522,6 +530,7 @@ function analyzeSingleTranscript(transcriptPath, convId) {
 
   let firstTimeMs = null;
   let lastTimeMs = null;
+  let hasFileModifications = false;
 
   if (format === 'claude-code') {
     const seenAssistantMsgIds = new Set();
@@ -571,6 +580,9 @@ function analyzeSingleTranscript(transcriptPath, convId) {
             if (block.id) {
               toolUseById.set(block.id, { name: toolName, input });
             }
+            if (/^(?:Edit|Write|MultiEdit|NotebookEdit|edit_file|write_file)$/i.test(toolName)) {
+              hasFileModifications = true;
+            }
             const filePath = input.file_path || input.path || input.Path || '';
             if (filePath && typeof filePath === 'string') {
               if (!conversation.inferredWorkspace) {
@@ -589,6 +601,10 @@ function analyzeSingleTranscript(transcriptPath, convId) {
               conversation.gateCompliance.preWorkQueries += countCommandPreWorkQueries(cmd);
               if (/maintain\.js\b/.test(cmd)) {
                 conversation.gateCompliance.preCompletionMaintain = true;
+                hasFileModifications = true;
+              }
+              if (/\b(?:prune|upgrade)\.js\b|\blearn\.js\b[^\r\n]*--bind\b|\bgit\s+(?:commit|merge|cherry-pick|revert)\b|\bsed\s+-i\b|\btee\s+/i.test(cmd)) {
+                hasFileModifications = true;
               }
             }
           }
@@ -667,10 +683,7 @@ function analyzeSingleTranscript(transcriptPath, convId) {
             if (cleanedText || hasSlashCmd) {
               conversation.userTurnCount++;
             }
-            if (
-              cleanedText &&
-              /\b(no[,\s]|instead\b|don't\b|wrong\b|not working\b|still broken\b|should be\b|why did you\b)/i.test(cleanedText)
-            ) {
+            if (isUserCorrectionTurn(cleanedText)) {
               userCorrections.push({
                 step: stepNum,
                 excerpt: cleanedText.slice(0, 240)
@@ -697,10 +710,7 @@ function analyzeSingleTranscript(transcriptPath, convId) {
         if (!isSyntheticUserTurn(rawUserText)) {
           conversation.userTurnCount++;
           const userText = sanitizeUserTurnText(rawUserText);
-          if (
-            userText &&
-            /\b(no[,\s]|instead\b|don't\b|wrong\b|not working\b|still broken\b|should be\b|why did you\b)/i.test(userText)
-          ) {
+          if (isUserCorrectionTurn(userText)) {
             userCorrections.push({
               step: step.step_index,
               excerpt: userText.slice(0, 240)
@@ -719,6 +729,9 @@ function analyzeSingleTranscript(transcriptPath, convId) {
         if (Array.isArray(step.tool_calls)) {
           for (const tc of step.tool_calls) {
             const tcArgs = (tc && tc.args) || {};
+            if (tc && /^(?:edit_file|write_file|Edit|Write|MultiEdit|NotebookEdit)$/i.test(String(tc.name || ''))) {
+              hasFileModifications = true;
+            }
             if (tcArgs.Path && typeof tcArgs.Path === 'string') {
               if (!conversation.inferredWorkspace) {
                 const inferred = inferWorkspaceFromPath(tcArgs.Path);
@@ -738,6 +751,10 @@ function analyzeSingleTranscript(transcriptPath, convId) {
             conversation.gateCompliance.preWorkQueries += countCommandPreWorkQueries(cmd);
             if (/maintain\.js\b/.test(cmd)) {
               conversation.gateCompliance.preCompletionMaintain = true;
+              hasFileModifications = true;
+            }
+            if (/\b(?:prune|upgrade)\.js\b|\blearn\.js\b[^\r\n]*--bind\b|\bgit\s+(?:commit|merge|cherry-pick|revert)\b|\bsed\s+-i\b|\bSet-Content\b|\bOut-File\b|\bAdd-Content\b/i.test(cmd)) {
+              hasFileModifications = true;
             }
           }
         }
@@ -798,8 +815,8 @@ function analyzeSingleTranscript(transcriptPath, convId) {
         const rawDesc = descMatch ? descMatch[1].trim() : '';
         if (
           rawDesc &&
-          /okf-(?:query|maintain|lint|prune|visualize|wayfinder|learn)|(?:query|maintain|lint|learn)\.js/i.test(rawDesc) &&
-          !/\b(?:npx\s+jest|jest\b|npm\s+(?:run\s+)?test|pytest\b|vitest\b|cargo\s+test|dotnet\s+test)\b/i.test(rawDesc)
+          /(?:query|maintain|lint|prune|visualize|wayfinder_taxonomy|learn|upgrade)\.js\b|\bnpm\s+run\s+okf:/i.test(rawDesc) &&
+          !/\b(?:npx\s+jest|jest\b|npm\s+(?:run\s+)?test|pytest\b|vitest\b|cargo\s+test|dotnet\s+test|git\s+(?:push|pull|fetch|clone)|gh\s+(?:pr|issue|release|run|api)\b)\b/i.test(rawDesc)
         ) {
           conversation.friction.slowCommands.push({
             step: step.step_index,
@@ -824,6 +841,10 @@ function analyzeSingleTranscript(transcriptPath, convId) {
 
   if (firstTimeMs !== null && lastTimeMs !== null && lastTimeMs >= firstTimeMs) {
     conversation.durationMinutes = Math.round(((lastTimeMs - firstTimeMs) / 60000) * 10) / 10;
+  }
+
+  if (conversation.stepCount > 0 && !hasFileModifications) {
+    conversation.gateCompliance.preCompletionMaintain = true;
   }
 
   const gatesPassed =
