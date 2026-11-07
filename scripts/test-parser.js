@@ -11,8 +11,8 @@ const parsers = {
   'okf-lint': require('../okf-lint/scripts/lint.js').parseFrontmatter,
   'okf-maintain': require('../okf-maintain/scripts/maintain.js').parseFrontmatter,
   'okf-query': require('../okf-query/scripts/query.js').parseFrontmatter,
-  'okf-prune': require('../okf-prune/scripts/prune.js').parseFrontmatter,
-  'okf-upgrade': require('../okf-upgrade/scripts/upgrade.js').parseFrontmatter,
+  'okf-prune': require('../okf-maintain/scripts/prune.js').parseFrontmatter,
+  'okf-upgrade': require('../okf-maintain/scripts/upgrade.js').parseFrontmatter,
   'okf-wayfinder': require('../okf-wayfinder/scripts/wayfinder_taxonomy.js').parseFrontmatter,
   'okf-learn': require('../okf-learn/scripts/learn.js').parseFrontmatter,
   'okf-visualize': (content) => require('../okf-visualize/scripts/visualize.js').parseFrontmatter(content).frontmatter

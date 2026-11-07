@@ -16,9 +16,9 @@
     "okf:viz": "node okf-visualize/scripts/visualize.js --bundle docs/okf",
     "okf:query": "node okf-query/scripts/query.js",
     "okf:wayfinder": "node okf-wayfinder/scripts/wayfinder_taxonomy.js",
-    "okf:upgrade": "node okf-upgrade/scripts/upgrade.js",
-    "okf:prune": "node okf-prune/scripts/prune.js",
-    "okf:prune:check": "node okf-prune/scripts/prune.js --check",
+    "okf:upgrade": "node okf-maintain/scripts/maintain.js --upgrade",
+    "okf:prune": "node okf-maintain/scripts/maintain.js --prune",
+    "okf:prune:check": "node okf-maintain/scripts/maintain.js --prune --check",
     "okf:learn": "node okf-learn/scripts/learn.js",
     "okf:sync": "node scripts/sync-skills.js",
     "okf:sync:check": "node scripts/sync-skills.js --check"

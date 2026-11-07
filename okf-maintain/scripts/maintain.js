@@ -1164,6 +1164,304 @@ function updateConceptTimestamp(filePath, nowISO, actor, syncDate = null) {
   return true;
 }
 
+function resolveDefaultVerifierActor(workspaceRoot) {
+  try {
+    const gitName = execFileSync('git', ['config', 'user.name'], {
+      cwd: workspaceRoot || process.cwd(),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+    if (gitName) {
+      const slug = gitName.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
+      if (slug) return `human:${slug}`;
+    }
+  } catch (e) {}
+  return 'human:reviewer';
+}
+
+function parseStaleAfterSpec(staleAfterSpec, baseDate = new Date()) {
+  if (staleAfterSpec === undefined || staleAfterSpec === null || staleAfterSpec === '') {
+    return { mode: 'auto' };
+  }
+  const raw = String(staleAfterSpec).trim();
+  if (/^(?:none|clear|false|null|off)$/i.test(raw)) {
+    return { mode: 'clear' };
+  }
+  const relDaysMatch = raw.match(/^\+?(\d+)\s*d?$/i);
+  if (relDaysMatch) {
+    const days = parseInt(relDaysMatch[1], 10);
+    const targetDate = new Date(baseDate.getTime() + days * 86400000);
+    return {
+      mode: 'set',
+      iso: targetDate.toISOString().replace(/\.\d{3}Z$/, 'Z'),
+      label: `+${days}d`
+    };
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const parsed = new Date(`${raw}T00:00:00Z`);
+    if (isNaN(parsed.getTime())) {
+      throw new Error(`Invalid --stale-after date: ${raw}`);
+    }
+    return {
+      mode: 'set',
+      iso: `${raw}T00:00:00Z`,
+      label: `${raw}T00:00:00Z`
+    };
+  }
+  const parsed = new Date(raw);
+  if (isNaN(parsed.getTime())) {
+    throw new Error(`Invalid --stale-after value '${raw}'. Expected <days>d (e.g. 90d), YYYY-MM-DD, ISO-8601 timestamp, or 'none'.`);
+  }
+  const iso = parsed.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  return { mode: 'set', iso, label: iso };
+}
+
+function updateConceptVerification(filePath, options = {}) {
+  const {
+    verify = true,
+    verifierActor = 'human:reviewer',
+    nowISO = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    staleAfterSpec = undefined,
+    syncDate = new Date(nowISO)
+  } = options;
+
+  const content = fs.readFileSync(filePath, 'utf8');
+  const eol = content.includes('\r\n') ? '\r\n' : '\n';
+  const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!fmMatch) return { updated: false };
+
+  const fm = parseFrontmatter(content) || {};
+  let updatedFm = fmMatch[1].replace(/\r\n/g, '\n');
+  let trustTier = null;
+  let staleAfterResult = null;
+
+  if (verify) {
+    // 1. Refresh generated.at timestamp
+    if (/^generated:[ \t]*\n/m.test(updatedFm)) {
+      if (/^([ \t]+at:[ \t]*)([^\n]+)/m.test(updatedFm)) {
+        updatedFm = updatedFm.replace(/^([ \t]+at:[ \t]*)([^\n]+)/m, `$1${nowISO}`);
+      } else {
+        updatedFm = updatedFm.replace(/^(generated:[ \t]*\n)/m, `$1  at: ${nowISO}\n`);
+      }
+    } else if (/^timestamp:[ \t]*[^\n]+/m.test(updatedFm)) {
+      updatedFm = updatedFm.replace(/^timestamp:[ \t]*[^\n]+/m, `generated:\n  by: ${verifierActor}\n  at: ${nowISO}`);
+    } else {
+      updatedFm = updatedFm.trimEnd() + `\ngenerated:\n  by: ${verifierActor}\n  at: ${nowISO}`;
+    }
+
+    // 2. Build updated verified list
+    let verifiedList = [];
+    if (Array.isArray(fm.verified)) {
+      verifiedList = fm.verified
+        .filter(v => v && typeof v === 'object' && v.by)
+        .map(v => ({ by: String(v.by), at: String(v.at || nowISO) }));
+    } else if (fm.verified && typeof fm.verified === 'object' && fm.verified.by) {
+      verifiedList = [{ by: String(fm.verified.by), at: String(fm.verified.at || nowISO) }];
+    }
+    const existingIdx = verifiedList.findIndex(v => v.by === verifierActor);
+    if (existingIdx !== -1) {
+      verifiedList[existingIdx] = { by: verifierActor, at: nowISO };
+    } else {
+      verifiedList.push({ by: verifierActor, at: nowISO });
+    }
+
+    const verifiedBlock = [
+      'verified:',
+      ...verifiedList.map(v => `  - by: ${v.by}\n    at: ${v.at}`)
+    ].join('\n');
+
+    const verifiedRe = /^verified:[ \t]*[^\n]*(?:\n[ \t]+[^\n]*)*/m;
+    if (verifiedRe.test(updatedFm)) {
+      updatedFm = updatedFm.replace(verifiedRe, () => verifiedBlock);
+    } else {
+      const genRe = /^generated:[ \t]*[^\n]*(?:\n[ \t]+[^\n]*)*/m;
+      if (genRe.test(updatedFm)) {
+        updatedFm = updatedFm.replace(genRe, match => `${match}\n${verifiedBlock}`);
+      } else {
+        updatedFm = updatedFm.trimEnd() + `\n${verifiedBlock}`;
+      }
+    }
+
+    const hasHuman = verifiedList.some(v => String(v.by).startsWith('human:'));
+    trustTier = hasHuman ? 'human-reviewed' : 'machine-confirmed';
+  }
+
+  // 3. Handle stale_after update, renewal, or removal
+  const staleSpec = parseStaleAfterSpec(staleAfterSpec, syncDate);
+  if (staleSpec.mode === 'clear') {
+    if (/^stale_after:[ \t]*[^\n]*\n?/m.test(updatedFm)) {
+      updatedFm = updatedFm.replace(/^stale_after:[ \t]*[^\n]*\n?/m, '');
+      staleAfterResult = 'cleared';
+    }
+  } else if (staleSpec.mode === 'set') {
+    if (/^stale_after:[ \t]*[^\n]*/m.test(updatedFm)) {
+      updatedFm = updatedFm.replace(/^stale_after:[ \t]*[^\n]*/m, `stale_after: ${staleSpec.iso}`);
+    } else {
+      updatedFm = updatedFm.trimEnd() + `\nstale_after: ${staleSpec.iso}`;
+    }
+    staleAfterResult = staleSpec.iso;
+  } else if (verify && fm.stale_after) {
+    const existingStaleTime = new Date(fm.stale_after).getTime();
+    if (!isNaN(existingStaleTime) && syncDate.getTime() >= existingStaleTime) {
+      const autoRenewedIso = new Date(syncDate.getTime() + 90 * 86400000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+      if (/^stale_after:[ \t]*[^\n]*/m.test(updatedFm)) {
+        updatedFm = updatedFm.replace(/^stale_after:[ \t]*[^\n]*/m, `stale_after: ${autoRenewedIso}`);
+      } else {
+        updatedFm = updatedFm.trimEnd() + `\nstale_after: ${autoRenewedIso}`;
+      }
+      staleAfterResult = `${autoRenewedIso} (+90d auto-renewed)`;
+    } else {
+      staleAfterResult = String(fm.stale_after);
+    }
+  }
+
+  const normalizedBlock = `---\n${updatedFm.trim()}\n---`;
+  const finalBlock = eol === '\r\n' ? normalizedBlock.replace(/\n/g, '\r\n') : normalizedBlock;
+  const newContent = content.replace(fmMatch[0], () => finalBlock);
+  fs.writeFileSync(filePath, newContent, 'utf8');
+  if (syncDate instanceof Date && !isNaN(syncDate.getTime())) {
+    try {
+      fs.utimesSync(filePath, syncDate, syncDate);
+    } catch (e) {}
+  }
+
+  return {
+    updated: true,
+    verifiedBy: verify ? verifierActor : null,
+    verifiedAt: verify ? nowISO : null,
+    trustTier,
+    staleAfter: staleAfterResult
+  };
+}
+
+function resolveConceptTargetFile(targetStr, bundleRoot, workspaceRoot, allConceptFiles) {
+  const cleaned = String(targetStr || '').trim().replace(/\\/g, '/').replace(/^\/+/, '');
+  if (!cleaned) return null;
+  const candidates = [
+    path.resolve(bundleRoot, cleaned),
+    path.resolve(bundleRoot, cleaned.endsWith('.md') ? cleaned : `${cleaned}.md`),
+    path.resolve(bundleRoot, 'concepts', cleaned.endsWith('.md') ? cleaned : `${cleaned}.md`),
+    path.resolve(workspaceRoot, cleaned),
+    path.resolve(workspaceRoot, cleaned.endsWith('.md') ? cleaned : `${cleaned}.md`)
+  ];
+  for (const cand of candidates) {
+    if (fs.existsSync(cand) && fs.statSync(cand).isFile()) {
+      return cand;
+    }
+  }
+  const lowerCleaned = cleaned.toLowerCase();
+  const lowerWithMd = lowerCleaned.endsWith('.md') ? lowerCleaned : `${lowerCleaned}.md`;
+  for (const cFile of allConceptFiles) {
+    const rel = path.relative(bundleRoot, cFile).replace(/\\/g, '/').toLowerCase();
+    const base = path.basename(cFile).toLowerCase();
+    if (rel === lowerCleaned || rel === lowerWithMd || base === lowerCleaned || base === lowerWithMd) {
+      return cFile;
+    }
+  }
+  return null;
+}
+
+function verifyConcepts(options = {}) {
+  const {
+    bundleRoot,
+    workspaceRoot = path.dirname(bundleRoot),
+    targets = [],
+    allStale = false,
+    allConcepts = false,
+    verify = true,
+    byActor = null,
+    staleAfterSpec = undefined
+  } = options;
+
+  if (!bundleRoot || !fs.existsSync(bundleRoot)) {
+    throw new Error(`OKF bundle not found at: ${bundleRoot}`);
+  }
+
+  const verifierActor = byActor || resolveDefaultVerifierActor(workspaceRoot);
+  const allFiles = walkConceptFiles(bundleRoot);
+  const selectedPaths = [];
+  const seen = new Set();
+
+  const addFile = (fullPath) => {
+    const key = path.resolve(fullPath).toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      selectedPaths.push(fullPath);
+    }
+  };
+
+  if (allConcepts) {
+    allFiles.forEach(addFile);
+  } else if (allStale) {
+    const nowMs = Date.now();
+    for (const cFile of allFiles) {
+      const fm = parseFrontmatter(fs.readFileSync(cFile, 'utf8'));
+      if (fm && fm.stale_after) {
+        const sMs = new Date(fm.stale_after).getTime();
+        if (!isNaN(sMs) && nowMs >= sMs) {
+          addFile(cFile);
+        }
+      }
+    }
+  }
+
+  for (const rawTarget of targets) {
+    for (const part of String(rawTarget).split(',').map(s => s.trim()).filter(Boolean)) {
+      const resolved = resolveConceptTargetFile(part, bundleRoot, workspaceRoot, allFiles);
+      if (!resolved) {
+        throw new Error(`Concept not found in bundle: '${part}'`);
+      }
+      addFile(resolved);
+    }
+  }
+
+  const syncDate = new Date();
+  const nowISO = syncDate.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const dateStr = nowISO.slice(0, 10);
+  const results = [];
+
+  for (const fullPath of selectedPaths) {
+    const relFile = path.relative(bundleRoot, fullPath).replace(/\\/g, '/');
+    const res = updateConceptVerification(fullPath, {
+      verify,
+      verifierActor,
+      nowISO,
+      staleAfterSpec,
+      syncDate
+    });
+    if (res.updated) {
+      results.push({
+        file: relFile,
+        fullPath,
+        ...res
+      });
+    }
+  }
+
+  const logPath = path.join(bundleRoot, 'log.md');
+  let logUpdated = false;
+  if (results.length > 0 && fs.existsSync(logPath)) {
+    const descList = results.map(r => {
+      const staleNote = r.staleAfter ? ` (stale_after: ${r.staleAfter})` : '';
+      return `\`${r.file}\`${staleNote}`;
+    });
+    const entry = verify
+      ? `Verified ${results.length} concept(s) as \`${verifierActor}\`: ${descList.join(', ')}.`
+      : `Updated \`stale_after\` on ${results.length} concept(s): ${descList.join(', ')}.`;
+    logUpdated = appendLogEntry(logPath, [entry], dateStr);
+  }
+
+  return {
+    success: true,
+    bundleRoot,
+    verifierActor: verify ? verifierActor : null,
+    verifiedAt: nowISO,
+    verifiedCount: results.length,
+    results,
+    logUpdated
+  };
+}
+
 function collectBundleMarkdownLower(bundleRoot) {
   if (!bundleRoot || !fs.existsSync(bundleRoot)) return '';
   const chunks = [];
@@ -1596,6 +1894,140 @@ async function main() {
   const isCheckMode = args.includes('--check');
   const isJson = args.includes('--json');
   const withViz = args.includes('--viz');
+
+  if (args.includes('--prune')) {
+    const pruneArgs = args.filter(a => a !== '--prune');
+    const pruneScript = path.join(__dirname, 'prune.js');
+    try {
+      execFileSync(process.execPath, [pruneScript, ...pruneArgs], { stdio: 'inherit' });
+      process.exit(0);
+    } catch (e) {
+      process.exit(typeof e.status === 'number' ? e.status : 1);
+    }
+  }
+
+  if (args.includes('--upgrade') || args.includes('--upgrade-skills') || args.includes('--skills')) {
+    const upgradeArgs = args
+      .map(a => (a === '--upgrade-skills' ? '--skills' : a))
+      .filter(a => a !== '--upgrade');
+    const upgradeScript = path.join(__dirname, 'upgrade.js');
+    try {
+      execFileSync(process.execPath, [upgradeScript, ...upgradeArgs], { stdio: 'inherit' });
+      process.exit(0);
+    } catch (e) {
+      process.exit(typeof e.status === 'number' ? e.status : 1);
+    }
+  }
+
+  if (args.includes('--verify') || args.includes('--stale-after') || args.includes('--clear-stale')) {
+    const { workspaceRoot, bundleRoot } = resolveWorkspaceAndBundle(args);
+    const hasVerifyFlag = args.includes('--verify');
+    const allStale = args.includes('--all-stale');
+    const allConcepts = args.includes('--all');
+    const byIdx = args.indexOf('--by') !== -1 ? args.indexOf('--by') : args.indexOf('--actor');
+    const byActor = (byIdx !== -1 && args[byIdx + 1] && !args[byIdx + 1].startsWith('--'))
+      ? args[byIdx + 1]
+      : null;
+
+    let staleAfterSpec = undefined;
+    if (args.includes('--clear-stale')) {
+      staleAfterSpec = 'none';
+    } else {
+      const staleIdx = args.indexOf('--stale-after');
+      if (staleIdx !== -1 && args[staleIdx + 1] && !args[staleIdx + 1].startsWith('--')) {
+        staleAfterSpec = args[staleIdx + 1];
+      }
+    }
+
+    const valueFlags = new Set(['--bundle', '--by', '--actor', '--stale-after', '--telemetry']);
+    const targets = [];
+    for (let i = 0; i < args.length; i++) {
+      const tok = args[i];
+      if (valueFlags.has(tok)) {
+        i++;
+        continue;
+      }
+      if (tok === '--verify' || tok === '--concept') {
+        if (args[i + 1] && !args[i + 1].startsWith('--')) {
+          targets.push(args[i + 1]);
+          i++;
+        }
+        continue;
+      }
+      if (!tok.startsWith('--')) {
+        targets.push(tok);
+      }
+    }
+
+    if (targets.length === 0 && !allStale && !allConcepts) {
+      const msg = 'Error: Specify at least one concept path (e.g. --verify concepts/auth.md), --all-stale, or --all.';
+      if (isJson) {
+        console.log(JSON.stringify({ success: false, error: msg }));
+      } else {
+        console.error(msg);
+      }
+      process.exit(1);
+    }
+
+    try {
+      const verifyResult = verifyConcepts({
+        bundleRoot,
+        workspaceRoot,
+        targets,
+        allStale,
+        allConcepts,
+        verify: hasVerifyFlag,
+        byActor,
+        staleAfterSpec
+      });
+
+      let lintPassed = true;
+      const siblingLintScript = path.resolve(__dirname, '..', '..', 'okf-lint', 'scripts', 'lint.js');
+      const workspaceLintScript = path.join(workspaceRoot, 'okf-lint', 'scripts', 'lint.js');
+      const lintScript = fs.existsSync(siblingLintScript) ? siblingLintScript : workspaceLintScript;
+      if (fs.existsSync(lintScript)) {
+        try {
+          execFileSync(process.execPath, [lintScript, '--bundle', bundleRoot, '--drift'], {
+            cwd: workspaceRoot,
+            stdio: 'ignore',
+            env: { ...process.env, OKF_INTERNAL_CALL: '1' }
+          });
+          lintPassed = true;
+        } catch (e) {
+          lintPassed = false;
+        }
+      }
+      verifyResult.lintPassed = lintPassed;
+
+      if (isJson) {
+        console.log(JSON.stringify(verifyResult, null, 2));
+      } else {
+        console.log(`OKF Concept Verification Complete ✓`);
+        console.log(`----------------------------------------`);
+        if (hasVerifyFlag) {
+          console.log(`Verifier Actor:        ${verifyResult.verifierActor}`);
+          console.log(`Verified At:           ${verifyResult.verifiedAt}`);
+        }
+        console.log(`Concepts Updated:      ${verifyResult.verifiedCount}`);
+        for (const r of verifyResult.results) {
+          const tierPart = r.trustTier ? ` [Trust Tier: ${r.trustTier}]` : '';
+          const stalePart = r.staleAfter ? ` (stale_after: ${r.staleAfter})` : '';
+          console.log(`  - ${r.file}${tierPart}${stalePart}`);
+        }
+        console.log(`Log recorded:          ${verifyResult.logUpdated ? 'Yes' : 'No'}`);
+        console.log(`Lint verification:     ${lintPassed ? 'Passed' : 'Failed'}`);
+        console.log(`----------------------------------------`);
+      }
+      return;
+    } catch (err) {
+      if (isJson) {
+        console.log(JSON.stringify({ success: false, error: err.message }));
+      } else {
+        console.error(`Error: ${err.message}`);
+      }
+      process.exit(1);
+    }
+  }
 
   if (args.includes('--evaluate')) {
     const telPath = resolveTelemetryPath(args) || path.join(os.homedir(), '.okf', 'telemetry.jsonl');
@@ -2077,5 +2509,7 @@ module.exports = {
   updateIndexConcepts,
   getRepoCommitTimeMap,
   recordTelemetry,
-  evaluateSkillsPerformance
+  evaluateSkillsPerformance,
+  updateConceptVerification,
+  verifyConcepts
 };

@@ -2267,22 +2267,39 @@ module.exports = {
               <pre><code><span class="code-comment"># ~/.agent/skills/okf-maintain/SKILL.md</span>
 ---
 name: okf-maintain
-description: Use after changing or learning something about a codebase that has an okf/ knowledge bundle, so the bundle doesn't go stale. Fires when your edits touch code an existing OKF concept documents, or when you discover a fact a concept should record.
+description: Use after changing or learning something about a codebase that has an okf/ knowledge bundle, or when verifying concepts, renewing stale_after deadlines, pruning stale/deprecated/ghost/orphaned concepts, upgrading v0.1 bundles, or updating installed OKF skills.
 version: 1.8.2
 ---
 
-Keep an existing **OKF bundle** current so it doesn't rot. This skill handles both reactive upkeep of existing files and the automatic authoring of new concept files when new significant components, schemas, or modules are introduced to the codebase. (For specific frontmatter/conformance rules, follow the `okf` skill, which is the single source of truth for how a concept is written).
+Keep an existing **OKF bundle** current, verified, and clean so it doesn't rot. This skill handles reactive upkeep of existing files, automatic authoring of new concept files, concept verification (`verified:` &amp; `stale_after:`), lifecycle pruning/archiving (`--prune`), bundle format upgrades (`--upgrade`), and multi-agent skill updates (`--skills`). (For specific frontmatter/conformance rules, follow the `okf` skill, which is the single source of truth for how a concept is written).
 
 &gt; **Model-Tier Steering:** Post-implementation upkeep (`okf-maintain`) should run on the **Medium** setting of the active model once the implementation plan has been laid out and executed. Reserve the **High** setting for initial bundle bootstrapping (`okf`, `okf-wayfinder`) or architectural planning.
 
-### ⚡ Fast Mechanical Upkeep (CLI Automation)
-Whenever code modifications touch existing resources or introduce untracked workspace files, run the automated maintainer script (you can run `--check` first to preview drift and unindexed frontier changes without mutating files):
+### ⚡ Fast Mechanical Upkeep, Verification, Pruning &amp; Upgrade (CLI Automation)
+Whenever code modifications touch existing resources or introduce untracked workspace files, or when you need to verify concepts, prune stale/deprecated/ghost/orphaned concepts, or upgrade bundles/skills, run the automated maintainer CLI:
 ```bash
+# 1. Standard Drift &amp; Frontier Sync
 node okf-maintain/scripts/maintain.js --check # Audit mode: previews drift, unindexed concepts, and frontier without mutating files
 node okf-maintain/scripts/maintain.js        # Auto-syncs drift timestamps, frontier, steering, and log (add --viz to rebuild viz.html)
-node okf-maintain/scripts/maintain.js --evaluate --latest # Self-improvement analyzer: evaluates session transcript &amp; ~/.okf/telemetry.jsonl
+
+# 2. Concept Verification &amp; Stale-After Renewal (Elevates Trust Tier to human-reviewed or machine-confirmed)
+node okf-maintain/scripts/maintain.js --verify concepts/auth.md [--by human:alice] [--stale-after 90d|2027-01-01|none]
+node okf-maintain/scripts/maintain.js --verify --all-stale [--stale-after 90d] # Re-verify all expired stale_after concepts
+node okf-maintain/scripts/maintain.js --verify --all [--by human:alice]        # Stamp verified: across all active concepts
+
+# 3. Lifecycle Pruning &amp; Garbage Collection (Archives or deletes stale, deprecated, ghost, or orphaned concepts)
+node okf-maintain/scripts/maintain.js --prune --check [--stale|--deprecated|--ghosts|--orphans]
+node okf-maintain/scripts/maintain.js --prune          # Default safe mode: moves prunable concepts to archive/ and updates index.md &amp; log.md
+node okf-maintain/scripts/maintain.js --prune --delete # Permanently deletes prunable concepts
+
+# 4. Bundle Upgrader (v0.1 -&gt; v0.2) &amp; Multi-Agent Skill Updater
+node okf-maintain/scripts/maintain.js --upgrade [--bundle &lt;path&gt;] # Upgrades v0.1 timestamps, # Citations, bare links, and actor formats
+node okf-maintain/scripts/maintain.js --upgrade --skills          # Self-updates all 7 OKF skills across Antigravity, Claude, Codex, and Universal
+
+# 5. Session &amp; Telemetry Self-Improvement Audit
+node okf-maintain/scripts/maintain.js --evaluate --latest
 ```
-This automatically updates timestamps for drifted concepts, surgically updates managed `- \`&lt;path&gt;\` — Undocumented codebase file.` bullets in `## Not yet specified` in `index.md` (preserving curated multi-line notes and prose byte-for-byte), prints and logs the exact frontier delta (`+X new, -Y removed, Z already listed`), and runs `okf-lint --drift` (pass `--viz` or run `okf-visualize` to generate `viz.html`).
+The default sync automatically updates timestamps for drifted concepts, surgically updates managed `- \`&lt;path&gt;\` — Undocumented codebase file.` bullets in `## Not yet specified` in `index.md` (preserving curated multi-line notes and prose byte-for-byte), prints and logs the exact frontier delta (`+X new, -Y removed, Z already listed`), and runs `okf-lint --drift` (pass `--viz` or run `okf-visualize` to generate `viz.html`).
 
 &gt; **Conditional `okf-learn` Agent Trigger:** If `maintain.js` outputs a `💡 [OKF Self-Improvement]` anomaly nudge at the end of its run (e.g., reporting `query_miss`, `context_bloat`, or `slow_exec`), immediately invoke the `okf-learn` skill: bind missed workspace files into the relevant concept via `node okf-learn/scripts/learn.js --bind &lt;file&gt; --concept &lt;concept&gt;` or queue a cross-repo skill improvement note via `node okf-learn/scripts/learn.js --note "&lt;finding&gt;" --skill &lt;skill-name&gt;`.
 
@@ -2305,6 +2322,17 @@ This automatically updates timestamps for drifted concepts, surgically updates m
 
 6. **Conformance gate.** Verify the bundle still conforms, per the `okf` skill.
    - Done when every non-reserved `.md` has parseable frontmatter with a non-empty `type`.
+
+## Concept Verification, Pruning &amp; Skill Self-Update Reference
+
+- **Verification (`--verify` &amp; `--stale-after`):**
+  - Appends/updates `verified: [{ by: &lt;actor&gt;, at: &lt;ISO-now&gt; }]` (defaulting `--by` to `human:&lt;git-user-slug&gt;`) to elevate a concept's Trust Tier (`human-reviewed` for `human:&lt;id&gt;`, `machine-confirmed` for `&lt;producer&gt;/&lt;version&gt;` or `process:&lt;id&gt;`).
+  - Supports `--stale-after &lt;days&gt;d` (e.g., `90d`), explicit `YYYY-MM-DD` or ISO timestamp, or `none` (or `--clear-stale`) to remove `stale_after`. When `--verify` is run on a concept with an expired `stale_after` without `--stale-after`, it automatically rolls `stale_after` forward by `+90d`.
+- **Lifecycle Pruning (`--prune`, `okf-maintain/scripts/prune.js`):**
+  - Audits (`--check` / `--dry-run`), archives (default, moving to `archive/` with `status: deprecated`), or permanently deletes (`--delete`) concepts matching `--stale` (`now &gt;= stale_after`), `--deprecated` (`status: deprecated`), `--ghosts` (missing local `resource`/`sources`/`computation` files), or `--orphans` (0 inbound links, including transitive orphans).
+- **Bundle Migration &amp; Skill Sync (`--upgrade`, `okf-maintain/scripts/upgrade.js`):**
+  - Migrates legacy OKF v0.1 bundles (`timestamp` -&gt; `generated`, `# Citations` -&gt; `sources`, `index.md` `okf_version: "0.2"`, `agent:` actor prefix stripping, comma-separated `resource` splitting, `log.md` date heading normalization, bare link auto-fixing).
+  - Running `--upgrade --skills` (or `--skills` / `--all`) synchronizes all 7 OKF skills (`okf`, `okf-maintain`, `okf-visualize`, `okf-wayfinder`, `okf-lint`, `okf-query`, `okf-learn`) across `~/.gemini/config/skills`, `~/.claude/skills`, `~/.claude-*/skills`, `$CLAUDE_CONFIG_DIR/skills`, `~/.codex/skills`, `~/.codex-*/skills`, `$CODEX_HOME/skills`, and `~/.agents/skills`, and automatically removes deprecated legacy skill folders (`okf-prune`, `okf-upgrade`).
 
 ## Reorganization &amp; Link Upkeep
 
@@ -3613,65 +3641,80 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 14px 0; }
                    <span>SKILL.md (Instructions)</span>
                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
                  </div>
-                 <pre><code><span class="code-comment"># okf-upgrade/SKILL.md</span>
+                 <pre><code><span class="code-comment"># okf-maintain/SKILL.md (--upgrade)</span>
 ---
-name: okf-upgrade
-description: Automatically upgrade an OKF bundle from v0.1 to v0.2 and update installed OKF skills across all agent environments.
-disable-model-invocation: true
+name: okf-maintain
+description: Use after changing or learning something about a codebase that has an okf/ knowledge bundle, or when verifying concepts, renewing stale_after deadlines, pruning stale/deprecated/ghost/orphaned concepts, upgrading v0.1 bundles, or updating installed OKF skills.
 version: 1.8.2
 ---
 
-Migrate an existing **OKF bundle** from Version 0.1 to Version 0.2 format, or self-update the installed **OKF skills** across all AI agent environments (Google Antigravity, Claude Code profiles, OpenAI Codex profiles, and universal `.agents/skills`).
+Keep an existing **OKF bundle** current, verified, and clean so it doesn't rot. This skill handles reactive upkeep of existing files, automatic authoring of new concept files, concept verification (`verified:` &amp; `stale_after:`), lifecycle pruning/archiving (`--prune`), bundle format upgrades (`--upgrade`), and multi-agent skill updates (`--skills`). (For specific frontmatter/conformance rules, follow the `okf` skill, which is the single source of truth for how a concept is written).
 
-## Usage
+&gt; **Model-Tier Steering:** Post-implementation upkeep (`okf-maintain`) should run on the **Medium** setting of the active model once the implementation plan has been laid out and executed. Reserve the **High** setting for initial bundle bootstrapping (`okf`, `okf-wayfinder`) or architectural planning.
 
-&gt; **Path Resolution:** When running outside the `okf-skills` repository, use the installed skills base path configured in the workspace's `AGENTS.md` (on Windows PowerShell, use `$HOME/...` or `C:/Users/&lt;user&gt;/...` rather than `~/`, as `node.exe` does not expand `~`).
-
+### ⚡ Fast Mechanical Upkeep, Verification, Pruning &amp; Upgrade (CLI Automation)
+Whenever code modifications touch existing resources or introduce untracked workspace files, or when you need to verify concepts, prune stale/deprecated/ghost/orphaned concepts, or upgrade bundles/skills, run the automated maintainer CLI:
 ```bash
-# Upgrade the local bundle in the workspace
-node okf-upgrade/scripts/upgrade.js [--bundle &lt;path&gt;]
+# 1. Standard Drift &amp; Frontier Sync
+node okf-maintain/scripts/maintain.js --check # Audit mode: previews drift, unindexed concepts, and frontier without mutating files
+node okf-maintain/scripts/maintain.js        # Auto-syncs drift timestamps, frontier, steering, and log (add --viz to rebuild viz.html)
 
-# Update installed OKF skills to the latest version across all agents (Antigravity, Claude, Codex, Universal)
-node okf-upgrade/scripts/upgrade.js --skills [--agent All|Antigravity|Claude|Codex|Universal]
+# 2. Concept Verification &amp; Stale-After Renewal (Elevates Trust Tier to human-reviewed or machine-confirmed)
+node okf-maintain/scripts/maintain.js --verify concepts/auth.md [--by human:alice] [--stale-after 90d|2027-01-01|none]
+node okf-maintain/scripts/maintain.js --verify --all-stale [--stale-after 90d] # Re-verify all expired stale_after concepts
+node okf-maintain/scripts/maintain.js --verify --all [--by human:alice]        # Stamp verified: across all active concepts
 
-# Update installed OKF skills AND upgrade the current workspace bundle in one command
-node okf-upgrade/scripts/upgrade.js --all [--bundle &lt;path&gt;]
+# 3. Lifecycle Pruning &amp; Garbage Collection (Archives or deletes stale, deprecated, ghost, or orphaned concepts)
+node okf-maintain/scripts/maintain.js --prune --check [--stale|--deprecated|--ghosts|--orphans]
+node okf-maintain/scripts/maintain.js --prune          # Default safe mode: moves prunable concepts to archive/ and updates index.md &amp; log.md
+node okf-maintain/scripts/maintain.js --prune --delete # Permanently deletes prunable concepts
 
-# Target a specific username for the 'generated.by' metadata fields
-node okf-upgrade/scripts/upgrade.js --user "ahormati"
+# 4. Bundle Upgrader (v0.1 -&gt; v0.2) &amp; Multi-Agent Skill Updater
+node okf-maintain/scripts/maintain.js --upgrade [--bundle &lt;path&gt;] # Upgrades v0.1 timestamps, # Citations, bare links, and actor formats
+node okf-maintain/scripts/maintain.js --upgrade --skills          # Self-updates all 7 OKF skills across Antigravity, Claude, Codex, and Universal
+
+# 5. Session &amp; Telemetry Self-Improvement Audit
+node okf-maintain/scripts/maintain.js --evaluate --latest
 ```
+The default sync automatically updates timestamps for drifted concepts, surgically updates managed `- \`&lt;path&gt;\` — Undocumented codebase file.` bullets in `## Not yet specified` in `index.md` (preserving curated multi-line notes and prose byte-for-byte), prints and logs the exact frontier delta (`+X new, -Y removed, Z already listed`), and runs `okf-lint --drift` (pass `--viz` or run `okf-visualize` to generate `viz.html`).
 
-## Migration &amp; Self-Update Actions Performed
+&gt; **Conditional `okf-learn` Agent Trigger:** If `maintain.js` outputs a `💡 [OKF Self-Improvement]` anomaly nudge at the end of its run (e.g., reporting `query_miss`, `context_bloat`, or `slow_exec`), immediately invoke the `okf-learn` skill: bind missed workspace files into the relevant concept via `node okf-learn/scripts/learn.js --bind &lt;file&gt; --concept &lt;concept&gt;` or queue a cross-repo skill improvement note via `node okf-learn/scripts/learn.js --note "&lt;finding&gt;" --skill &lt;skill-name&gt;`.
 
-0. **Multi-Agent Skill Self-Update (`--skills` / `--self` / `--all`)**:
-   - Fast-forwards `~/okf-skills` (if present) or fetches the latest `okf-skills` repository from GitHub, and copies all 9 skills (`okf`, `okf-maintain`, `okf-visualize`, `okf-wayfinder`, `okf-lint`, `okf-query`, `okf-upgrade`, `okf-prune`, `okf-learn`) into `~/.gemini/config/skills`, `~/.claude/skills`, `~/.claude-*/skills`, `$CLAUDE_CONFIG_DIR/skills`, `~/.codex/skills`, `~/.codex-*/skills`, `$CODEX_HOME/skills`, and `~/.agents/skills`.
+### Semantic Maintenance &amp; New Concepts
 
-1. **Frontmatter Upgrade (§5.2, §13.1)**:
-   - Replaces the legacy `timestamp: &lt;time&gt;` frontmatter property with the structured `generated` mapping:
-     ```yaml
-     generated:
-       by: human:&lt;user&gt;
-       at: &lt;timestamp&gt;
-     ```
+1. **Guard: confirm a bundle exists.** Look for an `okf/` directory at the repo root (or the bundle root this repo uses). If there is none, stop — there is nothing to maintain.
+   - Done when you have the bundle root, or have stopped.
 
-2. **Citation Migration &amp; Provenance Preservation (§5.1, §13.1)**:
-   - Locates the `# Citations` heading in the markdown body, extracts external URLs and markdown links into structured frontmatter `sources` entries, and removes `# Citations` from the body.
-   - Preserves both shorthand string `sources` entries and structured provenance objects (`id`, `resource`, `title`, `author`, `usage_count`, `last_modified`, `usage_window`).
+2. **Identify affected and missing concepts.** Map what changed (files edited/created, features added, facts learned) to the concept file(s) that cover it. Check `index.md` if present. If your changes introduced a new significant database schema/collection, API route module, frontend dashboard page, core system component, platform-specific/sandbox constraint (e.g., mobile WebView/in-app browser quirks, CORS limitations, CDN asset blockages), developer utility page (like testing environments), or a new codebase behavior or pattern that warrants a permanent engineering guideline, identify it as a concept that must be updated or created. Track any undocumented files (the "frontier") to be indexed in the `index.md` under `## Not yet specified`.
+   - Done when you have the list of concepts to update and new concepts to create, or have confirmed none apply (then stop).
 
-3. **Version Check (§8, §12)**:
-   - Inserts `okf_version: "0.2"` into the frontmatter of the bundle-root `index.md` file.
+3. **Update and/or create concepts.** Edit existing affected concepts to match reality. If you identified missing concepts in Step 2, you can invoke the `okf-wayfinder` skill to guide the authoring of new concept files by interviewing the developer. In both cases: set or refresh the `generated` frontmatter block (updating `at` with the current UTC ISO timestamp using `date -u +%Y-%m-%dT%H:%M:%SZ` and setting/preserving `by` with standard actor format `&lt;producer&gt;/&lt;version&gt;`, `human:&lt;id&gt;`, or `process:&lt;id&gt;`), update `sources` if references changed, cross-link related concepts, and follow the `okf` skill guidelines for frontmatter and structure.
+   - Done when every affected concept reflects the change and all new concepts are authored.
 
-4. **Actor Normalization (§5.1, §7)**:
-   - Normalizes non-standard `agent:&lt;name&gt;` actor formats in `generated.by`, `verified[].by`, and `sources[].author` to `&lt;producer&gt;/&lt;version&gt;` (e.g. `agent:Antigravity/3.5-Flash` -&gt; `Antigravity/3.5-Flash`).
+4. **Update reserved files.** Append a dated line to `log.md` under an ISO 8601 `## YYYY-MM-DD` date heading describing the changes and additions. If you added a new concept, add it to `index.md` (and remove it from `## Not yet specified` if it was there). If any new undocumented workspace files are identified, list them under the `## Not yet specified` section of `index.md` to map the known frontier.
+   - Done when `log.md` records the change and `index.md` lists any new concept and updates the undocumented frontier list — for each reserved file the bundle uses.
 
-5. **Log Date Heading Normalization (§9)**:
-   - Formats `log.md` date headings to ISO 8601 `YYYY-MM-DD` and merges duplicate consecutive date sections.
+5. **Steering Notice Upkeep.** Check if any agent steering files in the workspace root (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, or `GEMINI.md`) contain OKF directives. If any contain the version comment `&lt;!-- okf-steering-version: 1.8.2 --&gt;` or mention OKF, verify they are at version `1.8.2` with both the Pre-Work Grounding Gate (including Step 4: Model-Tier Routing) and the Pre-Completion Verification Gate (including Step 1: Semantic Concept &amp; Source Binding Upkeep). If the comment is missing or references a version older than `1.8.2`, automatically update or overwrite the steering directives block without prompting for user confirmation (or run `node okf-maintain/scripts/maintain.js`), as this is a required conformance gate.
+   - Done when all present OKF steering notices contain the correct up-to-date directives and the `&lt;!-- okf-steering-version: 1.8.2 --&gt;` comment.
 
-6. **Bare Link Auto-Fixing (§6.1)**:
-   - Replaces bare/non-descriptive link labels (e.g. `[doc.md](doc.md)`) outside code blocks with the target concept's `title`.
+6. **Conformance gate.** Verify the bundle still conforms, per the `okf` skill.
+   - Done when every non-reserved `.md` has parseable frontmatter with a non-empty `type`.
 
-7. **Lint Verification (§11)**:
-   - Automatically runs `okf-lint` on the target bundle upon completion to verify compatibility.
+## Concept Verification, Pruning &amp; Skill Self-Update Reference
+
+- **Verification (`--verify` &amp; `--stale-after`):**
+  - Appends/updates `verified: [{ by: &lt;actor&gt;, at: &lt;ISO-now&gt; }]` (defaulting `--by` to `human:&lt;git-user-slug&gt;`) to elevate a concept's Trust Tier (`human-reviewed` for `human:&lt;id&gt;`, `machine-confirmed` for `&lt;producer&gt;/&lt;version&gt;` or `process:&lt;id&gt;`).
+  - Supports `--stale-after &lt;days&gt;d` (e.g., `90d`), explicit `YYYY-MM-DD` or ISO timestamp, or `none` (or `--clear-stale`) to remove `stale_after`. When `--verify` is run on a concept with an expired `stale_after` without `--stale-after`, it automatically rolls `stale_after` forward by `+90d`.
+- **Lifecycle Pruning (`--prune`, `okf-maintain/scripts/prune.js`):**
+  - Audits (`--check` / `--dry-run`), archives (default, moving to `archive/` with `status: deprecated`), or permanently deletes (`--delete`) concepts matching `--stale` (`now &gt;= stale_after`), `--deprecated` (`status: deprecated`), `--ghosts` (missing local `resource`/`sources`/`computation` files), or `--orphans` (0 inbound links, including transitive orphans).
+- **Bundle Migration &amp; Skill Sync (`--upgrade`, `okf-maintain/scripts/upgrade.js`):**
+  - Migrates legacy OKF v0.1 bundles (`timestamp` -&gt; `generated`, `# Citations` -&gt; `sources`, `index.md` `okf_version: "0.2"`, `agent:` actor prefix stripping, comma-separated `resource` splitting, `log.md` date heading normalization, bare link auto-fixing).
+  - Running `--upgrade --skills` (or `--skills` / `--all`) synchronizes all 7 OKF skills (`okf`, `okf-maintain`, `okf-visualize`, `okf-wayfinder`, `okf-lint`, `okf-query`, `okf-learn`) across `~/.gemini/config/skills`, `~/.claude/skills`, `~/.claude-*/skills`, `$CLAUDE_CONFIG_DIR/skills`, `~/.codex/skills`, `~/.codex-*/skills`, `$CODEX_HOME/skills`, and `~/.agents/skills`, and automatically removes deprecated legacy skill folders (`okf-prune`, `okf-upgrade`).
+
+## Reorganization &amp; Link Upkeep
+
+- **Scale Trigger:** When a concept addition pushes the root concepts count past 10, check if the bundle should transition to a nested layout. Recommend this restructure to the user before executing.
+- **Link Refactoring:** When moving concept files, update all bundle-relative links in the body of all affected files (e.g., rewrite `[Auth](/auth.md)` to `[Auth](/subsystems/auth.md)`) and refresh the `index.md` listing.
 </code></pre>
                </div>
 
@@ -3750,88 +3793,80 @@ node okf-upgrade/scripts/upgrade.js --user "ahormati"
                    <span>SKILL.md (Instructions)</span>
                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
                  </div>
-                 <pre><code><span class="code-comment"># okf-prune/SKILL.md</span>
+                 <pre><code><span class="code-comment"># okf-maintain/SKILL.md (--prune)</span>
 ---
-name: okf-prune
-description: Use when an OKF bundle contains stale, expired, deprecated, orphaned, or dangling concepts that need pruning, archiving, or cleanup.
+name: okf-maintain
+description: Use after changing or learning something about a codebase that has an okf/ knowledge bundle, or when verifying concepts, renewing stale_after deadlines, pruning stale/deprecated/ghost/orphaned concepts, upgrading v0.1 bundles, or updating installed OKF skills.
 version: 1.8.2
 ---
 
-# `okf-prune` Workflow
+Keep an existing **OKF bundle** current, verified, and clean so it doesn't rot. This skill handles reactive upkeep of existing files, automatic authoring of new concept files, concept verification (`verified:` &amp; `stale_after:`), lifecycle pruning/archiving (`--prune`), bundle format upgrades (`--upgrade`), and multi-agent skill updates (`--skills`). (For specific frontmatter/conformance rules, follow the `okf` skill, which is the single source of truth for how a concept is written).
 
-Maintain knowledge bundle hygiene through automated concept lifecycle pruning, archiving, and garbage collection aligned with OKF v0.2 (§5.4, §5.5, §6.2, §10).
+&gt; **Model-Tier Steering:** Post-implementation upkeep (`okf-maintain`) should run on the **Medium** setting of the active model once the implementation plan has been laid out and executed. Reserve the **High** setting for initial bundle bootstrapping (`okf`, `okf-wayfinder`) or architectural planning.
 
-## Overview
-
-Over the lifecycle of a codebase, concepts change:
-- Features are deprecated or removed (`status: deprecated`, §5.4).
-- Temporary contracts or deadlines expire (`stale_after`, §5.5).
-- Underlying source code or computation files are deleted, leaving ghost concepts with missing local `resource`, `sources`, `computation`, `executor.resource`, or `attester.resource` files (§6.2, §10.2).
-- Concepts become disconnected and orphaned with 0 inbound links (across `index.md`, body cross-links, and `sources` concept lineage links).
-
-`okf-prune` systematically audits the bundle, identifies candidates for removal or archiving, moves them safely to `archive/` (or permanently deletes them), updates `index.md`, and logs the changes in `log.md` (pass `--viz` to also refresh `viz.html`).
-
-## Usage
-
+### ⚡ Fast Mechanical Upkeep, Verification, Pruning &amp; Upgrade (CLI Automation)
+Whenever code modifications touch existing resources or introduce untracked workspace files, or when you need to verify concepts, prune stale/deprecated/ghost/orphaned concepts, or upgrade bundles/skills, run the automated maintainer CLI:
 ```bash
-# 1. Audit / Check Mode (Read-Only)
-# Scans bundle and reports candidates without making changes. Exits with code 1 if prunable items exist.
-node okf-prune/scripts/prune.js --check [--bundle &lt;path&gt;]
-node okf-prune/scripts/prune.js --dry-run
-npm run okf:prune:check
+# 1. Standard Drift &amp; Frontier Sync
+node okf-maintain/scripts/maintain.js --check # Audit mode: previews drift, unindexed concepts, and frontier without mutating files
+node okf-maintain/scripts/maintain.js        # Auto-syncs drift timestamps, frontier, steering, and log (add --viz to rebuild viz.html)
 
-# 2. Archive Mode (Default Safe Action)
-# Moves matching concepts to archive/, marks status: deprecated, and updates index.md and log.md.
-node okf-prune/scripts/prune.js
-npm run okf:prune
+# 2. Concept Verification &amp; Stale-After Renewal (Elevates Trust Tier to human-reviewed or machine-confirmed)
+node okf-maintain/scripts/maintain.js --verify concepts/auth.md [--by human:alice] [--stale-after 90d|2027-01-01|none]
+node okf-maintain/scripts/maintain.js --verify --all-stale [--stale-after 90d] # Re-verify all expired stale_after concepts
+node okf-maintain/scripts/maintain.js --verify --all [--by human:alice]        # Stamp verified: across all active concepts
 
-# 3. Permanent Deletion Mode
-# Permanently removes candidate concept files from disk and cleans up index.md.
-node okf-prune/scripts/prune.js --delete
+# 3. Lifecycle Pruning &amp; Garbage Collection (Archives or deletes stale, deprecated, ghost, or orphaned concepts)
+node okf-maintain/scripts/maintain.js --prune --check [--stale|--deprecated|--ghosts|--orphans]
+node okf-maintain/scripts/maintain.js --prune          # Default safe mode: moves prunable concepts to archive/ and updates index.md &amp; log.md
+node okf-maintain/scripts/maintain.js --prune --delete # Permanently deletes prunable concepts
 
-# 4. Filtered Pruning
-# Target specific categories instead of all prunable concepts:
-node okf-prune/scripts/prune.js --stale       # Only expired stale_after concepts
-node okf-prune/scripts/prune.js --deprecated  # Only status: deprecated concepts
-node okf-prune/scripts/prune.js --ghosts      # Only concepts with missing local resource/source/computation files
-node okf-prune/scripts/prune.js --orphans     # Only unlinked / isolated concepts
+# 4. Bundle Upgrader (v0.1 -&gt; v0.2) &amp; Multi-Agent Skill Updater
+node okf-maintain/scripts/maintain.js --upgrade [--bundle &lt;path&gt;] # Upgrades v0.1 timestamps, # Citations, bare links, and actor formats
+node okf-maintain/scripts/maintain.js --upgrade --skills          # Self-updates all 7 OKF skills across Antigravity, Claude, Codex, and Universal
 
-# 5. Machine-Readable JSON Output
-node okf-prune/scripts/prune.js --check --json
+# 5. Session &amp; Telemetry Self-Improvement Audit
+node okf-maintain/scripts/maintain.js --evaluate --latest
 ```
+The default sync automatically updates timestamps for drifted concepts, surgically updates managed `- \`&lt;path&gt;\` — Undocumented codebase file.` bullets in `## Not yet specified` in `index.md` (preserving curated multi-line notes and prose byte-for-byte), prints and logs the exact frontier delta (`+X new, -Y removed, Z already listed`), and runs `okf-lint --drift` (pass `--viz` or run `okf-visualize` to generate `viz.html`).
 
-## Quick Reference
+&gt; **Conditional `okf-learn` Agent Trigger:** If `maintain.js` outputs a `💡 [OKF Self-Improvement]` anomaly nudge at the end of its run (e.g., reporting `query_miss`, `context_bloat`, or `slow_exec`), immediately invoke the `okf-learn` skill: bind missed workspace files into the relevant concept via `node okf-learn/scripts/learn.js --bind &lt;file&gt; --concept &lt;concept&gt;` or queue a cross-repo skill improvement note via `node okf-learn/scripts/learn.js --note "&lt;finding&gt;" --skill &lt;skill-name&gt;`.
 
-| Command / Flag | Action | Modifies Files? | Exit Code |
-|---|---|---|---|
-| `--check` / `--dry-run` | Audits bundle for prunable concepts | No | 0 if clean, 1 if candidates found |
-| `--archive` (default) | Moves concepts to `archive/`, sets `status: deprecated`, updates `index.md` and `log.md` | Yes | 0 |
-| `--delete` | Permanently deletes files, cleans `index.md` &amp; `log.md` | Yes | 0 |
-| `--stale` | Targets only concepts where `now &gt;= stale_after` | Condition-dependent | 0 / 1 |
-| `--deprecated` | Targets only concepts with `status: deprecated` | Condition-dependent | 0 / 1 |
-| `--ghosts` | Targets concepts whose local `resource`, `sources`, `computation`, `executor`, or `attester` files are missing | Condition-dependent | 0 / 1 |
-| `--orphans` | Targets concepts with 0 incoming links (including transitive orphans) | Condition-dependent | 0 / 1 |
-| `--json` | Emits structured JSON result | Same as mode | 0 / 1 |
+### Semantic Maintenance &amp; New Concepts
 
-## Pruning Criteria &amp; Rules
+1. **Guard: confirm a bundle exists.** Look for an `okf/` directory at the repo root (or the bundle root this repo uses). If there is none, stop — there is nothing to maintain.
+   - Done when you have the bundle root, or have stopped.
 
-1. **Expired Concepts (`--stale`, §5.5)**
-   - Concept has a `stale_after` timestamp in frontmatter.
-   - Evaluated as `Date.now() &gt;= new Date(stale_after).getTime()`.
-   - Action: Archive or re-verify.
+2. **Identify affected and missing concepts.** Map what changed (files edited/created, features added, facts learned) to the concept file(s) that cover it. Check `index.md` if present. If your changes introduced a new significant database schema/collection, API route module, frontend dashboard page, core system component, platform-specific/sandbox constraint (e.g., mobile WebView/in-app browser quirks, CORS limitations, CDN asset blockages), developer utility page (like testing environments), or a new codebase behavior or pattern that warrants a permanent engineering guideline, identify it as a concept that must be updated or created. Track any undocumented files (the "frontier") to be indexed in the `index.md` under `## Not yet specified`.
+   - Done when you have the list of concepts to update and new concepts to create, or have confirmed none apply (then stop).
 
-2. **Deprecated Concepts (`--deprecated`, §5.4)**
-   - Concept frontmatter contains `status: deprecated`.
-   - Per OKF v0.2 §5.4, deprecated concepts are kept for history and links but should not remain in active concept listings.
-   - Action: Move to `archive/` subfolder and update `index.md` listing.
+3. **Update and/or create concepts.** Edit existing affected concepts to match reality. If you identified missing concepts in Step 2, you can invoke the `okf-wayfinder` skill to guide the authoring of new concept files by interviewing the developer. In both cases: set or refresh the `generated` frontmatter block (updating `at` with the current UTC ISO timestamp using `date -u +%Y-%m-%dT%H:%M:%SZ` and setting/preserving `by` with standard actor format `&lt;producer&gt;/&lt;version&gt;`, `human:&lt;id&gt;`, or `process:&lt;id&gt;`), update `sources` if references changed, cross-link related concepts, and follow the `okf` skill guidelines for frontmatter and structure.
+   - Done when every affected concept reflects the change and all new concepts are authored.
 
-3. **Ghost Concepts (`--ghosts`, §6.2 &amp; §10.2)**
-   - Concept has a local path in `resource`, `sources` (string or `{ resource }` object), `computation`, `executor.resource`, or `attester.resource` whose file has been deleted from the repository. External URI schemes (`https://`, `bigquery://`, `gs://`, etc.) and scope descriptors (§5.1) are excluded.
-   - Action: Clean up or archive to prevent drift errors.
+4. **Update reserved files.** Append a dated line to `log.md` under an ISO 8601 `## YYYY-MM-DD` date heading describing the changes and additions. If you added a new concept, add it to `index.md` (and remove it from `## Not yet specified` if it was there). If any new undocumented workspace files are identified, list them under the `## Not yet specified` section of `index.md` to map the known frontier.
+   - Done when `log.md` records the change and `index.md` lists any new concept and updates the undocumented frontier list — for each reserved file the bundle uses.
 
-4. **Orphaned Concepts (`--orphans`, §5.1 &amp; §6.1)**
-   - Concept has 0 inbound links across `index.md`, active concept markdown bodies (outside code blocks), and `sources` concept lineage references.
-   - Action: Archive or link into the concept hierarchy.
+5. **Steering Notice Upkeep.** Check if any agent steering files in the workspace root (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, or `GEMINI.md`) contain OKF directives. If any contain the version comment `&lt;!-- okf-steering-version: 1.8.2 --&gt;` or mention OKF, verify they are at version `1.8.2` with both the Pre-Work Grounding Gate (including Step 4: Model-Tier Routing) and the Pre-Completion Verification Gate (including Step 1: Semantic Concept &amp; Source Binding Upkeep). If the comment is missing or references a version older than `1.8.2`, automatically update or overwrite the steering directives block without prompting for user confirmation (or run `node okf-maintain/scripts/maintain.js`), as this is a required conformance gate.
+   - Done when all present OKF steering notices contain the correct up-to-date directives and the `&lt;!-- okf-steering-version: 1.8.2 --&gt;` comment.
+
+6. **Conformance gate.** Verify the bundle still conforms, per the `okf` skill.
+   - Done when every non-reserved `.md` has parseable frontmatter with a non-empty `type`.
+
+## Concept Verification, Pruning &amp; Skill Self-Update Reference
+
+- **Verification (`--verify` &amp; `--stale-after`):**
+  - Appends/updates `verified: [{ by: &lt;actor&gt;, at: &lt;ISO-now&gt; }]` (defaulting `--by` to `human:&lt;git-user-slug&gt;`) to elevate a concept's Trust Tier (`human-reviewed` for `human:&lt;id&gt;`, `machine-confirmed` for `&lt;producer&gt;/&lt;version&gt;` or `process:&lt;id&gt;`).
+  - Supports `--stale-after &lt;days&gt;d` (e.g., `90d`), explicit `YYYY-MM-DD` or ISO timestamp, or `none` (or `--clear-stale`) to remove `stale_after`. When `--verify` is run on a concept with an expired `stale_after` without `--stale-after`, it automatically rolls `stale_after` forward by `+90d`.
+- **Lifecycle Pruning (`--prune`, `okf-maintain/scripts/prune.js`):**
+  - Audits (`--check` / `--dry-run`), archives (default, moving to `archive/` with `status: deprecated`), or permanently deletes (`--delete`) concepts matching `--stale` (`now &gt;= stale_after`), `--deprecated` (`status: deprecated`), `--ghosts` (missing local `resource`/`sources`/`computation` files), or `--orphans` (0 inbound links, including transitive orphans).
+- **Bundle Migration &amp; Skill Sync (`--upgrade`, `okf-maintain/scripts/upgrade.js`):**
+  - Migrates legacy OKF v0.1 bundles (`timestamp` -&gt; `generated`, `# Citations` -&gt; `sources`, `index.md` `okf_version: "0.2"`, `agent:` actor prefix stripping, comma-separated `resource` splitting, `log.md` date heading normalization, bare link auto-fixing).
+  - Running `--upgrade --skills` (or `--skills` / `--all`) synchronizes all 7 OKF skills (`okf`, `okf-maintain`, `okf-visualize`, `okf-wayfinder`, `okf-lint`, `okf-query`, `okf-learn`) across `~/.gemini/config/skills`, `~/.claude/skills`, `~/.claude-*/skills`, `$CLAUDE_CONFIG_DIR/skills`, `~/.codex/skills`, `~/.codex-*/skills`, `$CODEX_HOME/skills`, and `~/.agents/skills`, and automatically removes deprecated legacy skill folders (`okf-prune`, `okf-upgrade`).
+
+## Reorganization &amp; Link Upkeep
+
+- **Scale Trigger:** When a concept addition pushes the root concepts count past 10, check if the bundle should transition to a nested layout. Recommend this restructure to the user before executing.
+- **Link Refactoring:** When moving concept files, update all bundle-relative links in the body of all affected files (e.g., rewrite `[Auth](/auth.md)` to `[Auth](/subsystems/auth.md)`) and refresh the `index.md` listing.
 </code></pre>
                </div>
 
@@ -3980,7 +4015,7 @@ node okf-learn/scripts/learn.js --reset
 
 4. **Verify, Commit via Git PR Workflow, Deploy &amp; Reset**
    - Run `node okf-maintain/scripts/maintain.js` and `node okf-lint/scripts/lint.js --drift` (must report 0 errors and 0 warnings).
-   - When modifying `okf-skills`, run `npm test`, follow the Git PR workflow (`git checkout -b feat/...`, commit, `git push -u origin HEAD`, `gh pr create`, `gh pr merge --rebase --delete-branch`, `git checkout main &amp;&amp; git pull --ff-only`), deploy updated skills to all local agent directories via `node okf-upgrade/scripts/upgrade.js --skills`, and reset processed telemetry, notes, and the session history watermark via `node okf-learn/scripts/learn.js --reset`.
+   - When modifying `okf-skills`, run `npm test`, follow the Git PR workflow (`git checkout -b feat/...`, commit, `git push -u origin HEAD`, `gh pr create`, `gh pr merge --rebase --delete-branch`, `git checkout main &amp;&amp; git pull --ff-only`), deploy updated skills to all local agent directories via `node okf-maintain/scripts/maintain.js --upgrade --skills`, and reset processed telemetry, notes, and the session history watermark via `node okf-learn/scripts/learn.js --reset`.
 </code></pre>
                </div>
 

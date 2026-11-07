@@ -7,7 +7,7 @@ status: stable
 tags: [self-improvement, telemetry, evaluation, learning]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-07T15:16:19.789Z
+  at: 2026-11-07T16:09:03.827Z
 sources:
   - okf-learn/scripts/learn.js
   - scripts/test-lifecycle.js

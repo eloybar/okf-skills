@@ -654,7 +654,7 @@ function scanAndLint(dir, bundleRoot, workspaceRoot, checkDrift, strictLinks = f
         const verifiers = Array.isArray(fm.verified) ? fm.verified : [fm.verified];
         verifiers.forEach(v => {
           if (v && typeof v.by === 'string' && v.by.startsWith('agent:')) {
-            results.warnings.push(`[${relativePath}] Warning: 'verified.by' uses non-standard '${v.by}'. OKF v0.2 actor convention (§7) uses <producer>/<version> for agents (without 'agent:' prefix), human:<id>, or process:<id>. Run okf-upgrade to normalize.`);
+            results.warnings.push(`[${relativePath}] Warning: 'verified.by' uses non-standard '${v.by}'. OKF v0.2 actor convention (§7) uses <producer>/<version> for agents (without 'agent:' prefix), human:<id>, or process:<id>. Run okf-maintain --upgrade to normalize.`);
           }
         });
       }

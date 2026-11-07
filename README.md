@@ -64,12 +64,12 @@ Generates dynamic Cytoscape.js HTML graph visualizations of concepts, dependenci
 * **Component**: [okf-visualize/SKILL.md](okf-visualize/SKILL.md)
 
 ### 9. Bundle Upgrader
-Migrates legacy OKF v0.1 bundles to the modern OKF v0.2 format, correcting schema definitions and fixing bare links.
-* **Component**: [okf-upgrade/SKILL.md](okf-upgrade/SKILL.md)
+Migrates legacy OKF v0.1 bundles to the modern OKF v0.2 format, correcting schema definitions and fixing bare links (`maintain.js --upgrade`).
+* **Component**: [okf-maintain/SKILL.md](okf-maintain/SKILL.md) (`okf-maintain/scripts/upgrade.js`)
 
 ### 10. Lifecycle Pruning & Garbage Collection
-Audits, archives, and cleans up expired, deprecated, broken, or orphaned concepts across the knowledge base.
-* **Component**: [okf-prune/SKILL.md](okf-prune/SKILL.md)
+Audits, archives, and cleans up expired, deprecated, broken, or orphaned concepts across the knowledge base (`maintain.js --prune`).
+* **Component**: [okf-maintain/SKILL.md](okf-maintain/SKILL.md) (`okf-maintain/scripts/prune.js`)
 
 ### 11. Retrospective Self-Improvement & Telemetry Loop
 Audits agent conversation transcripts (`transcript.jsonl`), passive CLI telemetry (`~/.okf/telemetry.jsonl`), and cross-repo skill learning notes (`~/.okf/skill-learnings.jsonl`) to extract qualitative lessons and auto-remediate query misses or context bloat.
@@ -120,8 +120,8 @@ If your agent environment supports the `npx skills@latest` tool:
 * **To Check for Updates / Update / Remove**:
   ```bash
   npx skills@latest check
-  npx skills@latest update okf okf-wayfinder okf-upgrade okf-query okf-prune okf-lint okf-maintain okf-visualize okf-learn
-  npx skills@latest remove okf okf-wayfinder okf-upgrade okf-query okf-prune okf-lint okf-maintain okf-visualize okf-learn
+  npx skills@latest update okf okf-wayfinder okf-query okf-lint okf-maintain okf-visualize okf-learn
+  npx skills@latest remove okf okf-wayfinder okf-query okf-lint okf-maintain okf-visualize okf-learn
   ```
 
 > [!TIP]
@@ -224,12 +224,10 @@ This repository implements the above pipeline via the following custom agent ski
 
 * **[okf/](okf/)**: Handles creation and structure of Open Knowledge Format (OKF) bundles.
 * **[okf-wayfinder/](okf-wayfinder/)**: Guides users through bootstrapping and documenting concepts using context-aware questionnaires.
-* **[okf-maintain/](okf-maintain/)**: Runs validation after changes to keep concepts updated.
+* **[okf-maintain/](okf-maintain/)**: Runs post-edit drift sync, concept verification (`--verify` & `--stale-after`), lifecycle pruning (`--prune`), and v0.2 bundle/skill upgrades (`--upgrade`, `--skills`).
 * **[okf-visualize/](okf-visualize/)**: Generates the interactive Cytoscape graphs.
 * **[okf-lint/](okf-lint/)**: Statically analyzes the bundle to check conformance, link integrity, and concept drift.
 * **[okf-query/](okf-query/)**: Performs keyword search and codebase-resource context retrieval.
-* **[okf-upgrade/](okf-upgrade/)**: Automatically upgrades an OKF bundle from v0.1 to v0.2 and synchronizes installed skills.
-* **[okf-prune/](okf-prune/)**: Automatically identifies, archives, and prunes stale, deprecated, ghost, and orphaned concepts.
 * **[okf-learn/](okf-learn/)**: Audits session transcripts and passive CLI telemetry to extract qualitative lessons and auto-remediate bundle and skill friction.
 * **[index.html](index.html)**: The visual playbook and token simulator.
 

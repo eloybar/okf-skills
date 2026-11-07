@@ -15,8 +15,8 @@ const scripts = {
   maintain: path.resolve(__dirname, '../okf-maintain/scripts/maintain.js'),
   query: path.resolve(__dirname, '../okf-query/scripts/query.js'),
   visualize: path.resolve(__dirname, '../okf-visualize/scripts/visualize.js'),
-  upgrade: path.resolve(__dirname, '../okf-upgrade/scripts/upgrade.js'),
-  prune: path.resolve(__dirname, '../okf-prune/scripts/prune.js'),
+  upgrade: path.resolve(__dirname, '../okf-maintain/scripts/upgrade.js'),
+  prune: path.resolve(__dirname, '../okf-maintain/scripts/prune.js'),
   learn: path.resolve(__dirname, '../okf-learn/scripts/learn.js')
 };
 
@@ -1200,9 +1200,13 @@ Body.
     process.platform === 'win32' ? 'junction' : 'dir'
   );
 
+  // Pre-seed legacy okf-upgrade and okf-prune directories to verify automatic cleanup during --skills sync
+  fs.mkdirSync(path.join(fakeHomeDir, '.gemini', 'config', 'skills', 'okf-upgrade'), { recursive: true });
+  fs.mkdirSync(path.join(fakeHomeDir, '.gemini', 'config', 'skills', 'okf-prune'), { recursive: true });
+
   const repoRootDir = path.resolve(__dirname, '..');
   const upgradeSkillsOut = execSync(
-    `node "${scripts.upgrade}" --skills --home "${fakeHomeDir}" --source "${repoRootDir}"`,
+    `node "${scripts.maintain}" --upgrade --skills --home "${fakeHomeDir}" --source "${repoRootDir}"`,
     { cwd: tempDir }
   ).toString();
 
@@ -1217,19 +1221,31 @@ Body.
   for (const agentSkillDir of expectedAgentDirs) {
     assert.ok(
       fs.existsSync(path.join(agentSkillDir, 'okf-maintain', 'scripts', 'maintain.js')),
-      `okf-upgrade --skills must install okf-maintain into ${agentSkillDir}`
+      `okf-maintain --upgrade --skills must install okf-maintain into ${agentSkillDir}`
     );
     assert.ok(
-      fs.existsSync(path.join(agentSkillDir, 'okf-upgrade', 'scripts', 'upgrade.js')),
-      `okf-upgrade --skills must install okf-upgrade into ${agentSkillDir}`
+      fs.existsSync(path.join(agentSkillDir, 'okf-maintain', 'scripts', 'upgrade.js')),
+      `okf-maintain --upgrade --skills must install consolidated upgrade.js inside okf-maintain into ${agentSkillDir}`
+    );
+    assert.ok(
+      fs.existsSync(path.join(agentSkillDir, 'okf-maintain', 'scripts', 'prune.js')),
+      `okf-maintain --upgrade --skills must install consolidated prune.js inside okf-maintain into ${agentSkillDir}`
     );
     assert.ok(
       fs.existsSync(path.join(agentSkillDir, 'okf-learn', 'scripts', 'learn.js')),
-      `okf-upgrade --skills must install okf-learn into ${agentSkillDir}`
+      `okf-maintain --upgrade --skills must install okf-learn into ${agentSkillDir}`
+    );
+    assert.ok(
+      !fs.existsSync(path.join(agentSkillDir, 'okf-upgrade')),
+      `okf-maintain --upgrade --skills must remove legacy okf-upgrade directory from ${agentSkillDir}`
+    );
+    assert.ok(
+      !fs.existsSync(path.join(agentSkillDir, 'okf-prune')),
+      `okf-maintain --upgrade --skills must remove legacy okf-prune directory from ${agentSkillDir}`
     );
   }
-  assert.ok(upgradeSkillsOut.includes('Operation complete'), 'okf-upgrade --skills should print completion summary');
-  console.log('✓ okf-upgrade --skills synchronized all 9 skills across Antigravity, Claude profiles, Codex profiles, and Universal directories.');
+  assert.ok(upgradeSkillsOut.includes('Operation complete'), 'okf-maintain --upgrade --skills should print completion summary');
+  console.log('✓ okf-maintain --upgrade --skills synchronized all 7 consolidated skills and removed legacy okf-upgrade/okf-prune directories across Antigravity, Claude profiles, Codex profiles, and Universal directories.');
 
   // === STEP 20: SKILL EVALUATION IMPROVEMENTS (WINDOWS STEERING PATHS, MEDIA FRONTIER, COMMA RESOURCE SPLIT, AUTO-INDEXING) ===
   console.log('Step 20: Testing skill evaluation improvements (Windows ~/ steering fix, static media exclusion, comma resource split, unindexed concept auto-indexing)...');
@@ -2377,7 +2393,73 @@ Body.
     'After --reset, --recent must exclude older transcripts modified before resetAt'
   );
 
+  // 22i. Concept Verification (--verify), stale_after renewal (--stale-after, --all-stale, --clear-stale), and --prune delegation on maintain.js
+  const verifyTargetConcept = path.join(queryPerfBundle, 'z_frontend', 'z_admin_panel.md');
+  // Set an expired stale_after on z_admin_panel.md
+  const preVerifyContent = fs.readFileSync(verifyTargetConcept, 'utf8').replace(
+    /^---\r?\n/,
+    '---\nstale_after: 2020-01-01T00:00:00Z\n'
+  );
+  fs.writeFileSync(verifyTargetConcept, preVerifyContent, 'utf8');
+
+  // Verify maintain.js --prune --check --stale detects the expired concept
+  let pruneDelegateDetected = false;
+  try {
+    execSync(`node "${scripts.maintain}" --prune --check --stale --json`, { cwd: queryPerfWorkspace, stdio: 'pipe' });
+  } catch (err) {
+    const pJson = JSON.parse(err.stdout.toString());
+    pruneDelegateDetected = pJson.candidates.some(c => c.relPath.includes('z_admin_panel.md'));
+  }
+  assert.equal(pruneDelegateDetected, true, 'maintain.js --prune --check --stale must detect expired z_admin_panel.md');
+
+  // Run maintain.js --verify --all-stale --by human:alice (auto-renews expired stale_after by +90d and stamps verified)
+  const verifyAllStaleJson = JSON.parse(
+    execSync(`node "${scripts.maintain}" --verify --all-stale --by human:alice --json`, {
+      cwd: queryPerfWorkspace,
+      env: learnEnv
+    }).toString()
+  );
+  assert.equal(verifyAllStaleJson.success, true, 'maintain.js --verify --all-stale must succeed');
+  assert.equal(verifyAllStaleJson.verifiedCount, 1, 'maintain.js --verify --all-stale must verify the 1 expired concept');
+  assert.equal(verifyAllStaleJson.results[0].trustTier, 'human-reviewed', 'human:alice verification must elevate Trust Tier to human-reviewed');
+  assert.ok(
+    verifyAllStaleJson.results[0].staleAfter.includes('+90d auto-renewed'),
+    'Verifying an expired concept without --stale-after must auto-renew stale_after by +90d'
+  );
+
+  // Querying z_admin_panel.md now shows Trust Tier: human-reviewed
+  const verifiedQueryOut = execSync(`node "${scripts.query}" --file admin_panel.js`, {
+    cwd: queryPerfWorkspace,
+    env: learnEnv
+  }).toString();
+  assert.ok(
+    verifiedQueryOut.includes('Trust Tier:  human-reviewed'),
+    `Verified concept must display Trust Tier: human-reviewed in okf-query output, got:\n${verifiedQueryOut}`
+  );
+
+  // Test explicit --stale-after 2028-06-01 and --clear-stale
+  const explicitStaleJson = JSON.parse(
+    execSync(`node "${scripts.maintain}" --verify z_frontend/z_admin_panel.md --by process:ci-bot --stale-after 2028-06-01 --json`, {
+      cwd: queryPerfWorkspace,
+      env: learnEnv
+    }).toString()
+  );
+  assert.equal(explicitStaleJson.results[0].staleAfter, '2028-06-01T00:00:00Z', 'Explicit YYYY-MM-DD --stale-after must set UTC ISO timestamp');
+  const postExplicitFm = maintainMod.parseFrontmatter(fs.readFileSync(verifyTargetConcept, 'utf8'));
+  assert.equal(postExplicitFm.verified.length, 2, 'Multiple verifiers (human:alice and process:ci-bot) must both be preserved in verified[]');
+
+  const clearStaleJson = JSON.parse(
+    execSync(`node "${scripts.maintain}" --verify z_admin_panel.md --clear-stale --json`, {
+      cwd: queryPerfWorkspace,
+      env: learnEnv
+    }).toString()
+  );
+  assert.equal(clearStaleJson.results[0].staleAfter, 'cleared', '--clear-stale must remove stale_after from frontmatter');
+  const postClearFm = maintainMod.parseFrontmatter(fs.readFileSync(verifyTargetConcept, 'utf8'));
+  assert.equal(postClearFm.stale_after, undefined, 'stale_after key must be absent after --clear-stale');
+
   console.log('✓ okf-learn session audit, learning signals extraction, and --bind auto-remediation verified.');
+  console.log('✓ Concept verification (--verify, --stale-after, --all-stale, --clear-stale) and consolidated --prune/--upgrade verified.');
   console.log('✓ Skill self-improvement telemetry, pre-completion nudge, and --evaluate transcript analyzer verified.');
   console.log('✓ okf-query primary ranking, basename fallback, search output budgeting, and batched git log verified.');
   console.log('✓ Windows ~/ steering fix, static media frontier exclusion, smart comma resource split, and unindexed concept auto-indexing verified.');

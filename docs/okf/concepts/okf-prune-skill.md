@@ -2,18 +2,19 @@
 type: Skill
 title: OKF Prune Skill
 description: Automated lifecycle cleanup, archiving, and garbage collection for OKF bundles.
-resource: okf-prune/SKILL.md
+resource: okf-maintain/scripts/prune.js
 tags: [pruning, cleanup, lifecycle, archiving, automation]
 status: stable
 generated:
   by: Antigravity/4.0
-  at: 2026-11-04T17:44:29.668Z
+  at: 2026-11-07T16:09:03.827Z
 sources:
-  - okf-prune/scripts/prune.js
+  - okf-maintain/SKILL.md
+  - okf-maintain/scripts/maintain.js
 ---
 
 # Overview
-The `okf-prune` skill manages bundle hygiene and concept lifecycles by detecting and cleaning up outdated or invalid knowledge documents. It provides automated CLI workflows for archiving or permanently removing expired, deprecated, orphaned, or broken concepts.
+Consolidated into [OKF Maintain Skill](/concepts/okf-maintain-skill.md) (`node okf-maintain/scripts/maintain.js --prune` or `node okf-maintain/scripts/prune.js`), the OKF Prune engine manages bundle hygiene and concept lifecycles by detecting and cleaning up outdated or invalid knowledge documents. It provides automated CLI workflows for archiving or permanently removing expired, deprecated, orphaned, or broken concepts.
 
 # Key Functions
 - **Audit & Check Mode**: Detects concepts that have passed `stale_after` expiration, carry `status: deprecated`, reference deleted local files across `resource`, `sources` (string and object entries), `computation`, `executor.resource`, and `attester.resource` (while decoding percent-encoded `file://` URIs, stripping `#fragment`/`?query` suffixes, safely ignoring non-`file://` URI schemes like `bigquery://` or `git:<sha>:<path>` and scope descriptors, and resolving `workspaceRoot` automatically when `--bundle <path>` points to another repository), or have zero inbound links across markdown body links and `sources` concept lineage references.
