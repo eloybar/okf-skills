@@ -1288,13 +1288,17 @@ Guide the developer through creating a brand new, fully conforming OKF v0.2 conc
      - Candidate inline cross-links using `relatedConcepts[].markdownLink`.
      - Suggested failover/review owners from `git.primaryAuthors`.
 
-4. **Conduct the Focus Interview (Type-Aware)**
-   - Ask **at most 3 targeted questions** (using structured question tools where appropriate) to extract tribal knowledge that static code analysis cannot infer, tailored to the chosen `type`:
-     - **Service / Subsystem / Concept:** *"What are the SLA expectations, critical failure modes, or non-obvious architectural constraints?"*
-     - **Database / Data Model:** *"What is the data retention/partitioning policy, and who owns upstream ingestion?"*
-     - **Playbook / Operations:** *"What triggers this runbook, who is the escalation contact if it fails, and when should it be re-verified (`stale_after`, e.g., 90 or 180 days)?"*
-     - **Decision (ADR):** *"What problem context forced this decision, what alternatives were rejected, and what are the trade-offs?"*
-     - **Attested Computation:** *"What is the execution `runtime` (e.g., `bigquery`, `postgres`, `python`, `dbt`), what typed `parameters` are required, and which scripts act as `executor` and `attester`?"*
+4. **Conduct the Focus Interview (Type-Aware &amp; Complexity-Scaled: 1–3 Default, Max 7)**
+   - Scale the number of targeted questions to the complexity of the concept and prompt (using structured question tools like `ask_question` / `AskUserQuestion` where appropriate) to extract tribal knowledge that static code analysis cannot infer:
+     - **Default / Code-Backed Concepts (1–3 questions):** Use when `--inspect` already inferred exports, imports, and lineage for a single file, utility, or straightforward module.
+     - **Moderate Multi-File Subsystems, ADRs &amp; Playbooks (4–5 questions):** Use when documenting multi-file `frontierGroups`, architectural decisions, or operational runbooks that span domain invariants, failure/retry semantics, auth boundaries, downstream consumers, and `stale_after` review cadences.
+     - **High-Complexity / Greenfield / `Attested Computation` Specs (6–7 questions max, only when needed):** Use up to a hard cap of **7 questions** (grouped cleanly into 1–2 concise structured batches) only when bootstrapping greenfield architecture with no existing code or specifying a full `Attested Computation` contract (`runtime`, `parameters`, `computation`, `executor`, `attester`, data lineage, and SLA thresholds).
+   - Tailor questions to the chosen `type`:
+     - **Service / Subsystem / Concept:** *"What are the SLA expectations, critical failure modes, security/auth boundaries, or non-obvious architectural constraints?"*
+     - **Database / Data Model:** *"What is the data retention/partitioning policy, what invariants must hold across writes, and who owns upstream ingestion?"*
+     - **Playbook / Operations:** *"What triggers this runbook, what are the verification/rollback steps, who is the escalation contact if it fails, and when should it be re-verified (`stale_after`, e.g., 90 or 180 days)?"*
+     - **Decision (ADR):** *"What problem context forced this decision, what alternatives were rejected, what are the trade-offs, and what conditions would trigger revisiting it?"*
+     - **Attested Computation:** *"What is the execution `runtime` (e.g., `bigquery`, `postgres`, `python`, `dbt`), what typed `parameters` are required, which scripts act as `executor` and `attester`, and what validation thresholds must pass?"*
 
 5. **Draft, Attest Human Verification, and Sync Lifecycle**
    - Compile the inputs into a clean `.md` concept file placed according to `layoutMode` and existing `subdirectories` (see **Directory Organization &amp; Scaling**).
