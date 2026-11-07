@@ -4013,9 +4013,10 @@ node okf-learn/scripts/learn.js --reset
      - Add regression tests to `scripts/test-lifecycle.js`.
      - **Sanitize Test Fixtures &amp; Changelog Entries (MANDATORY):** Never copy real project names, client/company identifiers, OS usernames, private LAN IPs (`192.168.x.x`), machine-specific drive URIs (`file:///&lt;Drive&gt;:/...`), or real session UUIDs from audited transcripts into `scripts/test-*.js`, `docs/okf/log.md`, or `docs/okf/concepts/`. Always anonymize them into generic fixtures (`webapp`, `GatewayService`, `Acme`, `jdoe`, `192.0.2.10`, `00000000-0000-4000-8000-000000000001`). This is enforced automatically by `scripts/sync-skills.js --check` during `npm test`.
 
-4. **Verify, Commit via Git PR Workflow, Deploy &amp; Reset**
-   - Run `node okf-maintain/scripts/maintain.js` and `node okf-lint/scripts/lint.js --drift` (must report 0 errors and 0 warnings).
-   - When modifying `okf-skills`, run `npm test`, follow the Git PR workflow (`git checkout -b feat/...`, commit, `git push -u origin HEAD`, `gh pr create`, `gh pr merge --rebase --delete-branch`, `git checkout main &amp;&amp; git pull --ff-only`), deploy updated skills to all local agent directories via `node okf-maintain/scripts/maintain.js --upgrade --skills`, and reset processed telemetry, notes, and the session history watermark via `node okf-learn/scripts/learn.js --reset`.
+4. **Verify, Commit via Git PR Workflow, Deploy &amp; Always Reset (MANDATORY)**
+   - If you edited files in the current workspace, run `node okf-maintain/scripts/maintain.js` and `node okf-lint/scripts/lint.js --drift` (must report 0 errors and 0 warnings).
+   - When modifying `okf-skills`, run `npm test`, follow the Git PR workflow (`git checkout -b feat/...`, commit, `git push -u origin HEAD`, `gh pr create`, `gh pr merge --rebase --delete-branch`, `git checkout main &amp;&amp; git pull --ff-only &amp;&amp; git fetch --prune`), and deploy updated skills to all local agent directories via `node okf-maintain/scripts/maintain.js --upgrade --skills`.
+   - **Always Reset on Completion (Unconditional):** At the end of **every** `/okf-learn` invocation—whether running in a project workspace, inside `okf-skills`, or when zero issues were found—always execute `node okf-learn/scripts/learn.js --reset` so processed telemetry (`~/.okf/telemetry.jsonl`), skill notes (`~/.okf/skill-learnings.jsonl`), and the session history watermark (`~/.okf/learn-state.json`) are automatically advanced for the next session.
 </code></pre>
                </div>
 
