@@ -2509,6 +2509,62 @@ Body.
     'wayfinder --inspect must not match unrelated concepts in sibling src/ subdirectories'
   );
 
+  // 19l. Test Sources: header display, missing-file fallback notice, concept .md basename fallback in okf-query,
+  //      and per-block contextBloat measurement across chained query.js calls in learn.js
+  const fallbackNoteOut = execSync(`node "${scripts.query}" --file js/admin_panel.js`, {
+    cwd: queryPerfWorkspace,
+    env: learnEnv
+  }).toString();
+  assert.ok(
+    fallbackNoteOut.includes('Note: Queried path(s) not found on disk: js/admin_panel.js'),
+    'okf-query must emit a missing-file note when a queried --file path does not exist on disk and resolves via fallback'
+  );
+  assert.ok(
+    fallbackNoteOut.includes('Sources:     admin_panel.js'),
+    'okf-query must print Sources: header line for concepts with secondary sources'
+  );
+
+  const mdBasenameOut = execSync(`node "${scripts.query}" --file z_admin_panel.md`, {
+    cwd: queryPerfWorkspace,
+    env: learnEnv
+  }).toString();
+  assert.ok(
+    mdBasenameOut.includes('[Concept: Primary Admin Panel Module]'),
+    'okf-query --file on a bare concept .md filename must resolve the concept via Tier 1C basename fallback'
+  );
+
+  const chainedBlocksStepOut = [
+    '=== OKF CONTEXT BLOCK (1 concept(s) found) ===',
+    'A'.repeat(22000),
+    '========================================',
+    '=== OKF CONTEXT BLOCK (1 concept(s) found) ===',
+    'B'.repeat(22000),
+    '========================================'
+  ].join('\n');
+  const chainedStepDir = path.join(mockBrainDir, readOnlyConvId, '.system_generated', 'steps', '99');
+  fs.mkdirSync(chainedStepDir, { recursive: true });
+  const chainedOutPath = path.join(chainedStepDir, 'output.txt');
+  fs.writeFileSync(chainedOutPath, chainedBlocksStepOut, 'utf8');
+  const chainedSteps = [
+    ...readOnlySteps,
+    {
+      step_index: 99,
+      type: 'TOOL_RESPONSE',
+      status: 'DONE',
+      created_at: '2026-11-06T14:05:00Z',
+      content: `The tool's output was truncated due to being too long. You can find the full output in a file at file:///${chainedOutPath.replace(/\\/g, '/')}.`
+    }
+  ];
+  const chainedTranscriptPath = path.join(readOnlyDir, 'transcript.jsonl');
+  fs.writeFileSync(chainedTranscriptPath, chainedSteps.map(s => JSON.stringify(s)).join('\n') + '\n', 'utf8');
+  const learnMod = require(scripts.learn);
+  const chainedEval = learnMod.analyzeSingleTranscript(chainedTranscriptPath, readOnlyConvId);
+  assert.equal(
+    chainedEval.conversation.friction.contextBloat.length,
+    0,
+    'Chained okf-query invocations where each individual OKF CONTEXT BLOCK is <= 40KB must not trigger false-positive contextBloat'
+  );
+
   console.log('✓ okf-learn session audit, learning signals extraction, and --bind auto-remediation verified.');
   console.log('✓ Concept verification (--verify, --stale-after, --all-stale, --clear-stale) and consolidated --prune/--upgrade verified.');
   console.log('✓ Skill self-improvement telemetry, pre-completion nudge, and --evaluate transcript analyzer verified.');

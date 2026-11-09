@@ -3,6 +3,9 @@
 Newest changes recorded chronologically.
 
 
+## 2026-11-08
+- Applied `/okf-learn --latest` audit improvements across `okf-query/scripts/query.js` (displaying `Sources:` in concept metadata headers, printing a `Note: Queried path(s) not found on disk:` warning when a non-existent `--file` path resolves via fallback/directory, and adding Tier 1C `.md` concept path suffix/basename fallback), `okf-learn/scripts/learn.js` (measuring `measureOkfContextBlockBytes` per individual `OKF CONTEXT BLOCK` when multiple `query.js` calls are chained in one shell command), `okf-maintain/scripts/maintain.js` and `AGENTS.md` (guiding agents to batch multiple paths in a single `--file <path[,path2,...]>` call), and `scripts/test-lifecycle.js` (Step 19l).
+
 ## 2026-11-07
 - Added `--help` / `-h` usage and options switches across all OKF CLI scripts (`maintain.js`, `prune.js`, `upgrade.js`, `query.js`, `lint.js`, `learn.js`, `visualize.js`, `wayfinder_taxonomy.js`), documented `--help` invocation in all 7 `SKILL.md` files, and added automated `--help` verification in `scripts/test-parser.js`.
 - Applied `/okf-learn --latest` audit improvements across `okf-query/scripts/query.js` (reducing `MAX_TOTAL_BODY_CHARS` to `20000` and compacting omitted match headers to 3-line summaries), `okf-wayfinder/scripts/wayfinder_taxonomy.js` (scoping `--inspect` `relatedConcepts` on generic containers like `src/` to 2-segment subsystems such as `src/services/`, ranking imported dependencies first, capping `relatedConcepts` at 8, syncing hashed asset/binary frontier exclusions, and compacting default JSON serialization), `okf-learn/scripts/learn.js` (`measureOkfContextBlockBytes` for chained shell commands), and `scripts/test-lifecycle.js` (Step 19k).
@@ -304,3 +307,7 @@ Newest changes recorded chronologically.
   - `okf-visualize-skill.md`
   - `knowledge-loop.md`
 - Created `index.md` as the bundle entrypoint.
+
+## 2026-11-09
+- Synchronized timestamp for 9 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/okf-prune-skill.md, concepts/okf-query-skill.md, concepts/okf-skill.md, concepts/okf-upgrade-skill.md, concepts/skill-catalog-sync.md.
+- Synchronized timestamp for 4 drifted concept(s): concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/skill-catalog-sync.md.
