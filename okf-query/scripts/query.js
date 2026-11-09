@@ -334,6 +334,7 @@ function main() {
   const searchKeyword = rawSearchString ? rawSearchString.toLowerCase().trim() : null;
   const searchTokens = searchKeyword ? tokenizeSearchQuery(searchKeyword) : [];
   const rawFileArgs = [];
+  const missingQueriedFiles = [];
 
   if (fileIndex !== -1) {
     for (let i = 0; i < args.length; i++) {
@@ -408,6 +409,18 @@ function main() {
         for (const c of allConcepts) {
           let hitPrimarySuffix = false;
           let hitPrimaryBase = false;
+          if (rawRelNorm.endsWith('.md')) {
+            const cRel = String(c.relativePath || '').replace(/\\/g, '/').toLowerCase();
+            const cBase = path.basename(cRel);
+            if (rawRelNorm.includes('/') && (cRel === rawRelNorm || cRel.endsWith('/' + rawRelNorm))) {
+              suffixPrimary.push({ concept: c, matchTier: 'primary', fallback: 'fallback-suffix' });
+              continue;
+            }
+            if (targetBase && cBase === targetBase) {
+              basePrimary.push({ concept: c, matchTier: 'primary', fallback: 'fallback-basename' });
+              hitPrimaryBase = true;
+            }
+          }
           for (const uri of collectPrimaryResourceUris(c.frontmatter)) {
             const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
             if (!resPath) continue;
@@ -480,6 +493,10 @@ function main() {
           }
         }
         fileMatches.push(...tier2Primary, ...tier2Secondary);
+      }
+
+      if (!targetExists && fileMatches.length > 0 && !missingQueriedFiles.includes(rawFileArg)) {
+        missingQueriedFiles.push(rawFileArg);
       }
 
       return fileMatches;
@@ -686,6 +703,9 @@ function main() {
     origConsoleLog(...logArgs);
   };
   console.log(`=== OKF CONTEXT BLOCK (${matchedEntries.length} concept(s) found) ===\n`);
+  if (missingQueriedFiles.length > 0) {
+    console.log(`Note: Queried path(s) not found on disk: ${missingQueriedFiles.join(', ')} (matched via fallback/directory — check Resource/Sources below for exact file paths).\n`);
+  }
   for (let idx = 0; idx < matchedEntries.length; idx++) {
     const entry = matchedEntries[idx];
     const c = entry.concept;
@@ -705,6 +725,12 @@ function main() {
     if (shouldPrintFull) {
       if (c.frontmatter.description) console.log(`Description: ${c.frontmatter.description}`);
       if (c.frontmatter.resource)    console.log(`Resource:    ${c.frontmatter.resource}`);
+      const secondaryUris = collectSecondarySourceUris(c.frontmatter);
+      if (secondaryUris.length > 0) {
+        const previewUris = secondaryUris.slice(0, 8);
+        const moreSuffix = secondaryUris.length > 8 ? ` (+${secondaryUris.length - 8} more)` : '';
+        console.log(`Sources:     ${previewUris.join(', ')}${moreSuffix}`);
+      }
       if (c.frontmatter.runtime)     console.log(`Runtime:     ${c.frontmatter.runtime}`);
       if (c.frontmatter.computation) console.log(`Computation: ${c.frontmatter.computation}`);
       if (c.frontmatter.tags)        console.log(`Tags:        ${c.frontmatter.tags.join(', ')}`);

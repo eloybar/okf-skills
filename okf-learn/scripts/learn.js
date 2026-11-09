@@ -243,9 +243,16 @@ function measureOkfContextBlockBytes(rawText) {
   const startIdx = rawText.indexOf('=== OKF CONTEXT BLOCK');
   if (startIdx === -1) return 0;
   const sep = '========================================';
-  const lastSepIdx = rawText.lastIndexOf(sep);
-  const slice = lastSepIdx > startIdx ? rawText.slice(startIdx, lastSepIdx + sep.length) : rawText.slice(startIdx);
-  return Buffer.byteLength(slice, 'utf8');
+  const blocks = rawText.slice(startIdx).split(/(?==== OKF CONTEXT BLOCK)/);
+  let maxBlockBytes = 0;
+  for (const blk of blocks) {
+    if (!blk.startsWith('=== OKF CONTEXT BLOCK')) continue;
+    const lastSepIdx = blk.lastIndexOf(sep);
+    const slice = lastSepIdx !== -1 ? blk.slice(0, lastSepIdx + sep.length) : blk;
+    const bytes = Buffer.byteLength(slice, 'utf8');
+    if (bytes > maxBlockBytes) maxBlockBytes = bytes;
+  }
+  return maxBlockBytes;
 }
 
 function walkBundleConcepts(dir, bundleRoot, results = []) {
@@ -1586,6 +1593,8 @@ if (require.main === module) {
 module.exports = {
   parseFrontmatter,
   evaluateSkillsPerformance,
+  analyzeSingleTranscript,
+  measureOkfContextBlockBytes,
   bindSourceToConcept,
   recordTelemetry,
   recordSkillLearning,

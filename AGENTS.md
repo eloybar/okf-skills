@@ -8,7 +8,7 @@ Architecture, contracts and procedures for this repository are documented in the
 ## ⚡ Pre-Work Grounding Gate (MANDATORY)
 Before answering questions about the system, planning, or editing:
 1. **Search:** `node okf-query/scripts/query.js --search <keywords>` (or read `docs/okf/index.md`).
-2. **Per-file context:** `node okf-query/scripts/query.js --file <path>` before analyzing or editing a file; if nothing matches, search by module name.
+2. **Per-file context:** `node okf-query/scripts/query.js --file <path[,path2,...]>` before analyzing or editing files (batch multiple paths in one comma-separated call); if nothing matches, search by module name.
 3. **Cite** the concept(s) you used, or state "OKF Check: no matching concept for <topic>".
 4. **Model-Tier Routing:** use the model's **High** setting for bootstrapping, architecture discovery and planning; switch to **Medium** once the plan is approved, for implementation and upkeep.
 
