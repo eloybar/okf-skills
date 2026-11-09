@@ -405,7 +405,8 @@ const OKF_SKILLS = [
 
 const DEPRECATED_OKF_SKILLS = [
   'okf-upgrade',
-  'okf-prune'
+  'okf-prune',
+  'okf-skills'
 ];
 
 const DEFAULT_SKILLS_REPO_URL = 'https://github.com/eloybar/okf-skills.git';
@@ -542,7 +543,10 @@ function upgradeInstalledSkills(options = {}) {
       }
 
       const scriptRepoRoot = path.resolve(__dirname, '..', '..');
+      const allAgentSkillDirs = discoverAgentSkillDirs(homeDir, 'All').map(d => path.resolve(d).toLowerCase());
+      const isScriptInsideAgentSkills = allAgentSkillDirs.includes(path.resolve(path.dirname(scriptRepoRoot)).toLowerCase());
       if (
+        !isScriptInsideAgentSkills &&
         fs.existsSync(path.join(scriptRepoRoot, '.git')) &&
         hasAllOkfSkills(scriptRepoRoot) &&
         path.resolve(scriptRepoRoot).toLowerCase() !== path.resolve(homeCloneDir).toLowerCase()
@@ -550,7 +554,7 @@ function upgradeInstalledSkills(options = {}) {
         tryGitFastForward(scriptRepoRoot);
       }
 
-      if (hasAllOkfSkills(scriptRepoRoot) && fs.existsSync(path.join(scriptRepoRoot, '.git'))) {
+      if (!isScriptInsideAgentSkills && hasAllOkfSkills(scriptRepoRoot) && fs.existsSync(path.join(scriptRepoRoot, '.git'))) {
         sourceDir = scriptRepoRoot;
       } else if (hasAllOkfSkills(homeCloneDir)) {
         sourceDir = homeCloneDir;
@@ -598,6 +602,7 @@ function upgradeInstalledSkills(options = {}) {
         const depPath = path.join(targetDir, deprecatedSkill);
         if (
           fs.existsSync(depPath) &&
+          path.resolve(sourceDir).toLowerCase() !== path.resolve(depPath).toLowerCase() &&
           path.resolve(sourceDir, deprecatedSkill).toLowerCase() !== path.resolve(depPath).toLowerCase()
         ) {
           try {
@@ -669,11 +674,35 @@ function main() {
 
   const cwd = process.cwd();
   const bundleIdx = args.indexOf('--bundle');
-  let bundleRoot = (bundleIdx !== -1 && args[bundleIdx + 1])
-    ? path.resolve(cwd, args[bundleIdx + 1])
-    : path.join(cwd, 'docs', 'okf');
-  if (!fs.existsSync(bundleRoot)) {
-    bundleRoot = path.join(cwd, 'okf');
+  let rawBundleArg = (bundleIdx !== -1 && args[bundleIdx + 1]) ? args[bundleIdx + 1] : null;
+  if (!rawBundleArg && !isSkillsUpdate) {
+    const valueFlags = new Set(['--bundle', '--user', '--agent', '--home', '--source', '--telemetry']);
+    for (let i = 0; i < args.length; i++) {
+      if (valueFlags.has(args[i])) {
+        i++;
+        continue;
+      }
+      if (!args[i].startsWith('-')) {
+        rawBundleArg = args[i];
+        break;
+      }
+    }
+  }
+  let bundleRoot;
+  if (rawBundleArg) {
+    const candidate = path.resolve(cwd, rawBundleArg);
+    if (!fs.existsSync(path.join(candidate, 'index.md')) && fs.existsSync(path.join(candidate, 'docs', 'okf'))) {
+      bundleRoot = path.join(candidate, 'docs', 'okf');
+    } else if (!fs.existsSync(path.join(candidate, 'index.md')) && fs.existsSync(path.join(candidate, 'okf'))) {
+      bundleRoot = path.join(candidate, 'okf');
+    } else {
+      bundleRoot = candidate;
+    }
+  } else {
+    bundleRoot = path.join(cwd, 'docs', 'okf');
+    if (!fs.existsSync(bundleRoot)) {
+      bundleRoot = path.join(cwd, 'okf');
+    }
   }
 
   if (!fs.existsSync(bundleRoot)) {
@@ -685,7 +714,7 @@ function main() {
   }
 
   const parentDir = path.dirname(bundleRoot);
-  const workspaceRoot = (bundleIdx !== -1 && args[bundleIdx + 1])
+  const workspaceRoot = rawBundleArg
     ? (path.basename(parentDir).toLowerCase() === 'docs' ? path.dirname(parentDir) : parentDir)
     : cwd;
 

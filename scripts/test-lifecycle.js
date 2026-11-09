@@ -1200,9 +1200,11 @@ Body.
     process.platform === 'win32' ? 'junction' : 'dir'
   );
 
-  // Pre-seed legacy okf-upgrade and okf-prune directories to verify automatic cleanup during --skills sync
+  // Pre-seed legacy okf-upgrade, okf-prune, and nested okf-skills directories to verify automatic cleanup during --skills sync
   fs.mkdirSync(path.join(fakeHomeDir, '.gemini', 'config', 'skills', 'okf-upgrade'), { recursive: true });
   fs.mkdirSync(path.join(fakeHomeDir, '.gemini', 'config', 'skills', 'okf-prune'), { recursive: true });
+  fs.mkdirSync(path.join(fakeHomeDir, '.gemini', 'config', 'skills', 'okf-skills'), { recursive: true });
+  fs.mkdirSync(path.join(fakeHomeDir, '.claude-enterprise', 'skills', 'okf-skills'), { recursive: true });
 
   const repoRootDir = path.resolve(__dirname, '..');
   const upgradeSkillsOut = execSync(
@@ -1242,6 +1244,10 @@ Body.
     assert.ok(
       !fs.existsSync(path.join(agentSkillDir, 'okf-prune')),
       `okf-maintain --upgrade --skills must remove legacy okf-prune directory from ${agentSkillDir}`
+    );
+    assert.ok(
+      !fs.existsSync(path.join(agentSkillDir, 'okf-skills')),
+      `okf-maintain --upgrade --skills must remove stale nested okf-skills directory from ${agentSkillDir}`
     );
   }
   assert.ok(upgradeSkillsOut.includes('Operation complete'), 'okf-maintain --upgrade --skills should print completion summary');
@@ -2564,6 +2570,39 @@ Body.
     0,
     'Chained okf-query invocations where each individual OKF CONTEXT BLOCK is <= 40KB must not trigger false-positive contextBloat'
   );
+
+  // 19m. Test positional bundle/sub-package path support in okf-lint, okf-maintain, and okf-prune
+  fs.writeFileSync(
+    path.join(nestedBundleDir, 'index.md'),
+    '---\nokf_version: "0.2"\n---\n# Nested Bundle\n\n## Concepts\n- [Nested](/nested-concept.md)\n',
+    'utf8'
+  );
+  fs.writeFileSync(
+    path.join(nestedBundleDir, 'nested-concept.md'),
+    `---\ntype: Concept\ntitle: Nested\ngenerated:\n  by: Antigravity/4.0\n  at: ${new Date().toISOString()}\n---\nBody\n`,
+    'utf8'
+  );
+  const posLintBundleJson = JSON.parse(
+    execSync(`node "${scripts.lint}" --drift subpkg/okf --json`, { cwd: tempDir, env: learnEnv }).toString()
+  );
+  assert.equal(posLintBundleJson.success, true, 'okf-lint must accept positional bundle path (subpkg/okf)');
+  assert.equal(posLintBundleJson.errors.length, 0, 'okf-lint on positional subpkg/okf must report 0 errors');
+
+  const posLintPkgJson = JSON.parse(
+    execSync(`node "${scripts.lint}" --drift subpkg --json`, { cwd: tempDir, env: learnEnv }).toString()
+  );
+  assert.equal(posLintPkgJson.success, true, 'okf-lint must accept positional sub-package directory path (subpkg)');
+
+  const posMaintainPkgJson = JSON.parse(
+    execSync(`node "${scripts.maintain}" --check subpkg --json`, { cwd: tempDir, env: learnEnv }).toString()
+  );
+  assert.equal(posMaintainPkgJson.success, true, 'okf-maintain --check must accept positional sub-package directory path (subpkg)');
+
+  const posPruneBundleJson = JSON.parse(
+    execSync(`node "${scripts.prune}" --check subpkg/okf --json`, { cwd: tempDir, env: learnEnv }).toString()
+  );
+  assert.equal(posPruneBundleJson.success, true, 'okf-prune --check must accept positional bundle path (subpkg/okf)');
+  assert.equal(posPruneBundleJson.candidates.length, 0, 'okf-prune --check on positional subpkg/okf must report 0 candidates');
 
   console.log('✓ okf-learn session audit, learning signals extraction, and --bind auto-remediation verified.');
   console.log('✓ Concept verification (--verify, --stale-after, --all-stale, --clear-stale) and consolidated --prune/--upgrade verified.');

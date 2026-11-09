@@ -6,7 +6,7 @@ resource: install.ps1
 tags: [installation, deployment, powershell, bash]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-07T16:09:03.827Z
+  at: 2026-11-09T14:57:58.455Z
 sources:
   - install.sh
 ---
@@ -22,5 +22,5 @@ The script detects and installs the skills to the configuration folders of all a
 - **Universal / General Agents**: `~/.agents/skills`
 
 # Operations
-- **Install/Update**: Copies the 7 consolidated skill directories (`okf/`, `okf-maintain/`, `okf-visualize/`, `okf-wayfinder/`, `okf-lint/`, `okf-query/`, and `okf-learn/`) directly to target directories, overwriting previous versions and removing legacy `okf-upgrade/` and `okf-prune/` directories. If run outside a clone, it fetches the zip from the GitHub main branch.
+- **Install/Update**: Copies the 7 consolidated skill directories (`okf/`, `okf-maintain/`, `okf-visualize/`, `okf-wayfinder/`, `okf-lint/`, `okf-query/`, and `okf-learn/`) directly to target directories, overwriting previous versions and removing legacy `okf-upgrade/`, `okf-prune/`, and stale nested `okf-skills/` directories. If run outside a clone, it fetches the zip from the GitHub main branch.
 - **Remove**: Deletes the skill folders recursively from the target paths.

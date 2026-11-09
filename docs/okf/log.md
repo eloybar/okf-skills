@@ -3,6 +3,12 @@
 Newest changes recorded chronologically.
 
 
+## 2026-11-09
+- Applied `/okf-learn --latest` audit improvements across `okf-lint/scripts/lint.js`, `okf-maintain/scripts/maintain.js`, `okf-maintain/scripts/prune.js`, and `okf-maintain/scripts/upgrade.js` (supporting positional `<bundle-or-subpackage-path>` arguments in `resolveWorkspaceAndBundle` alongside `--bundle <path>`), `okf-maintain/scripts/upgrade.js`, `install.ps1`, and `install.sh` (automatically removing stale nested `<agent>/skills/okf-skills` clone directories during skill synchronization so `find` never resolves outdated nested scripts), and `scripts/test-lifecycle.js` (Step 19 & Step 19m).
+- Synchronized timestamp for 8 drifted concept(s): concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-lint-skill.md, concepts/okf-maintain-skill.md, concepts/okf-prune-skill.md, concepts/okf-upgrade-skill.md, concepts/skill-catalog-sync.md, concepts/skill-installers.md.
+- Synchronized timestamp for 4 drifted concept(s): concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/skill-catalog-sync.md.
+- Synchronized timestamp for 4 drifted concept(s): concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/skill-catalog-sync.md.
+
 ## 2026-11-08
 - Applied `/okf-learn --latest` audit improvements across `okf-query/scripts/query.js` (displaying `Sources:` in concept metadata headers, printing a `Note: Queried path(s) not found on disk:` warning when a non-existent `--file` path resolves via fallback/directory, and adding Tier 1C `.md` concept path suffix/basename fallback), `okf-learn/scripts/learn.js` (measuring `measureOkfContextBlockBytes` per individual `OKF CONTEXT BLOCK` when multiple `query.js` calls are chained in one shell command), `okf-maintain/scripts/maintain.js` and `AGENTS.md` (guiding agents to batch multiple paths in a single `--file <path[,path2,...]>` call), and `scripts/test-lifecycle.js` (Step 19l).
 
