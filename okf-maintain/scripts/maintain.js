@@ -1846,7 +1846,7 @@ Before answering questions about the system, planning, or editing:
 Before reporting work complete after changing code:
 1. **Semantic Concept & Source Binding Upkeep:** update affected concepts, or create one, when you change a schema, component, API, configuration or build/deploy step, or learn a durable constraint or pattern. Bind new or changed source files in the concept's \`resource:\`/\`sources:\` frontmatter, and add a dated line to \`${b}/log.md\`.
 2. **Maintain:** \`node ${s}okf-maintain/scripts/maintain.js\` (refreshes timestamps, the \`## Not yet specified\` frontier, \`log.md\` and \`viz.html\`).
-3. **Lint:** \`node ${s}okf-lint/scripts/lint.js --drift\`. It must report 0 errors and 0 warnings.
+3. **Lint:** \`node ${s}okf-lint/scripts/lint.js --drift\`. It must report 0 errors and 0 warnings (use \`;\` rather than \`&&\` when chaining commands in Windows PowerShell).
 
 <!-- okf-steering-version: ${targetVersion} -->`;
 }

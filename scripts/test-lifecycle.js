@@ -2657,6 +2657,103 @@ Body.
     );
   }
 
+  // 19o. Test escaped Windows read_file OKF paths, Claude Code envelope/aborted-session filtering, and refined isUserCorrectionTurn
+  const escapedWinConvId = '00000000-0000-4000-8000-000000000009';
+  const escapedWinTranscript = path.join(tempDir, `${escapedWinConvId}.jsonl`);
+  const escapedWinSteps = [
+    {
+      step_index: 1,
+      type: 'PLANNER_RESPONSE',
+      created_at: '2026-11-09T10:00:00Z',
+      content: '',
+      tool_calls: [
+        { name: 'run_command', args: { CommandLine: 'node okf-lint/scripts/lint.js --drift' } }
+      ]
+    },
+    {
+      step_index: 2,
+      type: 'PLANNER_RESPONSE',
+      created_at: '2026-11-09T10:05:00Z',
+      content: '**OKF Citation:** [Commissioning Playbook](file:///workspace/webapp/okf/playbooks/commissioning.md)',
+      tool_calls: [
+        { name: 'read_file', args: { Path: '"\\workspace\\\\webapp\\\\okf\\\\playbooks\\\\commissioning.md"' } },
+        { name: 'edit_file', args: { Path: '"\\workspace\\\\webapp\\\\src\\\\app.ts"' } },
+        { name: 'run_command', args: { CommandLine: 'node okf-maintain/scripts/maintain.js' } }
+      ]
+    },
+    {
+      step_index: 3,
+      type: 'USER_INPUT',
+      created_at: '2026-11-09T10:06:00Z',
+      content: "<USER_REQUEST>the portal buttons don't seem to be working</USER_REQUEST>"
+    },
+    {
+      step_index: 4,
+      type: 'USER_INPUT',
+      created_at: '2026-11-09T10:07:00Z',
+      content: '<USER_REQUEST>scheduled jobs were also not cleared on reset. why was it missed</USER_REQUEST>'
+    }
+  ];
+  fs.writeFileSync(escapedWinTranscript, escapedWinSteps.map(s => JSON.stringify(s)).join('\n') + '\n', 'utf8');
+  const escapedEval = learnMod.analyzeSingleTranscript(escapedWinTranscript, escapedWinConvId, {
+    resetAtMs: new Date('2026-11-09T10:02:00Z').getTime()
+  });
+  assert.equal(escapedEval.conversation.gateCompliance.preWorkQueries, 1, 'Escaped Windows backslash read_file on okf/ concept must count toward preWorkQueries');
+  assert.equal(escapedEval.conversation.gateCompliance.scorePercent, 100, 'Mid-session slice with escaped read_file must achieve 100% gate score');
+  assert.equal(escapedEval.userCorrections.length, 1, 'isUserCorrectionTurn must ignore "don\'t seem to" while capturing "why was it missed"');
+  assert.ok(escapedEval.userCorrections[0].excerpt.includes('why was it missed'), 'isUserCorrectionTurn must capture "why was it missed" retrospective prompt');
+
+  const abortedClaudeId = '00000000-0000-4000-8000-00000000000a';
+  const abortedClaudeBrain = path.join(tempDir, 'aborted-claude-brain');
+  fs.mkdirSync(abortedClaudeBrain, { recursive: true });
+  const abortedClaudePath = path.join(abortedClaudeBrain, `${abortedClaudeId}.jsonl`);
+  const abortedClaudeLines = [
+    ...Array.from({ length: 8 }, (_, idx) => JSON.stringify({
+      type: 'attachment',
+      sessionId: abortedClaudeId,
+      attachment: idx === 0
+        ? { type: 'environment', snapshot: { workingDirectory: '/workspace/webapp' } }
+        : { type: 'mode', index: idx }
+    })),
+    JSON.stringify({
+      type: 'user',
+      timestamp: '2026-11-09T11:00:00Z',
+      sessionId: abortedClaudeId,
+      message: { role: 'user', content: 'where are images stored' }
+    }),
+    JSON.stringify({
+      type: 'assistant',
+      timestamp: '2026-11-09T11:00:01Z',
+      sessionId: abortedClaudeId,
+      message: {
+        id: 'msg_aborted_1',
+        role: 'assistant',
+        content: [{ type: 'tool_use', id: 'toolu_aborted_1', name: 'Bash', input: { command: 'node okf-query/scripts/query.js --search images' } }]
+      }
+    }),
+    JSON.stringify({
+      type: 'user',
+      timestamp: '2026-11-09T11:00:02Z',
+      sessionId: abortedClaudeId,
+      message: {
+        role: 'user',
+        content: [{ type: 'tool_result', tool_use_id: 'toolu_aborted_1', is_error: true, content: "The user doesn't want to proceed with this tool use." }]
+      }
+    }),
+    JSON.stringify({
+      type: 'user',
+      timestamp: '2026-11-09T11:00:03Z',
+      sessionId: abortedClaudeId,
+      message: { role: 'user', content: [{ type: 'text', text: '[Request interrupted by user for tool use]' }] }
+    })
+  ];
+  fs.writeFileSync(abortedClaudePath, abortedClaudeLines.join('\n') + '\n', 'utf8');
+  const abortedDirectEval = learnMod.analyzeSingleTranscript(abortedClaudePath, abortedClaudeId);
+  assert.equal(abortedDirectEval.conversation.inferredWorkspace, '/workspace/webapp', 'Claude Code attachment.snapshot.workingDirectory must populate inferredWorkspace');
+  assert.equal(abortedDirectEval.conversation.stepCount, 4, 'Claude Code stepCount must count only user/assistant records, not attachment envelope lines');
+  assert.equal(abortedDirectEval.conversation.userTurnCount, 1, '[Request interrupted by user...] must not inflate userTurnCount');
+  assert.equal(abortedDirectEval.conversation.friction.toolErrors.total, 0, 'User-rejected tool prompt must not be counted as a tool error');
+
   console.log('✓ okf-learn session audit, learning signals extraction, and --bind auto-remediation verified.');
   console.log('✓ Concept verification (--verify, --stale-after, --all-stale, --clear-stale) and consolidated --prune/--upgrade verified.');
   console.log('✓ Skill self-improvement telemetry, pre-completion nudge, and --evaluate transcript analyzer verified.');

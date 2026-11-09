@@ -1187,6 +1187,7 @@ Free-form markdown. Use these conventional headings when they fit, so consumers 
 - `# Schema` — structured field/column descriptions
 - `# Examples` — usage demonstrations
 - `# Computation` — the sanctioned computation block of an `Attested Computation` (when not using external `computation: &lt;file&gt;`)
+- `# Guardrails &amp; Anti-Regression Checklist` — durable invariants and lessons learned from past bugs, embedded directly in the `Playbook` or `Subsystem` concept bound to those source files so `okf-query --file` surfaces them before future edits
 
 ## Directory Organization &amp; Scaling
 
@@ -1408,7 +1409,7 @@ Before answering questions about the system, planning, or editing:
 Before reporting work complete after changing code:
 1. **Semantic Concept &amp; Source Binding Upkeep:** update affected concepts, or create one, when you change a schema, component, API, configuration or build/deploy step, or learn a durable constraint or pattern. Bind new or changed source files in the concept's `resource:`/`sources:` frontmatter, and add a dated line to `docs/okf/log.md`.
 2. **Maintain:** `node okf-maintain/scripts/maintain.js` (refreshes timestamps, the `## Not yet specified` frontier, `log.md` and `viz.html`).
-3. **Lint:** `node okf-lint/scripts/lint.js --drift`. It must report 0 errors and 0 warnings.
+3. **Lint:** `node okf-lint/scripts/lint.js --drift`. It must report 0 errors and 0 warnings (use `;` rather than `&amp;&amp;` when chaining commands in Windows PowerShell).
 
 &lt;!-- okf-steering-version: 1.8.2 --&gt;</code></pre>
             </div>
@@ -4100,6 +4101,7 @@ node okf-learn/scripts/learn.js --help
 2. **Extract Qualitative Engineering Lessons**
    - Review `learningSignals.userCorrections` and `friction.toolErrors` from the report.
    - Identify durable domain rules, third-party format quirks, platform constraints, or workflow corrections that surfaced during debugging or user feedback.
+   - Codify recurring bug classes or missed edge cases as `# Guardrails &amp; Anti-Regression Checklist` items inside the existing `Playbook` or `Subsystem` concept already bound (`resource:`/`sources:`) to those files—rather than an unqueried standalone "mistakes" file—so `okf-query --file` injects them automatically before future edits.
 
 3. **Remediate Bundle or Skill Source Code Gaps**
    - **In a Project Workspace (Bundle Remediation):**

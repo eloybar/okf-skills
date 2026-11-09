@@ -6,7 +6,7 @@ resource: okf-maintain/SKILL.md
 tags: [maintenance, automation, sync]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-09T20:05:42.891Z
+  at: 2026-11-09T20:51:35.884Z
 sources:
   - okf-maintain/scripts/maintain.js
   - okf-maintain/scripts/prune.js
@@ -29,7 +29,7 @@ The `okf-maintain` skill runs post-edit to verify that codebase modifications ma
   - `node okf-maintain/scripts/maintain.js --evaluate [conversation-id | --latest] [--brain-dir <path>] [--json] [--reset]`: Evaluates agent session transcripts (`transcript.jsonl`) and passive CLI telemetry (`~/.okf/telemetry.jsonl`, overridable via `OKF_TELEMETRY_PATH` / `--telemetry` and disableable via `OKF_DISABLE_TELEMETRY=1`) to score OKF Steering Gate compliance, surface query misses, >40KB context bloat truncations, backgrounded slow commands, and `edit_file` errors, and emit prioritized self-improvement recommendations (or reset telemetry when `--reset` is passed). Normal sync mode also emits a 1-line `[OKF Self-Improvement]` nudge (including missed query file paths in brackets) directing the agent to invoke [OKF Learn Skill](/concepts/okf-learn-skill.md) when anomalies occurred since the last sync.
 
 # Steering Template
-`buildSteeringDirectivesBlock(bundleRelPath, targetVersion, skillsBase)` renders the steering block (about 450 tokens) in this order: `## 📂 Knowledge Bundle / OKF` (where the bundle is, the closest-parent `okf/` rule, the session-start lint/maintain sync), `## ⚡ Pre-Work Grounding Gate` (1 Search, 2 Per-file context, 3 Cite, 4 Model-Tier Routing) and `## ⚡ Pre-Completion Verification Gate` (1 Semantic Concept & Source Binding Upkeep, 2 Maintain, 3 Lint), then the version tag.
+`buildSteeringDirectivesBlock(bundleRelPath, targetVersion, skillsBase)` renders the steering block (about 450 tokens) in this order: `## 📂 Knowledge Bundle / OKF` (where the bundle is, the closest-parent `okf/` rule, the session-start lint/maintain sync), `## ⚡ Pre-Work Grounding Gate` (1 Search, 2 Per-file context, 3 Cite, 4 Model-Tier Routing) and `## ⚡ Pre-Completion Verification Gate` (1 Semantic Concept & Source Binding Upkeep, 2 Maintain, 3 Lint — including guidance to use `;` rather than `&&` when chaining commands in Windows PowerShell), then the version tag.
 - **Runnable commands**: `resolveSkillsBase(workspaceRoot, options)` builds the script path prefix from `maintain.js`'s own install location. The prefix is workspace-relative when the skills live in the repo (in this repo it is empty, so commands read `node okf-query/...`), `~/`-relative on POSIX when they live under the home directory, and forward-slash absolute on Windows (`win32`, since PowerShell/cmd do not expand `~/` when passed as an argument to `node`). The bundle path is written workspace-relative with no leading slash (e.g. `docs/okf`).
 - **Compatibility contract**: `okf-lint` and `okf-maintain --check` require the strings `Pre-Work Grounding Gate`, `Pre-Completion Verification Gate`, `Model-Tier Routing` and the `<!-- okf-steering-version: X -->` tag. `scripts/test-lifecycle.js` also asserts `Semantic Concept & Source Binding Upkeep`. Keep all of these when editing the template.
 - Both helpers are exported from `maintain.js`.

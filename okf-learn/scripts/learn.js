@@ -409,6 +409,7 @@ function isSyntheticUserTurn(rawText) {
   if (!rawText || typeof rawText !== 'string') return true;
   if (/^\s*Base directory for this skill:/i.test(rawText)) return true;
   if (/^\s*This session is being continued from a previous conversation that ran out of context\b/i.test(rawText)) return true;
+  if (/^\s*\[Request interrupted by user\b/i.test(rawText)) return true;
   return false;
 }
 
@@ -437,8 +438,9 @@ function isUserCorrectionTurn(cleanedText) {
   if (!cleanedText || typeof cleanedText !== 'string') return false;
   const normalized = cleanedText
     .replace(/\b(?:i|we)\s+don't\s+(?:have|know|think|see|remember|need|mind|care)\b/gi, ' ')
-    .replace(/\bdon't\s+have\s+(?:it|that|them|the\s+\w+|any|access)\b/gi, ' ');
-  return /\b(no[,\s]|instead\b|don't\b|wrong\b|not working\b|still broken\b|should be\b|why did you\b)/i.test(normalized);
+    .replace(/\bdon't\s+have\s+(?:it|that|them|the\s+\w+|any|access)\b/gi, ' ')
+    .replace(/\bdon't\s+(?:seem|appear)\s+to\b/gi, ' ');
+  return /\b(no[,\s]|instead\b|don't\b|wrong\b|not working\b|still broken\b|should be\b|why did you\b|why\s+(?:was\s+(?:it|that|this)\s+missed|did\s+(?:you|we)\s+miss)\b)/i.test(normalized);
 }
 
 function extractSearchQueryFromCommand(cmd) {
@@ -457,7 +459,8 @@ function hasConceptCitation(text) {
 
 function isOkfBundleReadPath(filePath) {
   if (!filePath || typeof filePath !== 'string') return false;
-  return /(?:^|[\/\\])(?:docs[\/\\])?okf[\/\\](?!log\.md\b|SKILL\.md\b)[a-z0-9_.-]+(?:[\/\\][a-z0-9_.-]+)*\.md["']*$/i.test(filePath);
+  const norm = filePath.replace(/^["'\\]+|["'\\]+$/g, '').replace(/\\+/g, '/').replace(/\/+/g, '/');
+  return /(?:^|\/)(?:docs\/)?okf\/(?!log\.md\b|SKILL\.md\b)[a-z0-9_.-]+(?:\/[a-z0-9_.-]+)*\.md$/i.test(norm);
 }
 
 function countCommandPreWorkQueries(cmd) {
@@ -604,6 +607,8 @@ function analyzeSingleTranscript(transcriptPath, convId, options = {}) {
   let lastTimeMs = null;
   let hasFileModifications = false;
   let recordsToAnalyze = parsedRecords;
+  let preSessionQueries = 0;
+  let preSessionCitations = 0;
 
   if (resetAtMs) {
     const postRecords = [];
@@ -622,30 +627,56 @@ function analyzeSingleTranscript(transcriptPath, convId, options = {}) {
         if (!conversation.inferredWorkspace && pr.cwd && typeof pr.cwd === 'string') {
           conversation.inferredWorkspace = pr.cwd.replace(/\\+/g, '/');
         }
+        if (
+          !conversation.inferredWorkspace &&
+          pr.type === 'attachment' &&
+          pr.attachment &&
+          pr.attachment.snapshot &&
+          typeof pr.attachment.snapshot.workingDirectory === 'string'
+        ) {
+          conversation.inferredWorkspace = pr.attachment.snapshot.workingDirectory.replace(/\\+/g, '/');
+        }
         if (pr.type === 'assistant' && pr.message && Array.isArray(pr.message.content)) {
           for (const b of pr.message.content) {
-            if (!b || b.type !== 'tool_use') continue;
+            if (!b) continue;
+            if (b.type === 'text' && typeof b.text === 'string' && hasConceptCitation(b.text)) {
+              preSessionCitations++;
+            }
+            if (b.type !== 'tool_use') continue;
             const inp = (b.input && typeof b.input === 'object') ? b.input : {};
             const fp = inp.file_path || inp.path || inp.Path || '';
             if (!conversation.inferredWorkspace && fp) {
               const inf = inferWorkspaceFromPath(fp);
               if (inf) conversation.inferredWorkspace = inf;
             }
+            if (/^(?:Read|read_file)$/i.test(String(b.name || '')) && isOkfBundleReadPath(fp)) {
+              preSessionQueries++;
+            }
             const cmd = String(inp.command || inp.CommandLine || '');
             if (/lint\.js\b/.test(cmd) && /--drift\b/.test(cmd)) {
               conversation.gateCompliance.sessionStartLint = true;
             }
+            preSessionQueries += countCommandPreWorkQueries(cmd);
           }
-        } else if (pr.type === 'PLANNER_RESPONSE' && Array.isArray(pr.tool_calls)) {
-          for (const tc of pr.tool_calls) {
-            const tcArgs = (tc && tc.args) || {};
-            if (!conversation.inferredWorkspace && tcArgs.Path) {
-              const inf = inferWorkspaceFromPath(tcArgs.Path);
-              if (inf) conversation.inferredWorkspace = inf;
-            }
-            const cmd = tcArgs.CommandLine ? String(tcArgs.CommandLine) : '';
-            if (/lint\.js\b/.test(cmd) && /--drift\b/.test(cmd)) {
-              conversation.gateCompliance.sessionStartLint = true;
+        } else if (pr.type === 'PLANNER_RESPONSE') {
+          if (hasConceptCitation(String(pr.content || ''))) {
+            preSessionCitations++;
+          }
+          if (Array.isArray(pr.tool_calls)) {
+            for (const tc of pr.tool_calls) {
+              const tcArgs = (tc && tc.args) || {};
+              if (!conversation.inferredWorkspace && tcArgs.Path) {
+                const inf = inferWorkspaceFromPath(tcArgs.Path);
+                if (inf) conversation.inferredWorkspace = inf;
+              }
+              if (tc && tc.name === 'read_file' && isOkfBundleReadPath(tcArgs.Path)) {
+                preSessionQueries++;
+              }
+              const cmd = tcArgs.CommandLine ? String(tcArgs.CommandLine) : '';
+              if (/lint\.js\b/.test(cmd) && /--drift\b/.test(cmd)) {
+                conversation.gateCompliance.sessionStartLint = true;
+              }
+              preSessionQueries += countCommandPreWorkQueries(cmd);
             }
           }
         }
@@ -669,7 +700,9 @@ function analyzeSingleTranscript(transcriptPath, convId, options = {}) {
     for (let idx = 0; idx < recordsToAnalyze.length; idx++) {
       const rec = recordsToAnalyze[idx];
       const stepNum = idx + 1;
-      conversation.stepCount++;
+      if (rec.type === 'user' || rec.type === 'assistant') {
+        conversation.stepCount++;
+      }
 
       const tsRaw = rec.timestamp || rec.created_at || (rec.snapshot && rec.snapshot.timestamp);
       if (tsRaw) {
@@ -682,6 +715,15 @@ function analyzeSingleTranscript(transcriptPath, convId, options = {}) {
 
       if (!conversation.inferredWorkspace && rec.cwd && typeof rec.cwd === 'string') {
         conversation.inferredWorkspace = rec.cwd.replace(/\\+/g, '/');
+      }
+      if (
+        !conversation.inferredWorkspace &&
+        rec.type === 'attachment' &&
+        rec.attachment &&
+        rec.attachment.snapshot &&
+        typeof rec.attachment.snapshot.workingDirectory === 'string'
+      ) {
+        conversation.inferredWorkspace = rec.attachment.snapshot.workingDirectory.replace(/\\+/g, '/');
       }
 
       if (rec.type === 'assistant' && rec.message && typeof rec.message === 'object') {
@@ -785,7 +827,7 @@ function analyzeSingleTranscript(transcriptPath, convId, options = {}) {
               }
             }
 
-            if (tr.is_error === true) {
+            if (tr.is_error === true && !/^The user doesn't want to proceed with this tool use\b/i.test(toolText.trim())) {
               conversation.friction.toolErrors.total++;
               if (/target content not found|String to replace not found|old_string not found/i.test(toolText)) {
                 conversation.friction.toolErrors.editFileTargetNotFound++;
@@ -979,6 +1021,17 @@ function analyzeSingleTranscript(transcriptPath, convId, options = {}) {
     conversation.gateCompliance.preCompletionMaintain = true;
   }
 
+  // If resetAtMs cut through the middle of an active turn (0 new user turns in post-reset slice),
+  // carry forward pre-reset grounding queries and citations from earlier in the same session.
+  if (conversation.userTurnCount === 0 && (preSessionQueries > 0 || preSessionCitations > 0)) {
+    if (conversation.gateCompliance.preWorkQueries === 0 && preSessionQueries > 0) {
+      conversation.gateCompliance.preWorkQueries = preSessionQueries;
+    }
+    if (conversation.gateCompliance.conceptCitations === 0 && preSessionCitations > 0) {
+      conversation.gateCompliance.conceptCitations = preSessionCitations;
+    }
+  }
+
   const gatesPassed =
     (conversation.gateCompliance.sessionStartLint ? 1 : 0) +
     (conversation.gateCompliance.preWorkQueries > 0 ? 1 : 0) +
@@ -1026,6 +1079,52 @@ function isMetaLearnTranscript(rawLines) {
   );
 }
 
+function summarizeCandidateLines(rawLines) {
+  if (!Array.isArray(rawLines) || rawLines.length === 0) {
+    return { stepCount: 0, hasCompletedReply: false };
+  }
+  let isClaude = false;
+  let claudeSteps = 0;
+  let agySteps = 0;
+  let hasCompletedReply = false;
+  for (const line of rawLines) {
+    try {
+      const r = JSON.parse(line);
+      if (!r || typeof r !== 'object') continue;
+      if (r.step_index !== undefined || r.type === 'USER_INPUT' || r.type === 'PLANNER_RESPONSE') {
+        agySteps++;
+        if (r.type === 'PLANNER_RESPONSE' && String(r.content || '').trim().length > 0) {
+          hasCompletedReply = true;
+        }
+      } else {
+        if (
+          r.sessionId !== undefined ||
+          r.type === 'user' ||
+          r.type === 'assistant' ||
+          r.type === 'file-history-snapshot' ||
+          r.type === 'permission-mode'
+        ) {
+          isClaude = true;
+        }
+        if (r.type === 'user' || r.type === 'assistant') {
+          claudeSteps++;
+          if (r.type === 'assistant' && r.message && Array.isArray(r.message.content)) {
+            if (r.message.content.some(b => b && b.type === 'text' && typeof b.text === 'string' && b.text.trim().length > 0)) {
+              hasCompletedReply = true;
+            }
+          }
+        }
+      }
+    } catch (e) {}
+  }
+  const isPureClaude = isClaude && agySteps === 0;
+  return {
+    stepCount: isPureClaude ? claudeSteps : rawLines.length,
+    minSteps: isPureClaude ? 3 : 6,
+    hasCompletedReply
+  };
+}
+
 function scanTranscriptDirectory(rootDir, excludeConvId, seenPaths, candidates, resetAtMs = null) {
   if (!rootDir || !fs.existsSync(rootDir)) return;
   let entries;
@@ -1044,12 +1143,15 @@ function scanTranscriptDirectory(rootDir, excludeConvId, seenPaths, candidates, 
       if (resetAtMs && mtimeMs <= resetAtMs) return;
       const rawLines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/).filter(Boolean);
       const effectiveLines = filterRawLinesAfterReset(rawLines, resetAtMs);
+      const summary = summarizeCandidateLines(effectiveLines);
+      const isMeta = isMetaLearnTranscript(effectiveLines);
       candidates.push({
         id,
         tPath: filePath,
         mtimeMs,
-        stepCount: effectiveLines.length,
-        isMetaLearn: isMetaLearnTranscript(effectiveLines)
+        stepCount: summary.stepCount,
+        isMetaLearn: isMeta,
+        isSubstantive: summary.stepCount >= summary.minSteps && summary.hasCompletedReply && !isMeta
       });
     } catch (e) {}
   }
@@ -1140,9 +1242,9 @@ function evaluateSkillsPerformance(options = {}) {
   });
 
   if (!targetConvId && candidates.length > 0) {
-    // Smart --latest: prefer the most recent substantive session (>= 6 steps and not a pure /okf-learn meta-session)
+    // Smart --latest: prefer the most recent substantive session (completed reply and not a pure /okf-learn meta-session)
     // so running /okf-learn automatically evaluates the prior real coding session.
-    const substantive = candidates.find(c => c.stepCount >= 6 && !c.isMetaLearn);
+    const substantive = candidates.find(c => c.isSubstantive);
     targetConvId = (substantive || candidates[0]).id;
   }
 
@@ -1234,7 +1336,7 @@ function evaluateSkillsPerformance(options = {}) {
 
   const recentSessions = [];
   if (options.recentLimit && options.recentLimit > 0 && candidates.length > 0) {
-    const substantiveCandidates = candidates.filter(c => c.stepCount >= 6 && !c.isMetaLearn);
+    const substantiveCandidates = candidates.filter(c => c.isSubstantive);
     const pool = substantiveCandidates.length > 0 ? substantiveCandidates : candidates;
     for (const cand of pool.slice(0, options.recentLimit)) {
       const { conversation: cSummary } = analyzeSingleTranscript(cand.tPath, cand.id, { resetAtMs });
