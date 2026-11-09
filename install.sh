@@ -116,7 +116,7 @@ fi
 for TARGET_DIR in "${TARGET_DIRS[@]}"; do
     if [ "$ACTION" = "Remove" ] || [ "$ACTION" = "remove" ]; then
         echo -e "\033[0;33mRemoving OKF skills from $TARGET_DIR...\033[0m"
-        skills=("okf" "okf-maintain" "okf-visualize" "okf-wayfinder" "okf-lint" "okf-query" "okf-upgrade" "okf-prune" "okf-learn")
+        skills=("okf" "okf-maintain" "okf-visualize" "okf-wayfinder" "okf-lint" "okf-query" "okf-upgrade" "okf-prune" "okf-learn" "okf-skills")
         for skill in "${skills[@]}"; do
             SKILL_PATH="$TARGET_DIR/$skill"
             if [ -d "$SKILL_PATH" ]; then
@@ -136,7 +136,7 @@ for TARGET_DIR in "${TARGET_DIRS[@]}"; do
         if [ -d "$SCRIPT_DIR/okf" ]; then
             echo -e "\033[0;90mℹ Installing from local repository...\033[0m"
             cp -r "$SCRIPT_DIR/okf" "$SCRIPT_DIR/okf-maintain" "$SCRIPT_DIR/okf-visualize" "$SCRIPT_DIR/okf-wayfinder" "$SCRIPT_DIR/okf-lint" "$SCRIPT_DIR/okf-query" "$SCRIPT_DIR/okf-learn" "$TARGET_DIR/"
-            rm -rf "$TARGET_DIR/okf-upgrade" "$TARGET_DIR/okf-prune"
+            rm -rf "$TARGET_DIR/okf-upgrade" "$TARGET_DIR/okf-prune" "$TARGET_DIR/okf-skills"
             echo -e "\033[0;32m✔ Installed okf, okf-maintain, okf-visualize, okf-wayfinder, okf-lint, okf-query, and okf-learn in $TARGET_DIR\033[0m"
         else
             echo -e "\033[0;90mℹ Downloading latest version from GitHub...\033[0m"
@@ -153,7 +153,7 @@ for TARGET_DIR in "${TARGET_DIRS[@]}"; do
             
             # Copy skills
             cp -r "$TEMP_DIR/okf-skills-main/okf" "$TEMP_DIR/okf-skills-main/okf-maintain" "$TEMP_DIR/okf-skills-main/okf-visualize" "$TEMP_DIR/okf-skills-main/okf-wayfinder" "$TEMP_DIR/okf-skills-main/okf-lint" "$TEMP_DIR/okf-skills-main/okf-query" "$TEMP_DIR/okf-skills-main/okf-learn" "$TARGET_DIR/"
-            rm -rf "$TARGET_DIR/okf-upgrade" "$TARGET_DIR/okf-prune"
+            rm -rf "$TARGET_DIR/okf-upgrade" "$TARGET_DIR/okf-prune" "$TARGET_DIR/okf-skills"
             echo -e "\033[0;32m✔ Installed okf, okf-maintain, okf-visualize, okf-wayfinder, okf-lint, okf-query, and okf-learn in $TARGET_DIR\033[0m"
             
             # Cleanup

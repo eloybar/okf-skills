@@ -856,8 +856,35 @@ function getResourceEffectiveModifiedISO(resourcePath, workspaceRoot, bundleRoot
 function resolveWorkspaceAndBundle(args) {
   const cwd = process.cwd();
   const bundleIdx = args.indexOf('--bundle');
-  if (bundleIdx !== -1 && args[bundleIdx + 1]) {
-    const bundleRoot = path.resolve(cwd, args[bundleIdx + 1]);
+  let rawBundleArg = (bundleIdx !== -1 && args[bundleIdx + 1]) ? args[bundleIdx + 1] : null;
+  const hasPositionalModeFlag = args.some(a =>
+    a === '--verify' || a === '--stale-after' || a === '--clear-stale' || a === '--evaluate'
+  );
+  if (!rawBundleArg && !hasPositionalModeFlag) {
+    const valueFlags = new Set([
+      '--bundle', '--actor', '--by', '--stale-after', '--telemetry',
+      '--brain-dir', '--user', '--agent', '--home', '--source'
+    ]);
+    for (let i = 0; i < args.length; i++) {
+      if (valueFlags.has(args[i])) {
+        i++;
+        continue;
+      }
+      if (!args[i].startsWith('-')) {
+        rawBundleArg = args[i];
+        break;
+      }
+    }
+  }
+
+  if (rawBundleArg) {
+    const candidate = path.resolve(cwd, rawBundleArg);
+    let bundleRoot = candidate;
+    if (!fs.existsSync(path.join(candidate, 'index.md')) && fs.existsSync(path.join(candidate, 'docs', 'okf'))) {
+      bundleRoot = path.join(candidate, 'docs', 'okf');
+    } else if (!fs.existsSync(path.join(candidate, 'index.md')) && fs.existsSync(path.join(candidate, 'okf'))) {
+      bundleRoot = path.join(candidate, 'okf');
+    }
     if (fs.existsSync(bundleRoot)) {
       const parentDir = path.dirname(bundleRoot);
       const derivedRoot = path.basename(parentDir).toLowerCase() === 'docs'

@@ -100,7 +100,7 @@ if ($Agent -eq "All") {
 foreach ($TargetDir in $TargetDirs) {
     if ($Action -eq "Remove") {
         Write-Host "Removing OKF skills from $TargetDir..." -ForegroundColor Yellow
-        $skills = @("okf", "okf-maintain", "okf-visualize", "okf-wayfinder", "okf-lint", "okf-query", "okf-learn", "okf-upgrade", "okf-prune")
+        $skills = @("okf", "okf-maintain", "okf-visualize", "okf-wayfinder", "okf-lint", "okf-query", "okf-learn", "okf-upgrade", "okf-prune", "okf-skills")
         foreach ($skill in $skills) {
             $skillPath = Join-Path $TargetDir $skill
             if (Test-Path $skillPath) {
@@ -132,7 +132,7 @@ foreach ($TargetDir in $TargetDirs) {
                 Copy-Item -Path $srcPath -Destination $TargetDir -Recurse -Force
                 Write-Host "[+] Copied $skill" -ForegroundColor Green
             }
-            foreach ($legacy in @("okf-upgrade", "okf-prune")) {
+            foreach ($legacy in @("okf-upgrade", "okf-prune", "okf-skills")) {
                 $legacyPath = Join-Path $TargetDir $legacy
                 if (Test-Path $legacyPath) { Remove-Item -Path $legacyPath -Recurse -Force }
             }
@@ -156,7 +156,7 @@ foreach ($TargetDir in $TargetDirs) {
                 Copy-Item -Path $srcPath -Destination $TargetDir -Recurse -Force
                 Write-Host "[+] Installed $skill" -ForegroundColor Green
             }
-            foreach ($legacy in @("okf-upgrade", "okf-prune")) {
+            foreach ($legacy in @("okf-upgrade", "okf-prune", "okf-skills")) {
                 $legacyPath = Join-Path $TargetDir $legacy
                 if (Test-Path $legacyPath) { Remove-Item -Path $legacyPath -Recurse -Force }
             }
