@@ -7,7 +7,7 @@ tags: [operations, git, workflow, process, pull-request, rebase]
 status: stable
 generated:
   by: Antigravity/3.8-Flash
-  at: 2026-11-07T16:09:03.827Z
+  at: 2026-11-09T20:03:30.849Z
 ---
 
 # Git Development and Pull Request Workflow

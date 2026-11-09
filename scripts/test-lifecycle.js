@@ -2604,6 +2604,59 @@ Body.
   assert.equal(posPruneBundleJson.success, true, 'okf-prune --check must accept positional bundle path (subpkg/okf)');
   assert.equal(posPruneBundleJson.candidates.length, 0, 'okf-prune --check on positional subpkg/okf must report 0 candidates');
 
+  // 19n. Test install.sh divergent-branch auto-sync, non-interactive stdin default, and okf/ bundle disambiguation
+  const bashCandidates = process.platform === 'win32'
+    ? ['C:\\Program Files\\Git\\bin\\bash.exe', 'C:\\Program Files (x86)\\Git\\bin\\bash.exe']
+    : ['/bin/bash', '/usr/bin/bash'];
+  const bashBin = bashCandidates.find(p => fs.existsSync(p));
+  if (bashBin) {
+    const { execFileSync } = require('child_process');
+    const simOriginRepo = path.join(tempDir, 'sim-origin-okf-skills');
+    const simLocalClone = path.join(tempDir, 'sim-local-okf-skills');
+    const simUnixHome = path.join(tempDir, 'sim-unix-home');
+    fs.mkdirSync(simOriginRepo, { recursive: true });
+    fs.mkdirSync(simUnixHome, { recursive: true });
+
+    // Seed bare-like origin repository with current install.sh and all 7 skills
+    execFileSync('git', ['init', '-b', 'main'], { cwd: simOriginRepo, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'bot@test.com'], { cwd: simOriginRepo, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test Bot'], { cwd: simOriginRepo, stdio: 'ignore' });
+    const repoRoot = path.resolve(__dirname, '..');
+    fs.copyFileSync(path.join(repoRoot, 'install.sh'), path.join(simOriginRepo, 'install.sh'));
+    for (const sk of ['okf', 'okf-maintain', 'okf-visualize', 'okf-wayfinder', 'okf-lint', 'okf-query', 'okf-learn']) {
+      fs.mkdirSync(path.join(simOriginRepo, sk), { recursive: true });
+      fs.writeFileSync(path.join(simOriginRepo, sk, 'SKILL.md'), `---\nname: ${sk}\nversion: 1.8.2\n---\nFresh origin skill\n`, 'utf8');
+    }
+    execFileSync('git', ['add', '.'], { cwd: simOriginRepo, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'initial main'], { cwd: simOriginRepo, stdio: 'ignore' });
+
+    // Clone to simLocalClone, then create divergent history between origin/main and simLocalClone/main
+    execFileSync('git', ['clone', simOriginRepo, simLocalClone], { stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'bot@test.com'], { cwd: simLocalClone, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test Bot'], { cwd: simLocalClone, stdio: 'ignore' });
+    fs.writeFileSync(path.join(simLocalClone, 'okf', 'SKILL.md'), '---\nname: okf\nversion: 1.7.0\n---\nDiverged old local commit\n', 'utf8');
+    execFileSync('git', ['add', '.'], { cwd: simLocalClone, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'local diverged commit'], { cwd: simLocalClone, stdio: 'ignore' });
+
+    fs.writeFileSync(path.join(simOriginRepo, 'okf', 'SKILL.md'), '---\nname: okf\nversion: 1.8.2\n---\nRewritten upstream commit\n', 'utf8');
+    execFileSync('git', ['add', '.'], { cwd: simOriginRepo, stdio: 'ignore' });
+    execFileSync('git', ['commit', '--amend', '-m', 'rewritten upstream main'], { cwd: simOriginRepo, stdio: 'ignore' });
+
+    // Run install.sh with closed/non-interactive stdin (simulating piped execution & no --agent flag)
+    const shOut = execFileSync(bashBin, ['./install.sh'], {
+      cwd: simLocalClone,
+      env: { ...process.env, HOME: simUnixHome, USERPROFILE: simUnixHome },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf8'
+    });
+    assert.ok(shOut.includes('Operation complete!'), `install.sh must succeed on a divergent local clone with non-interactive stdin, got:\n${shOut}`);
+    const installedOkfSkill = fs.readFileSync(path.join(simUnixHome, '.agents', 'skills', 'okf', 'SKILL.md'), 'utf8');
+    assert.ok(
+      installedOkfSkill.includes('Rewritten upstream commit'),
+      'install.sh must auto-sync a clean divergent local clone to origin/main and install the latest upstream skills'
+    );
+  }
+
   console.log('✓ okf-learn session audit, learning signals extraction, and --bind auto-remediation verified.');
   console.log('✓ Concept verification (--verify, --stale-after, --all-stale, --clear-stale) and consolidated --prune/--upgrade verified.');
   console.log('✓ Skill self-improvement telemetry, pre-completion nudge, and --evaluate transcript analyzer verified.');
