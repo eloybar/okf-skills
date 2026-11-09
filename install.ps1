@@ -4,7 +4,10 @@ param(
     [string]$Action = "Install",
 
     [Parameter(Mandatory=$false)]
-    [string]$Agent
+    [string]$Agent,
+
+    [Parameter(Mandatory=$false)]
+    [switch]$NoSync
 )
 
 $ErrorActionPreference = "Stop"
@@ -96,75 +99,79 @@ if ($Agent -eq "All") {
     Write-Host "Targeting: $Agent ($TargetDir)" -ForegroundColor Green
 }
 
-# 2. Perform the Action
-foreach ($TargetDir in $TargetDirs) {
-    if ($Action -eq "Remove") {
-        Write-Host "Removing OKF skills from $TargetDir..." -ForegroundColor Yellow
-        $skills = @("okf", "okf-maintain", "okf-visualize", "okf-wayfinder", "okf-lint", "okf-query", "okf-learn", "okf-upgrade", "okf-prune", "okf-skills")
-        foreach ($skill in $skills) {
-            $skillPath = Join-Path $TargetDir $skill
-            if (Test-Path $skillPath) {
-                Remove-Item -Path $skillPath -Recurse -Force
-                Write-Host "[+] Removed $skill" -ForegroundColor Green
-            } else {
-                Write-Host "[i] $skill was not installed" -ForegroundColor Gray
-            }
-        }
-    } else {
-        # Install or Update (both perform the same download & overwrite action)
-        Write-Host "Installing/Updating OKF skills in $TargetDir..." -ForegroundColor Yellow
+# 2. Resolve source once before iterating target directories
+$SourceRoot = $null
+$TempZip = $null
+$TempFolder = $null
 
-        # Ensure target directory exists
-        if (-not (Test-Path $TargetDir)) {
-            New-Item -ItemType Directory -Force -Path $TargetDir | Out-Null
-        }
-
-        # Determine if we are running from a local clone or from the web
+try {
+    if ($Action -ne "Remove") {
         $scriptPath = $MyInvocation.MyCommand.Path
-        $isLocal = $scriptPath -and (Test-Path (Join-Path (Split-Path $scriptPath) "okf"))
+        $scriptDir = if ($scriptPath) { Split-Path $scriptPath } else { $null }
+        $isLocal = $scriptDir -and (Test-Path (Join-Path $scriptDir "okf\SKILL.md")) -and (Test-Path (Join-Path $scriptDir "okf-maintain\SKILL.md"))
 
         if ($isLocal) {
-            Write-Host "[i] Installing from local repository..." -ForegroundColor Gray
-            $srcDir = Split-Path $scriptPath
-            $skills = @("okf", "okf-maintain", "okf-visualize", "okf-wayfinder", "okf-lint", "okf-query", "okf-learn")
-            foreach ($skill in $skills) {
-                $srcPath = Join-Path $srcDir $skill
-                Copy-Item -Path $srcPath -Destination $TargetDir -Recurse -Force
-                Write-Host "[+] Copied $skill" -ForegroundColor Green
+            if (-not $NoSync -and (Test-Path (Join-Path $scriptDir ".git\HEAD")) -and (Get-Command git -ErrorAction SilentlyContinue)) {
+                $curBranch = (git -C $scriptDir rev-parse --abbrev-ref HEAD 2>$null)
+                $dirtyStatus = (git -C $scriptDir status --porcelain 2>$null)
+                if (($curBranch -in @("main", "master", "HEAD")) -and (-not $dirtyStatus)) {
+                    Write-Host "[i] Syncing local okf-skills clone with origin/main..." -ForegroundColor Gray
+                    git -C $scriptDir fetch origin main --quiet 2>$null
+                    if ($LASTEXITCODE -eq 0) {
+                        git -C $scriptDir reset --hard origin/main --quiet 2>$null
+                    }
+                }
             }
-            foreach ($legacy in @("okf-upgrade", "okf-prune", "okf-skills")) {
-                $legacyPath = Join-Path $TargetDir $legacy
-                if (Test-Path $legacyPath) { Remove-Item -Path $legacyPath -Recurse -Force }
-            }
+            $SourceRoot = $scriptDir
+            Write-Host "[i] Installing from local repository ($SourceRoot)..." -ForegroundColor Gray
         } else {
             Write-Host "[i] Downloading latest version from GitHub..." -ForegroundColor Gray
-            $tempZip = [System.IO.Path]::GetTempFileName() + ".zip"
-            $tempFolder = Join-Path $env:TEMP "okf-skills-temp"
+            $TempZip = [System.IO.Path]::GetTempFileName() + ".zip"
+            $TempFolder = Join-Path $env:TEMP ("okf-skills-temp-" + [Guid]::NewGuid().ToString("N"))
 
-            # Download zip
-            Invoke-RestMethod -Uri "https://github.com/eloybar/okf-skills/archive/refs/heads/main.zip" -OutFile $tempZip
-            
-            # Extract zip
-            if (Test-Path $tempFolder) { Remove-Item -Path $tempFolder -Recurse -Force }
-            Expand-Archive -Path $tempZip -DestinationPath $tempFolder -Force
+            Invoke-RestMethod -Uri "https://github.com/eloybar/okf-skills/archive/refs/heads/main.zip" -OutFile $TempZip
+            Expand-Archive -Path $TempZip -DestinationPath $TempFolder -Force
+            $SourceRoot = Join-Path $TempFolder "okf-skills-main"
+        }
+    }
 
-            # Copy skills
-            $extractedRoot = Join-Path $tempFolder "okf-skills-main"
+    # 3. Perform the Action
+    foreach ($TargetDir in $TargetDirs) {
+        if ($Action -eq "Remove") {
+            Write-Host "Removing OKF skills from $TargetDir..." -ForegroundColor Yellow
+            $skills = @("okf", "okf-maintain", "okf-visualize", "okf-wayfinder", "okf-lint", "okf-query", "okf-learn", "okf-upgrade", "okf-prune", "okf-skills")
+            foreach ($skill in $skills) {
+                $skillPath = Join-Path $TargetDir $skill
+                if (Test-Path $skillPath) {
+                    Remove-Item -Path $skillPath -Recurse -Force
+                    Write-Host "[+] Removed $skill" -ForegroundColor Green
+                } else {
+                    Write-Host "[i] $skill was not installed" -ForegroundColor Gray
+                }
+            }
+        } else {
+            Write-Host "Installing/Updating OKF skills in $TargetDir..." -ForegroundColor Yellow
+            if (-not (Test-Path $TargetDir)) {
+                New-Item -ItemType Directory -Force -Path $TargetDir | Out-Null
+            }
+
             $skills = @("okf", "okf-maintain", "okf-visualize", "okf-wayfinder", "okf-lint", "okf-query", "okf-learn")
             foreach ($skill in $skills) {
-                $srcPath = Join-Path $extractedRoot $skill
-                Copy-Item -Path $srcPath -Destination $TargetDir -Recurse -Force
+                $srcPath = Join-Path $SourceRoot $skill
+                $destPath = Join-Path $TargetDir $skill
+                if (Test-Path $destPath) { Remove-Item -Path $destPath -Recurse -Force }
+                Copy-Item -Path $srcPath -Destination $destPath -Recurse -Force
                 Write-Host "[+] Installed $skill" -ForegroundColor Green
             }
             foreach ($legacy in @("okf-upgrade", "okf-prune", "okf-skills")) {
                 $legacyPath = Join-Path $TargetDir $legacy
                 if (Test-Path $legacyPath) { Remove-Item -Path $legacyPath -Recurse -Force }
             }
-
-            # Cleanup
-            Remove-Item -Path $tempZip, $tempFolder -Recurse -Force
         }
     }
+} finally {
+    if ($TempZip -and (Test-Path $TempZip)) { Remove-Item -Path $TempZip -Force -ErrorAction SilentlyContinue }
+    if ($TempFolder -and (Test-Path $TempFolder)) { Remove-Item -Path $TempFolder -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
 Write-Host "Operation complete!" -ForegroundColor Green

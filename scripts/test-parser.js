@@ -274,6 +274,15 @@ for (const [relScript, flagArgs] of helpTargets) {
 }
 console.log('✓ All OKF CLI scripts print Usage and exit 0 on --help.');
 
+// Verify install.sh enforces pure LF line endings and .gitattributes protects *.sh
+const fsMod = require('fs');
+const installShPath = path.resolve(__dirname, '..', 'install.sh');
+const installShContent = fsMod.readFileSync(installShPath, 'utf8');
+assert.ok(!installShContent.includes('\r\n'), 'install.sh must use LF line endings (no CRLF) for Linux/macOS/WSL compatibility');
+const gitattributesPath = path.resolve(__dirname, '..', '.gitattributes');
+assert.ok(fsMod.existsSync(gitattributesPath) && fsMod.readFileSync(gitattributesPath, 'utf8').includes('*.sh text eol=lf'), '.gitattributes must enforce LF line endings on *.sh');
+console.log('✓ install.sh LF line endings and .gitattributes verified.');
+
 console.log('\n======================================');
 console.log('🎉 ALL PARSER UNIT TESTS PASSED SUCCESSFULLY!');
 console.log('======================================');

@@ -149,9 +149,9 @@ This method clones or updates the skills repository locally and executes the ins
    * *Windows*: `Remove-Item -Path okf-skills -Recurse -Force`
    * *macOS/Linux*: `rm -rf okf-skills`
 
-* **To Update**: If you kept the repository folder, you can run the command from step 1 again (since it is idempotent) or navigate to your cloned `okf-skills` folder, sync, and run:
-  * *Windows*: `git -C okf-skills fetch origin main; git -C okf-skills reset --hard origin/main; powershell -ExecutionPolicy Bypass -File .\okf-skills\install.ps1`
-  * *macOS/Linux*: `git -C okf-skills fetch origin main && git -C okf-skills reset --hard origin/main && bash ./okf-skills/install.sh`
+* **To Update**: Simply re-run `./okf-skills/install.sh` or `.\okf-skills\install.ps1` (both scripts automatically `fetch` + `reset --hard origin/main` when invoked from a clean `okf-skills` clone, avoiding `git pull` divergent-branch errors), or run the command from step 1 again:
+  * *Windows*: `powershell -ExecutionPolicy Bypass -File .\okf-skills\install.ps1 -Agent All`
+  * *macOS/Linux*: `bash ./okf-skills/install.sh --agent All`
 * **To Remove**: Run the installer with the remove action:
   * *Windows*: `powershell -ExecutionPolicy Bypass -File .\okf-skills\install.ps1 -Action Remove`
   * *macOS/Linux*: `bash ./okf-skills/install.sh --action Remove`
