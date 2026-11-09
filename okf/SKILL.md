@@ -115,6 +115,7 @@ Free-form markdown. Use these conventional headings when they fit, so consumers 
 - `# Schema` — structured field/column descriptions
 - `# Examples` — usage demonstrations
 - `# Computation` — the sanctioned computation block of an `Attested Computation` (when not using external `computation: <file>`)
+- `# Guardrails & Anti-Regression Checklist` — durable invariants and lessons learned from past bugs, embedded directly in the `Playbook` or `Subsystem` concept bound to those source files so `okf-query --file` surfaces them before future edits
 
 ## Directory Organization & Scaling
 

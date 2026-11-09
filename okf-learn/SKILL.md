@@ -66,6 +66,7 @@ node okf-learn/scripts/learn.js --help
 2. **Extract Qualitative Engineering Lessons**
    - Review `learningSignals.userCorrections` and `friction.toolErrors` from the report.
    - Identify durable domain rules, third-party format quirks, platform constraints, or workflow corrections that surfaced during debugging or user feedback.
+   - Codify recurring bug classes or missed edge cases as `# Guardrails & Anti-Regression Checklist` items inside the existing `Playbook` or `Subsystem` concept already bound (`resource:`/`sources:`) to those files—rather than an unqueried standalone "mistakes" file—so `okf-query --file` injects them automatically before future edits.
 
 3. **Remediate Bundle or Skill Source Code Gaps**
    - **In a Project Workspace (Bundle Remediation):**
