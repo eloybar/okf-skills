@@ -199,6 +199,7 @@ const gitTopLevelByCwd = new Map();
 const gitRepoCommitMapByTop = new Map();
 const gitRepoCommitHashByTop = new Map();
 const gitRepoCommitFilesByTop = new Map();
+const gitRepoHeadByTop = new Map();
 const gitCommitOnlyCache = new Map();
 
 function getGitTopLevel(execCwd) {
@@ -227,56 +228,108 @@ function getRepoCommitTimeMap(execCwd, forceRefresh = false) {
   if (!forceRefresh && gitRepoCommitMapByTop.has(topKey)) {
     return gitRepoCommitMapByTop.get(topKey);
   }
+  let headSha = null;
+  try {
+    headSha = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: topLevel,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+  } catch (e) {}
+
+  if (headSha && gitRepoCommitMapByTop.has(topKey) && gitRepoHeadByTop.get(topKey) === headSha) {
+    return gitRepoCommitMapByTop.get(topKey);
+  }
+
   const commitMap = new Map();
   const commitHashMap = new Map();
   const commitFilesMap = new Map();
-  try {
-    const out = execFileSync(
-      'git',
-      ['-c', 'core.quotepath=false', 'log', '-m', '--format=__OKF_COMMIT__%H|%aI', '--name-only'],
-      {
-        cwd: topLevel,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-        maxBuffer: 64 * 1024 * 1024
+  const cachePath = headSha
+    ? path.join(os.tmpdir(), `okf-gitlog-v1-${Buffer.from(topKey).toString('hex').slice(-24)}-${headSha}.json`)
+    : null;
+
+  let loadedFromDisk = false;
+  if (cachePath && fs.existsSync(cachePath)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+      if (parsed && Array.isArray(parsed.commitMap) && Array.isArray(parsed.commitHashMap) && Array.isArray(parsed.commitFilesMap)) {
+        for (const [k, v] of parsed.commitMap) commitMap.set(k, v);
+        for (const [k, v] of parsed.commitHashMap) commitHashMap.set(k, v);
+        for (const [k, arr] of parsed.commitFilesMap) commitFilesMap.set(k, new Set(arr));
+        loadedFromDisk = true;
       }
-    );
-    let currentHash = null;
-    let currentIso = null;
-    for (const rawLine of out.split(/\r?\n/)) {
-      const line = rawLine.trim();
-      if (!line) continue;
-      if (line.startsWith('__OKF_COMMIT__')) {
-        const payload = line.slice('__OKF_COMMIT__'.length).trim();
-        const sepIdx = payload.indexOf('|');
-        if (sepIdx !== -1) {
-          currentHash = payload.slice(0, sepIdx);
-          currentIso = payload.slice(sepIdx + 1).trim();
-        } else {
-          currentHash = payload;
-          currentIso = payload;
+    } catch (e) {}
+  }
+
+  if (!loadedFromDisk) {
+    try {
+      const out = execFileSync(
+        'git',
+        ['-c', 'core.quotepath=false', 'log', '-m', '--format=__OKF_COMMIT__%H|%aI', '--name-only'],
+        {
+          cwd: topLevel,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+          maxBuffer: 64 * 1024 * 1024
         }
-        if (currentHash && !commitFilesMap.has(currentHash)) {
-          commitFilesMap.set(currentHash, new Set());
-        }
-      } else if (currentIso) {
-        const cleaned = line.replace(/^"|"$/g, '');
-        const absPath = path.resolve(topLevel, cleaned).toLowerCase();
-        if (currentHash && commitFilesMap.has(currentHash)) {
-          commitFilesMap.get(currentHash).add(absPath);
-        }
-        if (!commitMap.has(absPath)) {
-          commitMap.set(absPath, currentIso);
-          if (currentHash) commitHashMap.set(absPath, currentHash);
+      );
+      let currentHash = null;
+      let currentIso = null;
+      for (const rawLine of out.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line) continue;
+        if (line.startsWith('__OKF_COMMIT__')) {
+          const payload = line.slice('__OKF_COMMIT__'.length).trim();
+          const sepIdx = payload.indexOf('|');
+          if (sepIdx !== -1) {
+            currentHash = payload.slice(0, sepIdx);
+            currentIso = payload.slice(sepIdx + 1).trim();
+          } else {
+            currentHash = payload;
+            currentIso = payload;
+          }
+          if (currentHash && !commitFilesMap.has(currentHash)) {
+            commitFilesMap.set(currentHash, new Set());
+          }
+        } else if (currentIso) {
+          const cleaned = line.replace(/^"|"$/g, '');
+          const absPath = path.resolve(topLevel, cleaned).toLowerCase();
+          if (currentHash && commitFilesMap.has(currentHash)) {
+            commitFilesMap.get(currentHash).add(absPath);
+          }
+          if (!commitMap.has(absPath)) {
+            commitMap.set(absPath, currentIso);
+            if (currentHash) commitHashMap.set(absPath, currentHash);
+          }
         }
       }
+      if (cachePath && commitMap.size > 0) {
+        try {
+          const activeHashes = new Set(commitHashMap.values());
+          const compactFiles = [];
+          for (const h of activeHashes) {
+            const set = commitFilesMap.get(h);
+            if (set) compactFiles.push([h, Array.from(set)]);
+          }
+          fs.writeFileSync(
+            cachePath,
+            JSON.stringify({
+              commitMap: Array.from(commitMap.entries()),
+              commitHashMap: Array.from(commitHashMap.entries()),
+              commitFilesMap: compactFiles
+            }),
+            'utf8'
+          );
+        } catch (e) {}
+      }
+    } catch (e) {
+      // Ignore git log errors
     }
-  } catch (e) {
-    // Ignore git log errors
   }
   gitRepoCommitMapByTop.set(topKey, commitMap);
   gitRepoCommitHashByTop.set(topKey, commitHashMap);
   gitRepoCommitFilesByTop.set(topKey, commitFilesMap);
+  if (headSha) gitRepoHeadByTop.set(topKey, headSha);
   return commitMap;
 }
 
@@ -1042,7 +1095,7 @@ async function main() {
     process.exit(0);
   }
   const outputJson = args.includes('--json');
-  if (!outputJson) {
+  if (!outputJson && process.env.OKF_INTERNAL_CALL !== '1') {
     await checkSkillsVersion();
   }
   const checkDrift = args.includes('--drift');

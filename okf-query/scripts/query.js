@@ -652,6 +652,7 @@ function main() {
   const MAX_FULL_SEARCH_BODY_CHARS = 32000;
   const MAX_FILE_FULL_CONCEPTS = 3;
   const MAX_SEARCH_FULL_CONCEPTS = 5;
+  const MAX_DISPLAYED_MATCHES = 10;
   const isMultiSearchFull = forceFull && searchIndex !== -1 && matchedEntries.length > 1;
   let totalBodyCharsPrinted = 0;
 
@@ -714,7 +715,8 @@ function main() {
   if (missingQueriedFiles.length > 0) {
     console.log(`Note: Queried path(s) not found on disk: ${missingQueriedFiles.join(', ')} (matched via fallback/directory — check Resource/Sources below for exact file paths).\n`);
   }
-  for (let idx = 0; idx < matchedEntries.length; idx++) {
+  const displayedCount = forceFull ? matchedEntries.length : Math.min(matchedEntries.length, MAX_DISPLAYED_MATCHES);
+  for (let idx = 0; idx < displayedCount; idx++) {
     const entry = matchedEntries[idx];
     const c = entry.concept;
     const effectiveTotalBudget = isMultiSearchFull ? MAX_FULL_SEARCH_BODY_CHARS : MAX_TOTAL_BODY_CHARS;
@@ -772,6 +774,12 @@ function main() {
       console.log(`(Omitted full body to stay within cumulative context budget [${idx + 1} of ${matchedEntries.length}]. Query --file ${c.relativePath} --full or read ${c.relativePath} for full concept body.)`);
     }
     console.log(`\n========================================\n`);
+  }
+  if (matchedEntries.length > displayedCount) {
+    const remainingEntries = matchedEntries.slice(displayedCount);
+    const previewRemaining = remainingEntries.slice(0, 15).map(e => `  - ${e.concept.relativePath} (${e.concept.frontmatter.title || e.concept.frontmatter.type || 'Concept'})`);
+    const extraTail = remainingEntries.length > 15 ? `\n  ... and ${remainingEntries.length - 15} more.` : '';
+    console.log(`Additional matches omitted for context budget (${remainingEntries.length} more):\n${previewRemaining.join('\n')}${extraTail}\n\n========================================\n`);
   }
   console.log = origConsoleLog;
 

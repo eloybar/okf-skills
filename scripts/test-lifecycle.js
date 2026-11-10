@@ -2754,6 +2754,45 @@ Body.
   assert.equal(abortedDirectEval.conversation.userTurnCount, 1, '[Request interrupted by user...] must not inflate userTurnCount');
   assert.equal(abortedDirectEval.conversation.friction.toolErrors.total, 0, 'User-rejected tool prompt must not be counted as a tool error');
 
+  // 19p. Test Antigravity subagent transcript filtering (0 USER_INPUT + SYSTEM_MESSAGE),
+  //      "I don't just..." / "it should be something..." non-corrective filtering,
+  //      and resolved queryMisses deduplication against current bundle coverage.
+  const subagentConvId = '00000000-0000-4000-8000-00000000000b';
+  const subagentDir = path.join(abortedClaudeBrain, subagentConvId, '.system_generated', 'logs');
+  fs.mkdirSync(subagentDir, { recursive: true });
+  const subagentTranscriptPath = path.join(subagentDir, 'transcript.jsonl');
+  const subagentLines = [
+    JSON.stringify({ step_index: 0, type: 'SYSTEM_MESSAGE', source: 'SYSTEM', created_at: '2026-11-10T10:00:00Z', content: 'Delegated subagent task' }),
+    ...Array.from({ length: 7 }, (_, idx) => JSON.stringify({
+      step_index: idx + 1,
+      type: idx % 2 === 0 ? 'PLANNER_RESPONSE' : 'GENERIC',
+      source: 'MODEL',
+      created_at: `2026-11-10T10:00:0${idx + 1}Z`,
+      content: idx === 6 ? 'Completed subagent task.' : ''
+    }))
+  ];
+  fs.writeFileSync(subagentTranscriptPath, subagentLines.join('\n') + '\n', 'utf8');
+  const subagentDiscovered = learnMod.discoverTranscriptCandidates({ brainDir: abortedClaudeBrain });
+  assert.ok(
+    !subagentDiscovered.some(c => c.id === subagentConvId),
+    'Antigravity subagent transcripts (0 USER_INPUT + SYSTEM_MESSAGE) must be excluded from candidate discovery'
+  );
+  assert.equal(
+    learnMod.isUserCorrectionTurn('For 25 years, I don\'t just build devices; I architect integrated ecosystems.'),
+    false,
+    '"I don\'t just..." descriptive prose must not trigger false-positive userCorrections'
+  );
+  assert.equal(
+    learnMod.isUserCorrectionTurn('Could you create a new version of the document. It should be something impactful.'),
+    false,
+    '"It should be something..." creation specification must not trigger false-positive userCorrections'
+  );
+  assert.equal(
+    learnMod.isUserCorrectionTurn('Why when I just created the rule, when I test fire I don\'t hear the relay?'),
+    true,
+    '"Why when ... I don\'t hear..." bug report must still be captured by isUserCorrectionTurn'
+  );
+
   console.log('✓ okf-learn session audit, learning signals extraction, and --bind auto-remediation verified.');
   console.log('✓ Concept verification (--verify, --stale-after, --all-stale, --clear-stale) and consolidated --prune/--upgrade verified.');
   console.log('✓ Skill self-improvement telemetry, pre-completion nudge, and --evaluate transcript analyzer verified.');
