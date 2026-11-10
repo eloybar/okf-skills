@@ -66,21 +66,26 @@ Write-Host "==========================================" -ForegroundColor Cyan
 
 # 1. Select the Agent
 if (-not $Agent) {
-    Write-Host "Select the target AI Agent environment:" -ForegroundColor Yellow
-    Write-Host "1) All Agents (Antigravity, Claude, Codex, and general agents) [Default]"
-    Write-Host "2) Google Antigravity CLI (agy)"
-    Write-Host "3) Claude Code"
-    Write-Host "4) OpenAI Codex CLI"
-    
-    $choice = Read-Host "Enter choice [1-4]"
-    if ($choice -eq "2") {
-        $Agent = "Antigravity"
-    } elseif ($choice -eq "3") {
-        $Agent = "Claude"
-    } elseif ($choice -eq "4") {
-        $Agent = "Codex"
+    if ([Console]::IsInputRedirected) {
+        $Agent = "All"
+        Write-Host "[i] Non-interactive session detected; defaulting to All Agents." -ForegroundColor Gray
     } else {
-        $Agent = "All" # Default
+        Write-Host "Select the target AI Agent environment:" -ForegroundColor Yellow
+        Write-Host "1) All Agents (Antigravity, Claude, Codex, and general agents) [Default]"
+        Write-Host "2) Google Antigravity CLI (agy)"
+        Write-Host "3) Claude Code"
+        Write-Host "4) OpenAI Codex CLI"
+        
+        $choice = Read-Host "Enter choice [1-4]"
+        if ($choice -eq "2") {
+            $Agent = "Antigravity"
+        } elseif ($choice -eq "3") {
+            $Agent = "Claude"
+        } elseif ($choice -eq "4") {
+            $Agent = "Codex"
+        } else {
+            $Agent = "All" # Default
+        }
     }
 }
 
@@ -112,14 +117,27 @@ try {
 
         if ($isLocal) {
             if (-not $NoSync -and (Test-Path (Join-Path $scriptDir ".git\HEAD")) -and (Get-Command git -ErrorAction SilentlyContinue)) {
-                $curBranch = (git -C $scriptDir rev-parse --abbrev-ref HEAD 2>$null)
-                $dirtyStatus = (git -C $scriptDir status --porcelain 2>$null)
-                if (($curBranch -in @("main", "master", "HEAD")) -and (-not $dirtyStatus)) {
-                    Write-Host "[i] Syncing local okf-skills clone with origin/main..." -ForegroundColor Gray
-                    git -C $scriptDir fetch origin main --quiet 2>$null
-                    if ($LASTEXITCODE -eq 0) {
-                        git -C $scriptDir reset --hard origin/main --quiet 2>$null
+                $prevEap = $ErrorActionPreference
+                $ErrorActionPreference = "Continue"
+                try {
+                    $curBranch = (git -C $scriptDir rev-parse --abbrev-ref HEAD 2>$null)
+                    $dirtyStatus = (git -C $scriptDir status --porcelain 2>$null)
+                    if (($curBranch -in @("main", "master", "HEAD")) -and (-not $dirtyStatus)) {
+                        Write-Host "[i] Syncing local okf-skills clone with origin/main..." -ForegroundColor Gray
+                        $oldHead = (git -C $scriptDir rev-parse HEAD 2>$null)
+                        git -C $scriptDir fetch origin main --quiet 2>$null
+                        if ($LASTEXITCODE -eq 0) {
+                            git -C $scriptDir reset --hard origin/main --quiet 2>$null
+                            $newHead = (git -C $scriptDir rev-parse HEAD 2>$null)
+                            if ($oldHead -and $newHead -and ($oldHead -ne $newHead)) {
+                                $ErrorActionPreference = $prevEap
+                                & $scriptPath -Action $Action -Agent $Agent -NoSync
+                                exit $LASTEXITCODE
+                            }
+                        }
                     }
+                } finally {
+                    $ErrorActionPreference = $prevEap
                 }
             }
             $SourceRoot = $scriptDir

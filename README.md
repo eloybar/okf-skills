@@ -138,7 +138,7 @@ This method clones or updates the skills repository locally and executes the ins
 1. **Clone or update the repository and run the installer**:
    * **Windows (PowerShell)**:
      ```powershell
-     if (Test-Path okf-skills\.git\HEAD) { git -C okf-skills fetch origin main; git -C okf-skills reset --hard origin/main } else { if (Test-Path okf-skills) { Remove-Item okf-skills -Recurse -Force }; git clone https://github.com/eloybar/okf-skills.git }; if ($?) { powershell -ExecutionPolicy Bypass -File .\okf-skills\install.ps1 }
+     if (Test-Path okf-skills\.git\HEAD) { git -C okf-skills fetch origin main; if ($LASTEXITCODE -eq 0) { git -C okf-skills reset --hard origin/main } } else { if (Test-Path okf-skills) { Remove-Item okf-skills -Recurse -Force }; git clone https://github.com/eloybar/okf-skills.git }; if ($LASTEXITCODE -eq 0) { powershell -ExecutionPolicy Bypass -File .\okf-skills\install.ps1 }
      ```
    * **macOS / Linux (Bash)**:
      ```bash

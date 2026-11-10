@@ -252,8 +252,16 @@ function scanConcepts(dir, bundleRoot, workspaceRoot, matches = []) {
 function resolveWorkspaceAndBundle(args) {
   const cwd = process.cwd();
   const bundleIdx = args.indexOf('--bundle');
-  if (bundleIdx !== -1 && args[bundleIdx + 1]) {
-    const bundleRoot = path.resolve(cwd, args[bundleIdx + 1]);
+  const dirIdx = args.indexOf('--dir');
+  const optIdx = bundleIdx !== -1 ? bundleIdx : dirIdx;
+  if (optIdx !== -1 && args[optIdx + 1]) {
+    const candidate = path.resolve(cwd, args[optIdx + 1]);
+    let bundleRoot = candidate;
+    if (!fs.existsSync(path.join(candidate, 'index.md')) && fs.existsSync(path.join(candidate, 'docs', 'okf'))) {
+      bundleRoot = path.join(candidate, 'docs', 'okf');
+    } else if (!fs.existsSync(path.join(candidate, 'index.md')) && fs.existsSync(path.join(candidate, 'okf'))) {
+      bundleRoot = path.join(candidate, 'okf');
+    }
     if (fs.existsSync(bundleRoot)) {
       const parentDir = path.dirname(bundleRoot);
       const derivedRoot = path.basename(parentDir).toLowerCase() === 'docs'
