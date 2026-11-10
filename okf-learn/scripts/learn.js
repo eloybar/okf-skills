@@ -273,6 +273,7 @@ function walkBundleConcepts(dir, bundleRoot, results = []) {
             file: path.relative(bundleRoot, fullPath).replace(/\\/g, '/'),
             fullPath,
             frontmatter: fm,
+            body,
             bodyLength: body.trim().length
           });
         }
@@ -280,6 +281,86 @@ function walkBundleConcepts(dir, bundleRoot, results = []) {
     }
   }
   return results;
+}
+
+const bundleConceptsCache = new Map();
+function getCachedBundleConcepts(bundleRoot) {
+  const key = path.resolve(bundleRoot).toLowerCase();
+  if (!bundleConceptsCache.has(key)) {
+    bundleConceptsCache.set(key, walkBundleConcepts(bundleRoot, bundleRoot));
+  }
+  return bundleConceptsCache.get(key);
+}
+
+function isQueryMissResolvedInBundle(mode, rawTarget, workspaceDir) {
+  if (!rawTarget || typeof rawTarget !== 'string') return false;
+  const candidateBundleRoots = [];
+  const addWorkspaceCandidates = ws => {
+    if (!ws || typeof ws !== 'string') return;
+    const d1 = path.join(ws, 'docs', 'okf');
+    const d2 = path.join(ws, 'okf');
+    if (fs.existsSync(d1)) candidateBundleRoots.push(d1);
+    if (fs.existsSync(d2)) candidateBundleRoots.push(d2);
+  };
+  addWorkspaceCandidates(workspaceDir);
+
+  if (mode !== 'search') {
+    const firstPart = rawTarget.split(',')[0].trim();
+    const inferred = inferWorkspaceFromPath(firstPart);
+    if (inferred) addWorkspaceCandidates(inferred);
+    if (firstPart) {
+      for (const baseDir of [workspaceDir, process.cwd()].filter(Boolean)) {
+        const resolved = path.resolve(baseDir, firstPart);
+        if (fs.existsSync(resolved)) {
+          const inferredFromResolved = inferWorkspaceFromPath(resolved);
+          if (inferredFromResolved) addWorkspaceCandidates(inferredFromResolved);
+        }
+      }
+    }
+  }
+
+  const uniqueBundles = Array.from(new Set(candidateBundleRoots.map(b => path.resolve(b))));
+  if (uniqueBundles.length === 0) return false;
+
+  for (const bRoot of uniqueBundles) {
+    const concepts = getCachedBundleConcepts(bRoot);
+    if (concepts.length === 0) continue;
+    if (mode === 'search') {
+      const qLower = rawTarget.trim().toLowerCase();
+      if (!qLower || qLower === '(search query)') continue;
+      const tokens = qLower.split(/[\s_-]+/).filter(t => t.length >= 2);
+      for (const c of concepts) {
+        const fm = c.frontmatter || {};
+        const tagsStr = Array.isArray(fm.tags) ? fm.tags.join(' ') : '';
+        const blob = [c.file, fm.title || '', fm.description || '', tagsStr, c.body || ''].join(' ').toLowerCase();
+        if (blob.includes(qLower) || (tokens.length >= 2 && tokens.every(tok => blob.includes(tok)))) {
+          return true;
+        }
+      }
+    } else {
+      const parts = rawTarget.split(',').map(s => s.trim()).filter(Boolean);
+      if (parts.length === 0) continue;
+      const allMatched = parts.every(part => {
+        const base = path.basename(part.replace(/\\/g, '/')).toLowerCase();
+        if (!base) return false;
+        return concepts.some(c => {
+          if (path.basename(c.file).toLowerCase() === base) return true;
+          const fm = c.frontmatter || {};
+          const uris = [];
+          if (fm.resource) uris.push(String(fm.resource));
+          if (Array.isArray(fm.sources)) {
+            for (const s of fm.sources) {
+              const u = typeof s === 'string' ? s : (s && s.resource);
+              if (u) uris.push(String(u));
+            }
+          }
+          return uris.some(u => path.basename(u.replace(/\\/g, '/')).toLowerCase() === base);
+        });
+      });
+      if (allMatched) return true;
+    }
+  }
+  return false;
 }
 
 function bindSourceToConcept({ workspaceRoot, bundleRoot, filePath, conceptRelPath }) {
@@ -437,9 +518,10 @@ function sanitizeUserTurnText(rawText) {
 function isUserCorrectionTurn(cleanedText) {
   if (!cleanedText || typeof cleanedText !== 'string') return false;
   const normalized = cleanedText
-    .replace(/\b(?:i|we)\s+don't\s+(?:have|know|think|see|remember|need|mind|care)\b/gi, ' ')
+    .replace(/\b(?:i|we|they)\s+don't\s+(?:have|know|think|see|remember|need|mind|care|just)\b/gi, ' ')
     .replace(/\bdon't\s+have\s+(?:it|that|them|the\s+\w+|any|access)\b/gi, ' ')
-    .replace(/\bdon't\s+(?:seem|appear)\s+to\b/gi, ' ');
+    .replace(/\bdon't\s+(?:seem|appear)\s+to\b/gi, ' ')
+    .replace(/\bit\s+should\s+be\s+something\b/gi, ' ');
   return /\b(no[,\s]|instead\b|don't\b|wrong\b|not working\b|still broken\b|should be\b|why did you\b|why\s+(?:was\s+(?:it|that|this)\s+missed|did\s+(?:you|we)\s+miss)\b)/i.test(normalized);
 }
 
@@ -1032,6 +1114,12 @@ function analyzeSingleTranscript(transcriptPath, convId, options = {}) {
     }
   }
 
+  if (conversation.friction.queryMisses.length > 0) {
+    conversation.friction.queryMisses = conversation.friction.queryMisses.filter(
+      m => !isQueryMissResolvedInBundle(m.mode || 'file', m.missedTarget, conversation.inferredWorkspace)
+    );
+  }
+
   const gatesPassed =
     (conversation.gateCompliance.sessionStartLint ? 1 : 0) +
     (conversation.gateCompliance.preWorkQueries > 0 ? 1 : 0) +
@@ -1079,9 +1167,9 @@ function isMetaLearnTranscript(rawLines) {
   );
 }
 
-function summarizeCandidateLines(rawLines) {
+function summarizeCandidateLines(rawLines, allRawLines = null) {
   if (!Array.isArray(rawLines) || rawLines.length === 0) {
-    return { stepCount: 0, hasCompletedReply: false };
+    return { stepCount: 0, minSteps: 6, hasCompletedReply: false, isSubagent: false };
   }
   let isClaude = false;
   let claudeSteps = 0;
@@ -1091,7 +1179,7 @@ function summarizeCandidateLines(rawLines) {
     try {
       const r = JSON.parse(line);
       if (!r || typeof r !== 'object') continue;
-      if (r.step_index !== undefined || r.type === 'USER_INPUT' || r.type === 'PLANNER_RESPONSE') {
+      if (r.step_index !== undefined || r.type === 'USER_INPUT' || r.type === 'PLANNER_RESPONSE' || r.type === 'SYSTEM_MESSAGE') {
         agySteps++;
         if (r.type === 'PLANNER_RESPONSE' && String(r.content || '').trim().length > 0) {
           hasCompletedReply = true;
@@ -1118,10 +1206,24 @@ function summarizeCandidateLines(rawLines) {
     } catch (e) {}
   }
   const isPureClaude = isClaude && agySteps === 0;
+  let isSubagent = false;
+  if (!isPureClaude) {
+    const fullScanLines = Array.isArray(allRawLines) && allRawLines.length > 0 ? allRawLines : rawLines;
+    let agyUserInputs = 0;
+    let agySystemMessages = 0;
+    for (const line of fullScanLines) {
+      if (line.includes('"USER_INPUT"')) agyUserInputs++;
+      else if (line.includes('"SYSTEM_MESSAGE"')) agySystemMessages++;
+    }
+    if (agyUserInputs === 0 && agySystemMessages > 0) {
+      isSubagent = true;
+    }
+  }
   return {
     stepCount: isPureClaude ? claudeSteps : rawLines.length,
     minSteps: isPureClaude ? 3 : 6,
-    hasCompletedReply
+    hasCompletedReply,
+    isSubagent
   };
 }
 
@@ -1143,7 +1245,8 @@ function scanTranscriptDirectory(rootDir, excludeConvId, seenPaths, candidates, 
       if (resetAtMs && mtimeMs <= resetAtMs) return;
       const rawLines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/).filter(Boolean);
       const effectiveLines = filterRawLinesAfterReset(rawLines, resetAtMs);
-      const summary = summarizeCandidateLines(effectiveLines);
+      const summary = summarizeCandidateLines(effectiveLines, rawLines);
+      if (summary.isSubagent) return;
       const isMeta = isMetaLearnTranscript(effectiveLines);
       candidates.push({
         id,
@@ -1268,7 +1371,9 @@ function evaluateSkillsPerformance(options = {}) {
           telemetry.bySkill[ev.skill] = (telemetry.bySkill[ev.skill] || 0) + 1;
           const anoms = Array.isArray(ev.anomalies) ? ev.anomalies : [];
           if (anoms.includes('query_miss')) {
-            telemetry.queryMisses.push({ timestamp: ev.timestamp, mode: ev.mode || 'file', query: ev.query, workspaceRoot: ev.workspaceRoot });
+            if (!isQueryMissResolvedInBundle(ev.mode || 'file', ev.query, ev.workspaceRoot)) {
+              telemetry.queryMisses.push({ timestamp: ev.timestamp, mode: ev.mode || 'file', query: ev.query, workspaceRoot: ev.workspaceRoot });
+            }
           }
           if (anoms.includes('fallback_used')) {
             telemetry.fallbacksUsed.push({ timestamp: ev.timestamp, query: ev.query, matchTiers: ev.matchTiers, workspaceRoot: ev.workspaceRoot });
@@ -1696,6 +1801,8 @@ module.exports = {
   parseFrontmatter,
   evaluateSkillsPerformance,
   analyzeSingleTranscript,
+  discoverTranscriptCandidates,
+  isUserCorrectionTurn,
   measureOkfContextBlockBytes,
   bindSourceToConcept,
   recordTelemetry,
