@@ -2798,6 +2798,140 @@ Body.
     '"Why when ... I don\'t hear..." bug report must still be captured by isUserCorrectionTurn'
   );
 
+  // 19q. Test okf-query compound identifier/route search rescue & selective header rescue,
+  //      root okf/ bundle conceptCitations detection, and okf-gitlog-v2 .md-only compact cache.
+  const queryMod = require(scripts.query);
+  const syntheticSearchConcepts = [
+    {
+      relativePath: 'subsystems/portal-header-ux.md',
+      frontmatter: {
+        type: 'Concept',
+        title: 'Portal Header & Tenant Navigation',
+        description: 'Tenant switching and navigation header controls',
+        tags: ['ui', 'navigation'],
+        sources: ['src/components/PortalHeader.tsx']
+      },
+      body: 'Supports tenant selection via GET /api/v1/tenants and scope persistence.'
+    },
+    {
+      relativePath: 'subsystems/topology-canvas.md',
+      frontmatter: {
+        type: 'Concept',
+        title: 'Topology Canvas Specification',
+        description: 'Interactive TopologyCard canvas for facility layout',
+        tags: ['ui', 'canvas'],
+        sources: ['src/components/TopologyCard.tsx']
+      },
+      body: 'Renders facility pins and connection tethers.'
+    },
+    {
+      relativePath: 'operations/audit-worker.md',
+      frontmatter: {
+        type: 'Concept',
+        title: 'Audit Worker Service',
+        description: 'Background audit queue processor',
+        tags: ['worker', 'queue'],
+        sources: ['src/workers/auditWorker.ts']
+      },
+      body: 'Drains queued events.'
+    }
+  ];
+  const compoundRouteHits = queryMod.rankSearchMatches(syntheticSearchConcepts, 'switchTenant PortalHeader /api/tenants');
+  assert.ok(
+    compoundRouteHits.length > 0 && compoundRouteHits[0].concept.relativePath === 'subsystems/portal-header-ux.md',
+    'rankSearchMatches must decompose camelCase identifiers and /api/... routes to rescue matching concepts'
+  );
+  const selectiveHeaderHits = queryMod.rankSearchMatches(
+    syntheticSearchConcepts,
+    'TopologyCard unindexedLocalVar anotherLocalHelper'
+  );
+  assert.ok(
+    selectiveHeaderHits.length === 1 && selectiveHeaderHits[0].concept.relativePath === 'subsystems/topology-canvas.md',
+    'rankSearchMatches must rescue selective structural-header identifier matches when companion local tokens are unindexed'
+  );
+  assert.equal(
+    queryMod.rankSearchMatches(syntheticSearchConcepts, 'missingAlphaToken missingBetaToken').length,
+    0,
+    'rankSearchMatches must return 0 matches when no tokens or sub-tokens exist in bundle'
+  );
+  assert.equal(
+    queryMod.rankSearchMatches(syntheticSearchConcepts, 'concept missingAlphaToken').length,
+    0,
+    'Generic OKF meta-words must not trigger false-positive single-token header rescue'
+  );
+
+  const flatOkfWs = path.join(tempDir, 'flat-okf-webapp');
+  fs.mkdirSync(path.join(flatOkfWs, 'okf'), { recursive: true });
+  fs.writeFileSync(path.join(flatOkfWs, 'okf', 'index.md'), '---\nokf_version: "0.2"\n---\n# Index\n', 'utf8');
+  fs.writeFileSync(
+    path.join(flatOkfWs, 'okf', 'power-distribution.md'),
+    '---\ntype: Concept\ntitle: Power Distribution\ndescription: Board power rails\ngenerated:\n  by: Claude/4.0\n  at: 2026-11-11T00:00:00Z\n---\n# Overview\n24V input rail.\n',
+    'utf8'
+  );
+  const flatHints = learnMod.collectWorkspaceConceptHints(flatOkfWs);
+  assert.equal(
+    learnMod.hasConceptCitation('Updated the power-distribution concept after checking the netlist.', flatHints),
+    true,
+    'hasConceptCitation must recognize workspace hyphenated concept slugs in flat okf/ bundles'
+  );
+  assert.equal(
+    learnMod.hasConceptCitation('I set up the bundle in `okf/` and linked `power-distribution.md`.', flatHints),
+    true,
+    'hasConceptCitation must recognize backticked okf/ root and concept .md filenames'
+  );
+  assert.equal(
+    learnMod.hasConceptCitation('Here is a proof of concept for caching.', flatHints),
+    false,
+    'Generic English "proof of concept" must not trigger false-positive conceptCitations'
+  );
+  const flatClaudeId = '00000000-0000-4000-8000-00000000000c';
+  const flatClaudePath = path.join(abortedClaudeBrain, `${flatClaudeId}.jsonl`);
+  const flatClaudeRecords = [
+    {
+      type: 'user',
+      cwd: flatOkfWs,
+      timestamp: '2026-11-11T10:00:00Z',
+      sessionId: flatClaudeId,
+      message: { role: 'user', content: 'Update the power rail notes' }
+    },
+    {
+      type: 'assistant',
+      cwd: flatOkfWs,
+      timestamp: '2026-11-11T10:00:02Z',
+      sessionId: flatClaudeId,
+      message: {
+        id: 'msg_flat_1',
+        role: 'assistant',
+        content: [
+          { type: 'tool_use', id: 'tu_f1', name: 'Bash', input: { command: 'node okf-lint/scripts/lint.js --drift' } },
+          { type: 'tool_use', id: 'tu_f2', name: 'Bash', input: { command: 'node okf-query/scripts/query.js --search power' } },
+          { type: 'tool_use', id: 'tu_f3', name: 'Edit', input: { file_path: path.join(flatOkfWs, 'okf', 'power-distribution.md') } },
+          { type: 'tool_use', id: 'tu_f4', name: 'Bash', input: { command: 'node okf-maintain/scripts/maintain.js' } },
+          { type: 'text', text: 'Checked and updated the power-distribution concept; maintain and lint pass.' }
+        ]
+      }
+    }
+  ];
+  fs.writeFileSync(flatClaudePath, flatClaudeRecords.map(r => JSON.stringify(r)).join('\n') + '\n', 'utf8');
+  const flatClaudeEval = learnMod.analyzeSingleTranscript(flatClaudePath, flatClaudeId);
+  assert.equal(
+    flatClaudeEval.conversation.gateCompliance.scorePercent,
+    100,
+    'Flat okf/ bundle session citing hyphenated workspace concept slug must achieve 100% gate compliance'
+  );
+
+  lintMod.getRepoCommitTimeMap(tempDir, true);
+  const wsScopeHex = Buffer.from(path.resolve(tempDir).toLowerCase()).toString('hex').slice(-24);
+  const v2Caches = fs.readdirSync(os.tmpdir()).filter(f => f.startsWith(`okf-gitlog-v2-${wsScopeHex}-`));
+  assert.ok(v2Caches.length > 0, 'getRepoCommitTimeMap must persist compact okf-gitlog-v2 cache in os.tmpdir()');
+  const v2Payload = JSON.parse(fs.readFileSync(path.join(os.tmpdir(), v2Caches[0]), 'utf8'));
+  assert.equal(v2Payload.v, 2, 'okf-gitlog-v2 cache must declare schema v: 2');
+  for (const [, mdRelList] of v2Payload.mdCommits || []) {
+    for (const relP of mdRelList) {
+      assert.ok(relP.endsWith('.md'), `mdCommits must store only .md co-modification paths, got: ${relP}`);
+    }
+  }
+
   console.log('✓ okf-learn session audit, learning signals extraction, and --bind auto-remediation verified.');
   console.log('✓ Concept verification (--verify, --stale-after, --all-stale, --clear-stale) and consolidated --prune/--upgrade verified.');
   console.log('✓ Skill self-improvement telemetry, pre-completion nudge, and --evaluate transcript analyzer verified.');

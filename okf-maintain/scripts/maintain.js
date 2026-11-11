@@ -577,12 +577,41 @@ function getGitTopLevel(execCwd) {
   return topLevel;
 }
 
-function getRepoCommitTimeMap(execCwd, forceRefresh = false) {
+function resolveGitScope(execCwd, targetFile = null) {
   const topLevel = getGitTopLevel(execCwd);
-  if (!topLevel) return new Map();
-  const topKey = path.resolve(topLevel).toLowerCase();
-  if (!forceRefresh && gitRepoCommitMapByTop.has(topKey)) {
-    return gitRepoCommitMapByTop.get(topKey);
+  if (!topLevel) return null;
+  const absTop = path.resolve(topLevel);
+  const absExec = path.resolve(execCwd);
+  const relExec = path.relative(absTop, absExec);
+  const isInsideTop = Boolean(relExec && !relExec.startsWith('..') && !path.isAbsolute(relExec));
+  const isSubpkgRoot =
+    isInsideTop &&
+    (fs.existsSync(path.join(absExec, 'docs', 'okf')) || fs.existsSync(path.join(absExec, 'okf')));
+
+  if (isSubpkgRoot) {
+    if (targetFile) {
+      const absTarget = path.resolve(targetFile);
+      const relTarget = path.relative(absExec, absTarget);
+      if (relTarget.startsWith('..') || path.isAbsolute(relTarget)) {
+        return { topLevel: absTop, scopeRoot: absTop, scopeKey: absTop.toLowerCase(), relPathspec: null };
+      }
+    }
+    return {
+      topLevel: absTop,
+      scopeRoot: absExec,
+      scopeKey: absExec.toLowerCase(),
+      relPathspec: relExec.replace(/\\/g, '/')
+    };
+  }
+  return { topLevel: absTop, scopeRoot: absTop, scopeKey: absTop.toLowerCase(), relPathspec: null };
+}
+
+function getRepoCommitTimeMap(execCwd, forceRefresh = false, targetFile = null) {
+  const scope = resolveGitScope(execCwd, targetFile);
+  if (!scope) return new Map();
+  const { topLevel, scopeRoot, scopeKey, relPathspec } = scope;
+  if (!forceRefresh && gitRepoCommitMapByTop.has(scopeKey)) {
+    return gitRepoCommitMapByTop.get(scopeKey);
   }
   let headSha = null;
   try {
@@ -593,25 +622,36 @@ function getRepoCommitTimeMap(execCwd, forceRefresh = false) {
     }).trim();
   } catch (e) {}
 
-  if (headSha && gitRepoCommitMapByTop.has(topKey) && gitRepoHeadByTop.get(topKey) === headSha) {
-    return gitRepoCommitMapByTop.get(topKey);
+  if (headSha && gitRepoCommitMapByTop.has(scopeKey) && gitRepoHeadByTop.get(scopeKey) === headSha) {
+    return gitRepoCommitMapByTop.get(scopeKey);
   }
 
   const commitMap = new Map();
   const commitHashMap = new Map();
   const commitFilesMap = new Map();
   const cachePath = headSha
-    ? path.join(os.tmpdir(), `okf-gitlog-v1-${Buffer.from(topKey).toString('hex').slice(-24)}-${headSha}.json`)
+    ? path.join(os.tmpdir(), `okf-gitlog-v2-${Buffer.from(scopeKey).toString('hex').slice(-24)}-${headSha}.json`)
     : null;
 
   let loadedFromDisk = false;
   if (cachePath && fs.existsSync(cachePath)) {
     try {
       const parsed = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
-      if (parsed && Array.isArray(parsed.commitMap) && Array.isArray(parsed.commitHashMap) && Array.isArray(parsed.commitFilesMap)) {
-        for (const [k, v] of parsed.commitMap) commitMap.set(k, v);
-        for (const [k, v] of parsed.commitHashMap) commitHashMap.set(k, v);
-        for (const [k, arr] of parsed.commitFilesMap) commitFilesMap.set(k, new Set(arr));
+      if (parsed && parsed.v === 2 && Array.isArray(parsed.hashes) && Array.isArray(parsed.entries)) {
+        const { hashes, entries, mdCommits } = parsed;
+        for (const [relP, iso, hIdx] of entries) {
+          const absP = path.resolve(scopeRoot, relP).toLowerCase();
+          commitMap.set(absP, iso);
+          if (hIdx >= 0 && hashes[hIdx]) commitHashMap.set(absP, hashes[hIdx]);
+        }
+        if (Array.isArray(mdCommits)) {
+          for (const [hIdx, relArr] of mdCommits) {
+            const h = hashes[hIdx];
+            if (h && Array.isArray(relArr)) {
+              commitFilesMap.set(h, new Set(relArr.map(rp => path.resolve(scopeRoot, rp).toLowerCase())));
+            }
+          }
+        }
         loadedFromDisk = true;
       }
     } catch (e) {}
@@ -619,16 +659,14 @@ function getRepoCommitTimeMap(execCwd, forceRefresh = false) {
 
   if (!loadedFromDisk) {
     try {
-      const out = execFileSync(
-        'git',
-        ['-c', 'core.quotepath=false', 'log', '-m', '--format=__OKF_COMMIT__%H|%aI', '--name-only'],
-        {
-          cwd: topLevel,
-          encoding: 'utf8',
-          stdio: ['ignore', 'pipe', 'ignore'],
-          maxBuffer: 64 * 1024 * 1024
-        }
-      );
+      const logArgs = ['-c', 'core.quotepath=false', 'log', '-m', '--format=__OKF_COMMIT__%H|%aI', '--name-only'];
+      if (relPathspec) logArgs.push('--', relPathspec);
+      const out = execFileSync('git', logArgs, {
+        cwd: topLevel,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        maxBuffer: 64 * 1024 * 1024
+      });
       let currentHash = null;
       let currentIso = null;
       for (const rawLine of out.split(/\r?\n/)) {
@@ -644,13 +682,13 @@ function getRepoCommitTimeMap(execCwd, forceRefresh = false) {
             currentHash = payload;
             currentIso = payload;
           }
-          if (currentHash && !commitFilesMap.has(currentHash)) {
-            commitFilesMap.set(currentHash, new Set());
-          }
         } else if (currentIso) {
           const cleaned = line.replace(/^"|"$/g, '');
           const absPath = path.resolve(topLevel, cleaned).toLowerCase();
-          if (currentHash && commitFilesMap.has(currentHash)) {
+          if (currentHash && absPath.endsWith('.md')) {
+            if (!commitFilesMap.has(currentHash)) {
+              commitFilesMap.set(currentHash, new Set());
+            }
             commitFilesMap.get(currentHash).add(absPath);
           }
           if (!commitMap.has(absPath)) {
@@ -661,19 +699,32 @@ function getRepoCommitTimeMap(execCwd, forceRefresh = false) {
       }
       if (cachePath && commitMap.size > 0) {
         try {
-          const activeHashes = new Set(commitHashMap.values());
-          const compactFiles = [];
-          for (const h of activeHashes) {
+          const hashToIdx = new Map();
+          const hashes = [];
+          const entries = [];
+          for (const [absP, iso] of commitMap.entries()) {
+            const h = commitHashMap.get(absP) || '';
+            let hIdx = -1;
+            if (h) {
+              hIdx = hashToIdx.get(h);
+              if (hIdx === undefined) {
+                hIdx = hashes.length;
+                hashes.push(h);
+                hashToIdx.set(h, hIdx);
+              }
+            }
+            entries.push([path.relative(scopeRoot, absP), iso, hIdx]);
+          }
+          const mdCommits = [];
+          for (const [h, hIdx] of hashToIdx.entries()) {
             const set = commitFilesMap.get(h);
-            if (set) compactFiles.push([h, Array.from(set)]);
+            if (set && set.size > 0) {
+              mdCommits.push([hIdx, Array.from(set, p => path.relative(scopeRoot, p))]);
+            }
           }
           fs.writeFileSync(
             cachePath,
-            JSON.stringify({
-              commitMap: Array.from(commitMap.entries()),
-              commitHashMap: Array.from(commitHashMap.entries()),
-              commitFilesMap: compactFiles
-            }),
+            JSON.stringify({ v: 2, hashes, entries, mdCommits }),
             'utf8'
           );
         } catch (e) {}
@@ -682,26 +733,27 @@ function getRepoCommitTimeMap(execCwd, forceRefresh = false) {
       // Ignore git log errors
     }
   }
-  gitRepoCommitMapByTop.set(topKey, commitMap);
-  gitRepoCommitHashByTop.set(topKey, commitHashMap);
-  gitRepoCommitFilesByTop.set(topKey, commitFilesMap);
-  if (headSha) gitRepoHeadByTop.set(topKey, headSha);
+  gitRepoCommitMapByTop.set(scopeKey, commitMap);
+  gitRepoCommitHashByTop.set(scopeKey, commitHashMap);
+  gitRepoCommitFilesByTop.set(scopeKey, commitFilesMap);
+  if (headSha) gitRepoHeadByTop.set(scopeKey, headSha);
   return commitMap;
 }
 
-function getRepoDirtySet(execCwd) {
-  const normCwd = path.resolve(execCwd).toLowerCase();
-  if (gitDirtySetByCwd.has(normCwd)) {
-    return gitDirtySetByCwd.get(normCwd);
+function getRepoDirtySet(execCwd, targetFile = null) {
+  const scope = resolveGitScope(execCwd, targetFile);
+  if (!scope) {
+    return new Set();
+  }
+  const { topLevel, scopeKey, relPathspec } = scope;
+  if (gitDirtySetByCwd.has(scopeKey)) {
+    return gitDirtySetByCwd.get(scopeKey);
   }
   const dirtySet = new Set();
   try {
-    const topLevel = getGitTopLevel(execCwd);
-    if (!topLevel) {
-      gitDirtySetByCwd.set(normCwd, dirtySet);
-      return dirtySet;
-    }
-    const statusOut = execFileSync('git', ['-c', 'core.quotepath=false', 'status', '--porcelain', '-uall'], {
+    const statusArgs = ['-c', 'core.quotepath=false', 'status', '--porcelain', '-uall'];
+    if (relPathspec) statusArgs.push('--', relPathspec);
+    const statusOut = execFileSync('git', statusArgs, {
       cwd: topLevel,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore']
@@ -718,7 +770,7 @@ function getRepoDirtySet(execCwd) {
   } catch (e) {
     // Ignore git status errors
   }
-  gitDirtySetByCwd.set(normCwd, dirtySet);
+  gitDirtySetByCwd.set(scopeKey, dirtySet);
   return dirtySet;
 }
 
@@ -729,7 +781,7 @@ function getGitCommitISO(filePath, cwd) {
     return gitCommitOnlyCache.get(cacheKey);
   }
   const execCwd = cwd || path.dirname(absFile);
-  const commitMap = getRepoCommitTimeMap(execCwd);
+  const commitMap = getRepoCommitTimeMap(execCwd, false, absFile);
   let gitIso = commitMap.get(cacheKey) || null;
   if (!gitIso && fs.existsSync(absFile)) {
     try {
@@ -761,7 +813,7 @@ function getGitLastModifiedISO(filePath, cwd) {
   let gitIso = getGitCommitISO(absFile, execCwd);
 
   try {
-    const dirtySet = getRepoDirtySet(execCwd);
+    const dirtySet = getRepoDirtySet(execCwd, absFile);
     const stat = fs.existsSync(absFile) ? fs.statSync(absFile) : null;
     if (stat) {
       let latestDirtyMtime = null;
@@ -797,7 +849,7 @@ function getGitLastModifiedISO(filePath, cwd) {
 function isPathDirty(filePath, execCwd) {
   const absFile = path.resolve(filePath);
   const cacheKey = absFile.toLowerCase();
-  const dirtySet = getRepoDirtySet(execCwd || path.dirname(absFile));
+  const dirtySet = getRepoDirtySet(execCwd || path.dirname(absFile), absFile);
   if (dirtySet.has(cacheKey)) return true;
   if (fs.existsSync(absFile)) {
     try {
@@ -816,13 +868,13 @@ function isPathDirty(filePath, execCwd) {
 function isCoModifiedInLatestCommit(conceptFilePath, resourcePath, workspaceRoot) {
   const execCwd = workspaceRoot || path.dirname(path.resolve(conceptFilePath));
   if (isPathDirty(resourcePath, execCwd)) return false;
-  const topLevel = getGitTopLevel(execCwd);
-  if (!topLevel) return false;
-  const topKey = path.resolve(topLevel).toLowerCase();
-  getRepoCommitTimeMap(execCwd);
-  const commitMap = gitRepoCommitMapByTop.get(topKey);
-  const commitHashMap = gitRepoCommitHashByTop.get(topKey);
-  const commitFilesMap = gitRepoCommitFilesByTop.get(topKey);
+  const scope = resolveGitScope(execCwd, resourcePath);
+  if (!scope) return false;
+  const { scopeKey } = scope;
+  getRepoCommitTimeMap(execCwd, false, resourcePath);
+  const commitMap = gitRepoCommitMapByTop.get(scopeKey);
+  const commitHashMap = gitRepoCommitHashByTop.get(scopeKey);
+  const commitFilesMap = gitRepoCommitFilesByTop.get(scopeKey);
   if (!commitMap || !commitHashMap || !commitFilesMap) return false;
 
   const absConceptKey = path.resolve(conceptFilePath).toLowerCase();
@@ -2540,19 +2592,26 @@ async function main() {
     } catch (e) {}
   }
 
-  // 3f. Verify with okf-lint if available (check sibling skill dir first, then workspaceRoot)
+  // 3f. Verify conformance in-process via okf-lint if available (check sibling skill dir first, then workspaceRoot)
   let lintPassed = true;
   const siblingLintScript = path.resolve(__dirname, '..', '..', 'okf-lint', 'scripts', 'lint.js');
   const workspaceLintScript = path.join(workspaceRoot, 'okf-lint', 'scripts', 'lint.js');
   const lintScript = fs.existsSync(siblingLintScript) ? siblingLintScript : workspaceLintScript;
   if (fs.existsSync(lintScript)) {
     try {
-      execFileSync(process.execPath, [lintScript, '--bundle', bundleRoot, '--drift'], {
-        cwd: workspaceRoot,
-        stdio: 'ignore',
-        env: { ...process.env, OKF_INTERNAL_CALL: '1' }
-      });
-      lintPassed = true;
+      const lintMod = require(lintScript);
+      if (lintMod && typeof lintMod.scanAndLint === 'function') {
+        if (typeof lintMod.resetGitCaches === 'function') lintMod.resetGitCaches();
+        const lintRes = lintMod.scanAndLint(bundleRoot, bundleRoot, workspaceRoot, false, false);
+        lintPassed = Boolean(lintRes && Array.isArray(lintRes.errors) && lintRes.errors.length === 0);
+      } else {
+        execFileSync(process.execPath, [lintScript, '--bundle', bundleRoot], {
+          cwd: workspaceRoot,
+          stdio: 'ignore',
+          env: { ...process.env, OKF_INTERNAL_CALL: '1' }
+        });
+        lintPassed = true;
+      }
     } catch (e) {
       lintPassed = false;
     }

@@ -279,17 +279,264 @@ function resolveWorkspaceAndBundle(args) {
   return { workspaceRoot: cwd, bundleRoot };
 }
 
-function tokenizeSearchQuery(rawQuery) {
+const SEARCH_STOPWORDS = new Set(['a', 'an', 'the', 'to', 'in', 'on', 'of', 'or', 'and', 'for', 'by', 'is', 'at', 'with', 'from']);
+const GENERIC_SUBTOKEN_STOPWORDS = new Set([
+  'api', 'src', 'lib', 'app', 'pkg', 'bin', 'cmd', 'cli', 'get', 'set', 'use', 'has', 'can',
+  'new', 'old', 'all', 'one', 'two', 'ids', 'idx', 'val', 'res', 'req', 'err', 'msg', 'str',
+  'num', 'obj', 'arr', 'cfg', 'opt', 'btn', 'handler'
+]);
+const GENERIC_HEADER_RESCUE_STOPWORDS = new Set([
+  'concept', 'concepts', 'skill', 'skills', 'playbook', 'playbooks', 'subsystem', 'subsystems',
+  'decision', 'decisions', 'utility', 'system', 'service', 'services', 'module', 'specification',
+  'architecture', 'guide', 'overview', 'config', 'configuration'
+]);
+
+function extractCasePreservedTerms(rawQuery) {
   if (!rawQuery || typeof rawQuery !== 'string') return [];
-  const rawTokens = rawQuery
-    .toLowerCase()
+  const rawTerms = rawQuery
     // Agents often mirror --file syntax and pass comma/semicolon-separated keywords.
     .split(/[\s,;]+/)
-    .map(t => t.replace(/^[^a-z0-9_./-]+|[^a-z0-9_./-]+$/g, ''))
+    .map(t => t.replace(/^[^a-zA-Z0-9_./-]+|[^a-zA-Z0-9_./-]+$/g, ''))
     .filter(Boolean);
-  const stopwords = new Set(['a', 'an', 'the', 'to', 'in', 'on', 'of', 'or', 'and', 'for', 'by', 'is', 'at', 'with', 'from']);
-  const meaningful = rawTokens.filter(t => t.length > 2 || !stopwords.has(t));
-  return meaningful.length > 0 ? meaningful : rawTokens;
+  const meaningful = rawTerms.filter(t => t.length > 2 || !SEARCH_STOPWORDS.has(t.toLowerCase()));
+  return meaningful.length > 0 ? meaningful : rawTerms;
+}
+
+function tokenizeSearchQuery(rawQuery) {
+  return extractCasePreservedTerms(rawQuery).map(t => t.toLowerCase());
+}
+
+function expandCompoundSubTokens(rawTerm) {
+  if (!rawTerm || typeof rawTerm !== 'string') return [];
+  const tokLower = rawTerm.toLowerCase();
+  const splitCamel = rawTerm
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
+  const parts = splitCamel
+    .split(/[\s/\\._:-]+/)
+    .map(p => p.toLowerCase().trim())
+    .filter(p => p.length >= 3 && p !== tokLower && !SEARCH_STOPWORDS.has(p) && !GENERIC_SUBTOKEN_STOPWORDS.has(p));
+  return Array.from(new Set(parts));
+}
+
+function rankSearchMatches(allConcepts, rawSearchString) {
+  if (!rawSearchString || typeof rawSearchString !== 'string' || !Array.isArray(allConcepts) || allConcepts.length === 0) {
+    return [];
+  }
+  const searchKeyword = rawSearchString.toLowerCase().trim();
+  if (!searchKeyword) return [];
+
+  const caseTerms = extractCasePreservedTerms(rawSearchString);
+  const termGroups = caseTerms.map(rawTerm => {
+    const tok = rawTerm.toLowerCase();
+    const strippedSlash = tok.replace(/^\/+|\/+$/g, '');
+    return {
+      rawTerm,
+      tok,
+      strippedSlash: strippedSlash && strippedSlash !== tok ? strippedSlash : null,
+      subTokens: expandCompoundSubTokens(rawTerm)
+    };
+  });
+  const searchTokens = termGroups.map(g => g.tok);
+  const hasAnySubTokens = termGroups.some(g => g.subTokens.length > 0);
+
+  const exactAndFullMatches = [];
+  const partialMatches = [];
+  const preparedConcepts = [];
+
+  for (const c of allConcepts) {
+    const fm = c.frontmatter || {};
+    const title = (fm.title || '').toLowerCase();
+    const desc = (fm.description || '').toLowerCase();
+    const type = (fm.type || '').toLowerCase();
+    const runtime = (fm.runtime || '').toLowerCase();
+    const tags = (fm.tags || []).map(t => String(t).toLowerCase());
+    const relPath = (c.relativePath || c.file || '').toLowerCase();
+    const body = (c.body || '').toLowerCase();
+    let sourcesText = '';
+    for (const uri of collectConceptResourceUris(fm)) {
+      sourcesText += ' ' + String(uri).toLowerCase();
+    }
+    if (Array.isArray(fm.sources)) {
+      for (const src of fm.sources) {
+        if (src && typeof src === 'object') {
+          if (src.title) sourcesText += ' ' + String(src.title).toLowerCase();
+          if (src.description) sourcesText += ' ' + String(src.description).toLowerCase();
+          if (src.author) sourcesText += ' ' + String(src.author).toLowerCase();
+          if (src.id) sourcesText += ' ' + String(src.id).toLowerCase();
+        }
+      }
+    }
+
+    const identityHeaderBlob = [title, tags.join(' '), relPath, sourcesText].join(' ');
+    const headerBlob = [title, desc, type, runtime, tags.join(' '), relPath, sourcesText].join(' ');
+    const fullBlob = headerBlob + '\n' + body;
+
+    const isHeaderExactPhrase =
+      title.includes(searchKeyword) ||
+      desc.includes(searchKeyword) ||
+      type.includes(searchKeyword) ||
+      runtime.includes(searchKeyword) ||
+      tags.some(t => t.includes(searchKeyword)) ||
+      sourcesText.includes(searchKeyword);
+    const isExactPhrase = isHeaderExactPhrase || body.includes(searchKeyword);
+
+    let tokenHitCount = 0;
+    let headerTokenHits = 0;
+    let weightedScore = (isExactPhrase ? 100 : 0) + (isHeaderExactPhrase ? 50 : 0);
+    for (const group of termGroups) {
+      const tok = group.tok;
+      const alt = group.strippedSlash;
+      const matchedFull = fullBlob.includes(tok) || (alt && fullBlob.includes(alt));
+      if (matchedFull) {
+        tokenHitCount++;
+        let inHeader = false;
+        if (title.includes(tok) || (alt && title.includes(alt))) {
+          weightedScore += 10;
+          inHeader = true;
+        }
+        if (tags.some(t => t.includes(tok) || (alt && t.includes(alt))) || relPath.includes(tok) || (alt && relPath.includes(alt))) {
+          weightedScore += 8;
+          inHeader = true;
+        }
+        if (desc.includes(tok) || (alt && desc.includes(alt))) {
+          weightedScore += 6;
+          inHeader = true;
+        }
+        if (sourcesText.includes(tok) || (alt && sourcesText.includes(alt))) {
+          weightedScore += 4;
+          inHeader = true;
+        }
+        if (inHeader) {
+          headerTokenHits++;
+        } else {
+          weightedScore += 1;
+        }
+      }
+    }
+    weightedScore += headerTokenHits * 5;
+
+    if (isExactPhrase || (searchTokens.length > 1 && tokenHitCount === searchTokens.length)) {
+      exactAndFullMatches.push({ concept: c, tokenHitCount, weightedScore });
+    } else if (searchTokens.length >= 2 && tokenHitCount >= Math.max(2, Math.ceil(searchTokens.length * 0.5))) {
+      partialMatches.push({ concept: c, tokenHitCount, weightedScore });
+    }
+
+    preparedConcepts.push({
+      concept: c,
+      title,
+      desc,
+      tags,
+      relPath,
+      sourcesText,
+      identityHeaderBlob,
+      headerBlob,
+      fullBlob,
+      tokenHitCount,
+      headerTokenHits,
+      weightedScore
+    });
+  }
+
+  let chosen = exactAndFullMatches.length > 0 ? exactAndFullMatches : partialMatches;
+
+  // Fallback rescues when multi-keyword queries have 0 raw-token matches (e.g. camelCase identifiers or /api/... routes)
+  if (chosen.length === 0 && termGroups.length >= 2) {
+    if (hasAnySubTokens) {
+      const compoundRescue = [];
+      const minCovered = Math.max(2, Math.ceil(termGroups.length * 0.5));
+      for (const item of preparedConcepts) {
+        let coveredTerms = 0;
+        let compoundHeaderHits = 0;
+        let subScore = item.weightedScore;
+        for (const group of termGroups) {
+          const fullMatched =
+            item.fullBlob.includes(group.tok) ||
+            (group.strippedSlash && item.fullBlob.includes(group.strippedSlash));
+          if (fullMatched) {
+            coveredTerms++;
+            if (
+              item.headerBlob.includes(group.tok) ||
+              (group.strippedSlash && item.headerBlob.includes(group.strippedSlash))
+            ) {
+              compoundHeaderHits++;
+            }
+            continue;
+          }
+          if (group.subTokens.length > 0) {
+            let anySubHit = false;
+            let anySubHeader = false;
+            for (const st of group.subTokens) {
+              if (item.fullBlob.includes(st)) {
+                anySubHit = true;
+                if (item.headerBlob.includes(st)) {
+                  anySubHeader = true;
+                  subScore += 3;
+                } else {
+                  subScore += 1;
+                }
+              }
+            }
+            if (anySubHit) {
+              coveredTerms++;
+              if (anySubHeader) compoundHeaderHits++;
+            }
+          }
+        }
+        if (coveredTerms >= minCovered && (item.tokenHitCount >= 1 || compoundHeaderHits >= 2)) {
+          compoundRescue.push({
+            concept: item.concept,
+            tokenHitCount: coveredTerms * 10 + item.tokenHitCount,
+            weightedScore: subScore
+          });
+        }
+      }
+      if (compoundRescue.length > 0) {
+        chosen = compoundRescue;
+      }
+    }
+
+    if (chosen.length === 0) {
+      // Selective structural-header rescue when one specific identifier/file token matches title/tags/relPath/sources
+      const maxAllowedDf = Math.max(3, Math.ceil(allConcepts.length * 0.25));
+      const selectiveTokens = [];
+      for (const group of termGroups) {
+        const tok = group.tok;
+        if (tok.length < 4 || GENERIC_HEADER_RESCUE_STOPWORDS.has(tok) || SEARCH_STOPWORDS.has(tok)) continue;
+        let df = 0;
+        for (const item of preparedConcepts) {
+          if (item.identityHeaderBlob.includes(tok) || (group.strippedSlash && item.identityHeaderBlob.includes(group.strippedSlash))) {
+            df++;
+          }
+        }
+        if (df > 0 && df <= maxAllowedDf && (allConcepts.length < 2 || df < allConcepts.length)) {
+          selectiveTokens.push(group);
+        }
+      }
+      if (selectiveTokens.length > 0) {
+        const headerRescue = [];
+        for (const item of preparedConcepts) {
+          let rescueHits = 0;
+          for (const group of selectiveTokens) {
+            if (item.identityHeaderBlob.includes(group.tok) || (group.strippedSlash && item.identityHeaderBlob.includes(group.strippedSlash))) {
+              rescueHits++;
+            }
+          }
+          if (rescueHits > 0) {
+            headerRescue.push({
+              concept: item.concept,
+              tokenHitCount: rescueHits,
+              weightedScore: item.weightedScore
+            });
+          }
+        }
+        chosen = headerRescue;
+      }
+    }
+  }
+
+  chosen.sort((a, b) => (b.tokenHitCount - a.tokenHitCount) || (b.weightedScore - a.weightedScore));
+  return chosen;
 }
 
 function printHelp() {
@@ -534,85 +781,7 @@ function main() {
     const others = deduped.filter(e => e.matchTier !== 'primary');
     matchedEntries.push(...primaries, ...others);
   } else if (searchIndex !== -1 && searchKeyword) {
-    const exactAndFullMatches = [];
-    const partialMatches = [];
-
-    for (const c of allConcepts) {
-      const title = (c.frontmatter.title || '').toLowerCase();
-      const desc = (c.frontmatter.description || '').toLowerCase();
-      const type = (c.frontmatter.type || '').toLowerCase();
-      const runtime = (c.frontmatter.runtime || '').toLowerCase();
-      const tags = (c.frontmatter.tags || []).map(t => String(t).toLowerCase());
-      const relPath = (c.relativePath || '').toLowerCase();
-      const body = c.body.toLowerCase();
-      let sourcesText = '';
-      for (const uri of collectConceptResourceUris(c.frontmatter)) {
-        sourcesText += ' ' + String(uri).toLowerCase();
-      }
-      if (Array.isArray(c.frontmatter.sources)) {
-        for (const src of c.frontmatter.sources) {
-          if (src && typeof src === 'object') {
-            if (src.title) sourcesText += ' ' + String(src.title).toLowerCase();
-            if (src.description) sourcesText += ' ' + String(src.description).toLowerCase();
-            if (src.author) sourcesText += ' ' + String(src.author).toLowerCase();
-            if (src.id) sourcesText += ' ' + String(src.id).toLowerCase();
-          }
-        }
-      }
-
-      const headerBlob = [title, desc, type, runtime, tags.join(' '), relPath, sourcesText].join(' ');
-      const fullBlob = headerBlob + '\n' + body;
-
-      const isHeaderExactPhrase =
-        title.includes(searchKeyword) ||
-        desc.includes(searchKeyword) ||
-        type.includes(searchKeyword) ||
-        runtime.includes(searchKeyword) ||
-        tags.some(t => t.includes(searchKeyword)) ||
-        sourcesText.includes(searchKeyword);
-      const isExactPhrase = isHeaderExactPhrase || body.includes(searchKeyword);
-
-      let tokenHitCount = 0;
-      let headerTokenHits = 0;
-      let weightedScore = (isExactPhrase ? 100 : 0) + (isHeaderExactPhrase ? 50 : 0);
-      for (const tok of searchTokens) {
-        if (fullBlob.includes(tok)) {
-          tokenHitCount++;
-          let inHeader = false;
-          if (title.includes(tok)) {
-            weightedScore += 10;
-            inHeader = true;
-          }
-          if (tags.some(t => t.includes(tok)) || relPath.includes(tok)) {
-            weightedScore += 8;
-            inHeader = true;
-          }
-          if (desc.includes(tok)) {
-            weightedScore += 6;
-            inHeader = true;
-          }
-          if (sourcesText.includes(tok)) {
-            weightedScore += 4;
-            inHeader = true;
-          }
-          if (inHeader) {
-            headerTokenHits++;
-          } else {
-            weightedScore += 1;
-          }
-        }
-      }
-      weightedScore += headerTokenHits * 5;
-
-      if (isExactPhrase || (searchTokens.length > 1 && tokenHitCount === searchTokens.length)) {
-        exactAndFullMatches.push({ concept: c, tokenHitCount, weightedScore });
-      } else if (searchTokens.length >= 2 && tokenHitCount >= Math.max(2, Math.ceil(searchTokens.length * 0.5))) {
-        partialMatches.push({ concept: c, tokenHitCount, weightedScore });
-      }
-    }
-
-    const chosen = exactAndFullMatches.length > 0 ? exactAndFullMatches : partialMatches;
-    chosen.sort((a, b) => (b.tokenHitCount - a.tokenHitCount) || (b.weightedScore - a.weightedScore));
+    const chosen = rankSearchMatches(allConcepts, rawSearchString);
     for (const item of chosen) {
       matchedEntries.push({ concept: item.concept, matchTier: 'search' });
     }
@@ -689,9 +858,11 @@ function main() {
         s.lines.join('\n').toLowerCase().includes(searchKeyword)
       );
       if (matchingSections.length === 0 && searchTokens.length > 1) {
+        const subToks = extractCasePreservedTerms(rawSearchString).flatMap(expandCompoundSubTokens);
+        const allSectionTokens = Array.from(new Set([...searchTokens, ...subToks]));
         matchingSections = sections.filter(s => {
           const secText = (s.heading + '\n' + s.lines.join('\n')).toLowerCase();
-          return searchTokens.some(tok => secText.includes(tok));
+          return allSectionTokens.some(tok => secText.includes(tok));
         });
       }
       if (matchingSections.length > 0) {
@@ -815,5 +986,8 @@ module.exports = {
   collectConceptResourceUris,
   collectPrimaryResourceUris,
   collectSecondarySourceUris,
+  tokenizeSearchQuery,
+  expandCompoundSubTokens,
+  rankSearchMatches,
   recordTelemetry
 };
