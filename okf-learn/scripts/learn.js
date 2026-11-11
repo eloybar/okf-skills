@@ -326,15 +326,31 @@ function isQueryMissResolvedInBundle(mode, rawTarget, workspaceDir) {
     const concepts = getCachedBundleConcepts(bRoot);
     if (concepts.length === 0) continue;
     if (mode === 'search') {
-      const qLower = rawTarget.trim().toLowerCase();
+      const qTrimmed = rawTarget.trim();
+      const qLower = qTrimmed.toLowerCase();
       if (!qLower || qLower === '(search query)') continue;
-      const tokens = qLower.split(/[\s_-]+/).filter(t => t.length >= 2);
-      for (const c of concepts) {
-        const fm = c.frontmatter || {};
-        const tagsStr = Array.isArray(fm.tags) ? fm.tags.join(' ') : '';
-        const blob = [c.file, fm.title || '', fm.description || '', tagsStr, c.body || ''].join(' ').toLowerCase();
-        if (blob.includes(qLower) || (tokens.length >= 2 && tokens.every(tok => blob.includes(tok)))) {
-          return true;
+      let rankSearchFn = null;
+      try {
+        const siblingQueryPath = path.resolve(__dirname, '..', '..', 'okf-query', 'scripts', 'query.js');
+        if (fs.existsSync(siblingQueryPath)) {
+          const queryMod = require(siblingQueryPath);
+          if (queryMod && typeof queryMod.rankSearchMatches === 'function') {
+            rankSearchFn = queryMod.rankSearchMatches;
+          }
+        }
+      } catch (e) {}
+      if (rankSearchFn) {
+        const matches = rankSearchFn(concepts, qTrimmed);
+        if (matches.length > 0) return true;
+      } else {
+        const tokens = qLower.split(/[\s_-]+/).filter(t => t.length >= 2);
+        for (const c of concepts) {
+          const fm = c.frontmatter || {};
+          const tagsStr = Array.isArray(fm.tags) ? fm.tags.join(' ') : '';
+          const blob = [c.file, fm.title || '', fm.description || '', tagsStr, c.body || ''].join(' ').toLowerCase();
+          if (blob.includes(qLower) || (tokens.length >= 2 && tokens.every(tok => blob.includes(tok)))) {
+            return true;
+          }
         }
       }
     } else {
@@ -534,9 +550,102 @@ function extractSearchQueryFromCommand(cmd) {
   return q;
 }
 
-function hasConceptCitation(text) {
+function collectWorkspaceConceptHints(workspaceDir) {
+  if (!workspaceDir || typeof workspaceDir !== 'string') return null;
+  const candidateRoots = [
+    path.join(workspaceDir, 'docs', 'okf'),
+    path.join(workspaceDir, 'okf')
+  ].filter(p => {
+    try {
+      return fs.existsSync(p);
+    } catch (e) {
+      return false;
+    }
+  });
+  if (candidateRoots.length === 0) return null;
+
+  const conceptFilenames = new Set();
+  const hyphenatedSlugs = new Set();
+  const reservedNames = new Set(['index.md', 'log.md', 'skill.md', 'readme.md', 'agents.md', 'claude.md', 'gemini.md']);
+
+  for (const bRoot of candidateRoots) {
+    const concepts = getCachedBundleConcepts(bRoot);
+    for (const c of concepts) {
+      const base = path.basename(c.file || '').toLowerCase();
+      if (!base || reservedNames.has(base)) continue;
+      conceptFilenames.add(base);
+      const slug = base.replace(/\.md$/i, '');
+      if (slug.length >= 5 && slug.includes('-')) {
+        hyphenatedSlugs.add(slug);
+      }
+    }
+  }
+  if (conceptFilenames.size === 0 && hyphenatedSlugs.size === 0) return null;
+  return { conceptFilenames, hyphenatedSlugs };
+}
+
+function preInferWorkspaceFromRecords(parsedRecords) {
+  if (!Array.isArray(parsedRecords)) return null;
+  for (const r of parsedRecords) {
+    if (!r || typeof r !== 'object') continue;
+    if (r.cwd && typeof r.cwd === 'string') {
+      return r.cwd.replace(/\\+/g, '/');
+    }
+    if (
+      r.type === 'attachment' &&
+      r.attachment &&
+      r.attachment.snapshot &&
+      typeof r.attachment.snapshot.workingDirectory === 'string'
+    ) {
+      return r.attachment.snapshot.workingDirectory.replace(/\\+/g, '/');
+    }
+    if (r.type === 'assistant' && r.message && Array.isArray(r.message.content)) {
+      for (const b of r.message.content) {
+        if (b && b.type === 'tool_use' && b.input && typeof b.input === 'object') {
+          const fp = b.input.file_path || b.input.path || b.input.Path || '';
+          const inf = inferWorkspaceFromPath(fp);
+          if (inf) return inf;
+        }
+      }
+    } else if (r.type === 'PLANNER_RESPONSE' && Array.isArray(r.tool_calls)) {
+      for (const tc of r.tool_calls) {
+        const fp = tc && tc.args && tc.args.Path;
+        const inf = inferWorkspaceFromPath(fp);
+        if (inf) return inf;
+      }
+    }
+  }
+  return null;
+}
+
+function hasConceptCitation(text, bundleHints = null) {
   if (!text || typeof text !== 'string') return false;
-  return /OKF Check|OKF Citations|docs\/okf\/|(?:\b|[\/\\(`"'])okf\/(?!log\.md\b|SKILL\.md\b)[a-z0-9_.-]+(?:\/[a-z0-9_.-]+)*\.md\b/i.test(text);
+  if (
+    /OKF Check|OKF Citations|\[Concept:\s*[^\]]+\]|docs[\/\\]okf[\/\\]|[`"'](?:[^`"'\r\n]*[\/\\])?okf[\/\\][`"']|(?:^|[\s\/\\(`"'])okf[\/\\](?!log\.md\b|SKILL\.md\b)[a-z0-9_.-]+(?:[\/\\][a-z0-9_.-]+)*\.md\b/i.test(
+      text
+    )
+  ) {
+    return true;
+  }
+  if (bundleHints) {
+    const mdMatches = text.match(/[a-z0-9_.-]+\.md\b/gi);
+    if (mdMatches && bundleHints.conceptFilenames && bundleHints.conceptFilenames.size > 0) {
+      for (const m of mdMatches) {
+        if (bundleHints.conceptFilenames.has(m.toLowerCase())) return true;
+      }
+    }
+    if (
+      bundleHints.hyphenatedSlugs &&
+      bundleHints.hyphenatedSlugs.size > 0 &&
+      /\b(?:okf|bundle|concepts?)\b/i.test(text)
+    ) {
+      const lowerText = text.toLowerCase();
+      for (const slug of bundleHints.hyphenatedSlugs) {
+        if (lowerText.includes(slug)) return true;
+      }
+    }
+  }
+  return false;
 }
 
 function isOkfBundleReadPath(filePath) {
@@ -691,6 +800,8 @@ function analyzeSingleTranscript(transcriptPath, convId, options = {}) {
   let recordsToAnalyze = parsedRecords;
   let preSessionQueries = 0;
   let preSessionCitations = 0;
+  const initialWorkspace = preInferWorkspaceFromRecords(parsedRecords) || options.workspaceRoot || null;
+  const bundleHints = collectWorkspaceConceptHints(initialWorkspace);
 
   if (resetAtMs) {
     const postRecords = [];
@@ -721,7 +832,7 @@ function analyzeSingleTranscript(transcriptPath, convId, options = {}) {
         if (pr.type === 'assistant' && pr.message && Array.isArray(pr.message.content)) {
           for (const b of pr.message.content) {
             if (!b) continue;
-            if (b.type === 'text' && typeof b.text === 'string' && hasConceptCitation(b.text)) {
+            if (b.type === 'text' && typeof b.text === 'string' && hasConceptCitation(b.text, bundleHints)) {
               preSessionCitations++;
             }
             if (b.type !== 'tool_use') continue;
@@ -741,7 +852,7 @@ function analyzeSingleTranscript(transcriptPath, convId, options = {}) {
             preSessionQueries += countCommandPreWorkQueries(cmd);
           }
         } else if (pr.type === 'PLANNER_RESPONSE') {
-          if (hasConceptCitation(String(pr.content || ''))) {
+          if (hasConceptCitation(String(pr.content || ''), bundleHints)) {
             preSessionCitations++;
           }
           if (Array.isArray(pr.tool_calls)) {
@@ -823,7 +934,7 @@ function analyzeSingleTranscript(transcriptPath, convId, options = {}) {
         for (const block of blocks) {
           if (!block || typeof block !== 'object') continue;
           if (block.type === 'text' && typeof block.text === 'string') {
-            if (!citedAssistantMsgIds.has(msgKey) && hasConceptCitation(block.text)) {
+            if (!citedAssistantMsgIds.has(msgKey) && hasConceptCitation(block.text, bundleHints)) {
               citedAssistantMsgIds.add(msgKey);
               conversation.gateCompliance.conceptCitations++;
             }
@@ -976,7 +1087,7 @@ function analyzeSingleTranscript(transcriptPath, convId, options = {}) {
         conversation.tokens.cacheReadTokens += Number(step.cache_read_tokens || 0);
         conversation.tokens.outputTokens += Number(step.output_tokens || 0);
         const content = String(step.content || '');
-        if (hasConceptCitation(content)) {
+        if (hasConceptCitation(content, bundleHints)) {
           conversation.gateCompliance.conceptCitations++;
         }
         if (Array.isArray(step.tool_calls)) {
@@ -1803,6 +1914,8 @@ module.exports = {
   analyzeSingleTranscript,
   discoverTranscriptCandidates,
   isUserCorrectionTurn,
+  hasConceptCitation,
+  collectWorkspaceConceptHints,
   measureOkfContextBlockBytes,
   bindSourceToConcept,
   recordTelemetry,
