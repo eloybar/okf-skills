@@ -918,6 +918,11 @@ Body.
   assert.ok(multiWordOut.includes('Cloud Sync Service'), 'okf-query --search should match multi-word non-contiguous token queries');
   console.log('✓ okf-query --search matched multi-word tokenized query.');
 
+  // 16c-2. Comma-separated keyword lists (mirroring --file syntax) must tokenize, not collapse into one token
+  const commaSearchOut = execSync(`node "${scripts.query}" --search "cloud,storage,sync,hub"`, { cwd: tempDir }).toString();
+  assert.ok(commaSearchOut.includes('Cloud Sync Service'), 'okf-query --search should split comma-separated keyword lists into tokens');
+  console.log('✓ okf-query --search tokenized comma-separated keyword list.');
+
   // 16d. CRLF preservation in inspectAndSyncSteeringFile and other-branch bundle hint
   const crlfClaude = path.join(tempDir, 'CLAUDE.md');
   fs.writeFileSync(crlfClaude, '# Project\r\n\r\n## Knowledge Bundle / OKF\r\nOld notice.\r\n\r\n<!-- okf-steering-version: 1.7.0 -->\r\n', 'utf8');
