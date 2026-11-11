@@ -331,3 +331,7 @@ Newest changes recorded chronologically.
 ## 2026-11-09
 - Synchronized timestamp for 9 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/okf-prune-skill.md, concepts/okf-query-skill.md, concepts/okf-skill.md, concepts/okf-upgrade-skill.md, concepts/skill-catalog-sync.md.
 - Synchronized timestamp for 4 drifted concept(s): concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/skill-catalog-sync.md.
+
+## 2026-11-11
+- okf-query: `tokenizeSearchQuery` now splits on commas/semicolons as well as whitespace, fixing silent misses for comma-separated `--search` keyword lists (found via okf-learn telemetry). Regression test added in scripts/test-lifecycle.js step 16c-2.
+- Synchronized timestamp for 7 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md, concepts/skill-catalog-sync.md, concepts/skill-installers.md.

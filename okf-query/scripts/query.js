@@ -283,7 +283,8 @@ function tokenizeSearchQuery(rawQuery) {
   if (!rawQuery || typeof rawQuery !== 'string') return [];
   const rawTokens = rawQuery
     .toLowerCase()
-    .split(/\s+/)
+    // Agents often mirror --file syntax and pass comma/semicolon-separated keywords.
+    .split(/[\s,;]+/)
     .map(t => t.replace(/^[^a-z0-9_./-]+|[^a-z0-9_./-]+$/g, ''))
     .filter(Boolean);
   const stopwords = new Set(['a', 'an', 'the', 'to', 'in', 'on', 'of', 'or', 'and', 'for', 'by', 'is', 'at', 'with', 'from']);
