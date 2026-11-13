@@ -7,7 +7,10 @@ tags: [pruning, cleanup, lifecycle, archiving, automation]
 status: stable
 generated:
   by: Antigravity/4.0
-  at: 2026-11-11T23:27:24.516Z
+  at: 2026-11-13T23:21:18Z
+verified:
+  - by: human:eloybar
+    at: 2026-11-13T23:21:18Z
 sources:
   - okf-maintain/SKILL.md
   - okf-maintain/scripts/maintain.js

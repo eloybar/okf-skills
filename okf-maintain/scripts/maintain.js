@@ -30,6 +30,24 @@ function recordTelemetry(entry, args = []) {
   } catch (e) {}
 }
 
+const ROOT_HYGIENE_FILES = new Set([
+  '.gitignore', '.gitattributes', '.gitmodules', '.editorconfig',
+  '.nvmrc', '.node-version', '.npmrc', '.yarnrc', '.yarnrc.yml',
+  '.prettierignore', '.eslintignore', '.dockerignore', '.stylelintignore',
+  'license', 'license.md', 'license.txt', 'skills-lock.json'
+]);
+
+function isRootHygieneQueryTarget(rawTarget) {
+  if (!rawTarget || typeof rawTarget !== 'string') return false;
+  const cleanedTarget = rawTarget.replace(/\s*\(repository hygiene\/config file[^)]*\)\s*$/i, '').trim();
+  const parts = cleanedTarget.split(',').map(s => s.trim()).filter(Boolean);
+  if (parts.length === 0) return false;
+  return parts.every(part => {
+    const base = path.basename(part.replace(/\\/g, '/')).toLowerCase();
+    return ROOT_HYGIENE_FILES.has(base);
+  });
+}
+
 function checkSessionAnomaliesForNudge(workspaceRoot, args = []) {
   const telPath = resolveTelemetryPath(args);
   if (!telPath || !fs.existsSync(telPath)) return null;
@@ -68,6 +86,7 @@ function checkSessionAnomaliesForNudge(workspaceRoot, args = []) {
     for (const e of slice) {
       const anoms = Array.isArray(e.anomalies) ? e.anomalies : [];
       if (anoms.includes('query_miss')) {
+        if (e.mode !== 'search' && isRootHygieneQueryTarget(e.query)) continue;
         queryMisses++;
         if (e.query) missedQueries.push(e.query);
       }
@@ -1298,6 +1317,10 @@ function updateConceptTimestamp(filePath, nowISO, actor, syncDate = null) {
 
 function resolveDefaultVerifierActor(workspaceRoot) {
   try {
+    let osUser = '';
+    try {
+      osUser = (os.userInfo().username || '').toLowerCase();
+    } catch (e) {}
     const gitName = execFileSync('git', ['config', 'user.name'], {
       cwd: workspaceRoot || process.cwd(),
       encoding: 'utf8',
@@ -1305,7 +1328,7 @@ function resolveDefaultVerifierActor(workspaceRoot) {
     }).trim();
     if (gitName) {
       const slug = gitName.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
-      if (slug) return `human:${slug}`;
+      if (slug && slug !== osUser) return `human:${slug}`;
     }
   } catch (e) {}
   return 'human:reviewer';

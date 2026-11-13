@@ -280,6 +280,21 @@ function resolveWorkspaceAndBundle(args) {
 }
 
 const SEARCH_STOPWORDS = new Set(['a', 'an', 'the', 'to', 'in', 'on', 'of', 'or', 'and', 'for', 'by', 'is', 'at', 'with', 'from']);
+const ROOT_HYGIENE_FILES = new Set([
+  '.gitignore', '.gitattributes', '.gitmodules', '.editorconfig',
+  '.nvmrc', '.node-version', '.npmrc', '.yarnrc', '.yarnrc.yml',
+  '.prettierignore', '.eslintignore', '.dockerignore', '.stylelintignore',
+  'license', 'license.md', 'license.txt', 'skills-lock.json'
+]);
+const GIT_HYGIENE_FILES = new Set(['.gitignore', '.gitattributes', '.gitmodules']);
+
+function isRootHygieneFile(filePath) {
+  if (!filePath || typeof filePath !== 'string') return false;
+  const cleaned = filePath.trim().replace(/\\/g, '/').replace(/^\.?\//, '');
+  if (!cleaned) return false;
+  const base = path.basename(cleaned).toLowerCase();
+  return ROOT_HYGIENE_FILES.has(base);
+}
 const GENERIC_SUBTOKEN_STOPWORDS = new Set([
   'api', 'src', 'lib', 'app', 'pkg', 'bin', 'cmd', 'cli', 'get', 'set', 'use', 'has', 'can',
   'new', 'old', 'all', 'one', 'two', 'ids', 'idx', 'val', 'res', 'req', 'err', 'msg', 'str',
@@ -751,6 +766,39 @@ function main() {
         fileMatches.push(...tier2Primary, ...tier2Secondary);
       }
 
+      // Tier 2B: Root repository hygiene/config file fallback (e.g. .gitignore, .gitattributes, LICENSE)
+      if (fileMatches.length === 0 && isRootHygieneFile(rawFileArg)) {
+        const baseName = path.basename(normalizedTarget).toLowerCase();
+        if (GIT_HYGIENE_FILES.has(baseName)) {
+          for (const c of allConcepts) {
+            const fm = c.frontmatter || {};
+            const rel = (c.relativePath || '').toLowerCase();
+            const title = (fm.title || '').toLowerCase();
+            const tags = (fm.tags || []).map(t => String(t).toLowerCase());
+            if (rel.includes('git') || title.includes('git') || tags.includes('git')) {
+              fileMatches.push({ concept: c, matchTier: 'root-config' });
+            }
+          }
+        }
+        if (fileMatches.length === 0) {
+          const rootReadme = path.normalize(path.join(workspaceRoot, 'README.md')).toLowerCase();
+          const rootPkg = path.normalize(path.join(workspaceRoot, 'package.json')).toLowerCase();
+          for (const c of allConcepts) {
+            for (const uri of collectPrimaryResourceUris(c.frontmatter)) {
+              const resPath = resolveResourceLocalPath(uri, workspaceRoot, bundleRoot);
+              if (resPath) {
+                const normRes = path.normalize(resPath).toLowerCase();
+                if (normRes === rootReadme || normRes === rootPkg) {
+                  fileMatches.push({ concept: c, matchTier: 'root-config' });
+                  break;
+                }
+              }
+            }
+            if (fileMatches.length > 0) break;
+          }
+        }
+      }
+
       if (!targetExists && fileMatches.length > 0 && !missingQueriedFiles.includes(rawFileArg)) {
         missingQueriedFiles.push(rawFileArg);
       }
@@ -759,7 +807,7 @@ function main() {
     }
 
     const byRelPath = new Map();
-    const tierPriority = { primary: 3, secondary: 2, directory: 1 };
+    const tierPriority = { primary: 3, secondary: 2, directory: 1, 'root-config': 1 };
     for (const rawFileArg of rawFileArgs) {
       for (const entry of matchSingleFile(rawFileArg)) {
         const key = entry.concept.relativePath;
@@ -789,18 +837,23 @@ function main() {
 
   const effectiveQueryLabel = fileIndex !== -1 ? rawFileArgs.join(',') : rawSearchString;
   if (matchedEntries.length === 0) {
+    const isAllRootHygiene = fileIndex !== -1 && rawFileArgs.length > 0 && rawFileArgs.every(isRootHygieneFile);
     if (fileIndex !== -1) {
       const relTarget = path.relative(workspaceRoot, path.resolve(workspaceRoot, rawFileArgs[0] || args[fileIndex + 1] || ''));
-      console.log(`No matching OKF concepts found for file: ${relTarget}`);
-      console.log(`Tip: Try searching by keyword: node okf-query/scripts/query.js --search <module-or-topic>`);
-      console.log(`Or inspect the catalog index at: ${fs.existsSync(path.join(bundleRoot, 'index.md')) ? path.relative(workspaceRoot, path.join(bundleRoot, 'index.md')).replace(/\\/g, '/') : 'docs/okf/index.md'}`);
+      if (isAllRootHygiene) {
+        console.log(`No matching OKF concepts found for file: ${relTarget} (repository hygiene/config file — no concept binding required)`);
+      } else {
+        console.log(`No matching OKF concepts found for file: ${relTarget}`);
+        console.log(`Tip: Try searching by keyword: node okf-query/scripts/query.js --search <module-or-topic>`);
+        console.log(`Or inspect the catalog index at: ${fs.existsSync(path.join(bundleRoot, 'index.md')) ? path.relative(workspaceRoot, path.join(bundleRoot, 'index.md')).replace(/\\/g, '/') : 'docs/okf/index.md'}`);
+      }
     } else if (rawSearchString) {
       console.log(`No matching OKF concepts found for search: ${rawSearchString}`);
     } else {
       console.log('No matching OKF concepts found.');
     }
     const durationMs = Date.now() - startTime;
-    const anomalies = ['query_miss'];
+    const anomalies = isAllRootHygiene ? [] : ['query_miss'];
     if (durationMs > 2000) anomalies.push('slow_exec');
     recordTelemetry({
       skill: 'okf-query',
@@ -989,5 +1042,7 @@ module.exports = {
   tokenizeSearchQuery,
   expandCompoundSubTokens,
   rankSearchMatches,
+  ROOT_HYGIENE_FILES,
+  isRootHygieneFile,
   recordTelemetry
 };

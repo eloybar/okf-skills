@@ -6,7 +6,10 @@ resource: okf/SKILL.md
 tags: [core, okf, documentation]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-09T20:51:35.884Z
+  at: 2026-11-13T23:21:18Z
+verified:
+  - by: human:eloybar
+    at: 2026-11-13T23:21:18Z
 sources:
   - AGENTS.md
 ---

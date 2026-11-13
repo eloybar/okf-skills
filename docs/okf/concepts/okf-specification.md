@@ -7,7 +7,10 @@ tags: [okf, specification, standard, v0.2, schema]
 status: stable
 generated:
   by: Antigravity/3.5-Flash
-  at: 2026-09-10T13:17:00Z
+  at: 2026-11-13T23:21:18Z
+verified:
+  - by: human:eloybar
+    at: 2026-11-13T23:21:18Z
 sources:
   - id: gcp-okf-spec
     resource: https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/okf/SPEC.md

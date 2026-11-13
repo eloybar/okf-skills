@@ -6,7 +6,10 @@ resource: okf-visualize/SKILL.md
 tags: [visualization, graph, network]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-07T20:54:39.629Z
+  at: 2026-11-13T23:21:18Z
+verified:
+  - by: human:eloybar
+    at: 2026-11-13T23:21:18Z
 sources:
   - okf-visualize/scripts/visualize.js
   - okf-visualize/static/viz.css

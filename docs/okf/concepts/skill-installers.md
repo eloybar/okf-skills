@@ -6,7 +6,10 @@ resource: install.ps1
 tags: [installation, deployment, powershell, bash]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-11T23:29:45.907Z
+  at: 2026-11-13T23:22:22.953Z
+verified:
+  - by: human:eloybar
+    at: 2026-11-13T23:21:18Z
 sources:
   - install.sh
   - .gitattributes
