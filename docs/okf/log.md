@@ -341,3 +341,7 @@ Newest changes recorded chronologically.
 ## 2026-11-11
 - okf-query: `tokenizeSearchQuery` now splits on commas/semicolons as well as whitespace, fixing silent misses for comma-separated `--search` keyword lists (found via okf-learn telemetry). Regression test added in scripts/test-lifecycle.js step 16c-2.
 - Synchronized timestamp for 7 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/okf-learn-skill.md, concepts/okf-maintain-skill.md, concepts/okf-query-skill.md, concepts/skill-catalog-sync.md, concepts/skill-installers.md.
+
+## 2026-11-13
+- Verified 16 concept(s) as `human:eloybar`: `concepts/git-development-workflow.md`, `concepts/interactive-simulator.md`, `concepts/knowledge-loop.md`, `concepts/okf-course.md` (stale_after: 2027-12-31T23:59:59Z), `concepts/okf-learn-skill.md`, `concepts/okf-lint-skill.md`, `concepts/okf-maintain-skill.md`, `concepts/okf-prune-skill.md`, `concepts/okf-query-skill.md`, `concepts/okf-skill.md`, `concepts/okf-specification.md`, `concepts/okf-upgrade-skill.md`, `concepts/okf-visualize-skill.md`, `concepts/okf-wayfinder-skill.md`, `concepts/skill-catalog-sync.md`, `concepts/skill-installers.md`.
+- Synchronized timestamp for 4 drifted concept(s): concepts/interactive-simulator.md, concepts/knowledge-loop.md, concepts/skill-catalog-sync.md, concepts/skill-installers.md.

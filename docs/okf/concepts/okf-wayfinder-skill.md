@@ -7,10 +7,10 @@ tags: [wizard, onboarding, creation, documentation]
 status: stable
 generated:
   by: Antigravity/4.0
-  at: 2026-11-07T20:54:39.629Z
+  at: 2026-11-13T23:21:18Z
 verified:
   - by: human:eloybar
-    at: 2026-11-01T23:59:00Z
+    at: 2026-11-13T23:21:18Z
 sources:
   - okf-wayfinder/scripts/wayfinder_taxonomy.js
 ---

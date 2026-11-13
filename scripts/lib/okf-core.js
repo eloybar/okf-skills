@@ -315,6 +315,31 @@ function normalizeActor(actorStr) {
   }
   return trimmed;
 }
+
+const ROOT_HYGIENE_FILES = new Set([
+  '.gitignore', '.gitattributes', '.gitmodules', '.editorconfig',
+  '.nvmrc', '.node-version', '.npmrc', '.yarnrc', '.yarnrc.yml',
+  '.prettierignore', '.eslintignore', '.dockerignore', '.stylelintignore',
+  'license', 'license.md', 'license.txt', 'skills-lock.json'
+]);
+
+function isRootHygieneFile(filePath) {
+  if (!filePath || typeof filePath !== 'string') return false;
+  const cleaned = filePath.trim().replace(/\\/g, '/').replace(/^\.?\//, '');
+  if (!cleaned) return false;
+  const base = path.basename(cleaned).toLowerCase();
+  return ROOT_HYGIENE_FILES.has(base);
+}
+
+function computeTrustTier(fm) {
+  if (!fm || !fm.verified) return 'unverified';
+  const verifications = Array.isArray(fm.verified) ? fm.verified : [fm.verified];
+  if (verifications.length === 0) return 'unverified';
+  const hasValidVerifier = verifications.some(v => v && v.by);
+  if (!hasValidVerifier) return 'unverified';
+  const hasHuman = verifications.some(v => v && v.by && String(v.by).startsWith('human:'));
+  return hasHuman ? 'human-reviewed' : 'machine-confirmed';
+}
 // === END OKF SHARED CORE ===
 
 module.exports = {
@@ -323,5 +348,8 @@ module.exports = {
   serializeFrontmatter,
   resolveResourceLocalPath,
   collectConceptResourceUris,
-  normalizeActor
+  normalizeActor,
+  ROOT_HYGIENE_FILES,
+  isRootHygieneFile,
+  computeTrustTier
 };

@@ -215,8 +215,19 @@ assert.strictEqual(okfCore.normalizeActor('agent:Claude/3.5'), 'Claude/3.5');
 assert.strictEqual(okfCore.normalizeActor('human:alice'), 'human:alice');
 assert.strictEqual(okfCore.resolveResourceLocalPath('bigquery://prod.finance.revenue', process.cwd()), null);
 assert.strictEqual(okfCore.resolveResourceLocalPath('src/ (excluding tests/)', process.cwd()), null);
+assert.strictEqual(okfCore.isRootHygieneFile('.gitignore'), true);
+assert.strictEqual(okfCore.isRootHygieneFile('LICENSE'), true);
+assert.strictEqual(okfCore.isRootHygieneFile('src/auth.js'), false);
+assert.strictEqual(okfCore.computeTrustTier({}), 'unverified');
+assert.strictEqual(okfCore.computeTrustTier({ verified: [{ by: 'process:ci-bot', at: '2026-11-10T00:00:00Z' }] }), 'machine-confirmed');
+assert.strictEqual(okfCore.computeTrustTier({ verified: [{ by: 'human:reviewer', at: '2026-11-10T00:00:00Z' }] }), 'human-reviewed');
 const uris = okfCore.collectConceptResourceUris(reparsed);
 assert.strictEqual(uris.length, 6);
+const repoConceptsDir = path.resolve(__dirname, '..', 'docs', 'okf', 'concepts');
+for (const cFile of require('fs').readdirSync(repoConceptsDir).filter(f => f.endsWith('.md'))) {
+  const cFm = okfCore.parseFrontmatter(require('fs').readFileSync(path.join(repoConceptsDir, cFile), 'utf8'));
+  assert.notStrictEqual(okfCore.computeTrustTier(cFm), 'unverified', `docs/okf/concepts/${cFile} must carry verified provenance`);
+}
 console.log('✓ All shared core serialization, URI resolution, and actor normalization tests passed.');
 
 console.log('\nVerifying skill & index.html synchronization (scripts/sync-skills.js --check)...');

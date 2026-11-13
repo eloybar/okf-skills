@@ -8,10 +8,12 @@ status: stable
 stale_after: 2027-12-31T23:59:59Z
 generated:
   by: Antigravity/4.0
-  at: 2026-11-07T16:09:03.827Z
+  at: 2026-11-13T23:21:18Z
 verified:
   - by: okf-lint/1.6.0
     at: 2026-10-21T13:30:05.000Z
+  - by: human:eloybar
+    at: 2026-11-13T23:21:18Z
 sources:
   - id: course-web-app
     title: Interactive OKF Academy Web Application

@@ -51,7 +51,7 @@ try {
   // === STEP 3: CREATE CONCEPT MAP ===
   console.log('Step 3: Documenting the new concept...');
   const conceptFile = path.join(bundleRoot, 'concepts', 'auth.md');
-  const nowISO = new Date().toISOString();
+  const nowISO = new Date(Date.now() - 10000).toISOString();
   fs.writeFileSync(conceptFile, `---
 type: Concept
 title: User Authentication
@@ -63,8 +63,12 @@ timestamp: ${nowISO}
 
 Authentication uses JWT tokens...
 `);
-  // Commit both files
-  execSync('git add . && git commit -m "feat: introduce authentication"', { cwd: tempDir, stdio: 'ignore' });
+  // Commit both files (backdated 10s so Step 5 code mutation is strictly newer without sleeping)
+  execSync('git add . && git commit -m "feat: introduce authentication"', {
+    cwd: tempDir,
+    stdio: 'ignore',
+    env: { ...process.env, GIT_AUTHOR_DATE: nowISO, GIT_COMMITTER_DATE: nowISO }
+  });
 
   // === STEP 4: RETRIEVE CONTEXT (QUERY) ===
   console.log('Step 4: Querying for concept context...');
@@ -76,9 +80,6 @@ Authentication uses JWT tokens...
 
   // === STEP 5: MUTATE CODE (TRIGGER DRIFT) ===
   console.log('Step 5: Modifying resource code to trigger concept drift...');
-  
-  // Wait a moment and then update code to guarantee git timestamp difference
-  execSync('node -e "setTimeout(() => {}, 1000)"');
   fs.writeFileSync(mockCodeFile, 'function login() { return false; } // Updated logic');
   execSync('git add . && git commit -m "fix: change login default"', { cwd: tempDir, stdio: 'ignore' });
 
@@ -199,8 +200,12 @@ sources:
 V2 authentication description.
 `);
 
-  // Commit these
-  execSync('git add . && git commit -m "feat: add v2 auth concept and code"', { cwd: tempDir, stdio: 'ignore' });
+  // Commit these (backdated to v2InitISO so Step 9d code mutation is strictly newer without sleeping)
+  execSync('git add . && git commit -m "feat: add v2 auth concept and code"', {
+    cwd: tempDir,
+    stdio: 'ignore',
+    env: { ...process.env, GIT_AUTHOR_DATE: v2InitISO, GIT_COMMITTER_DATE: v2InitISO }
+  });
 
   // 9c. Verify okf-query resolves via sources resource list
   const queryV2Result = execSync(`node "${scripts.query}" --file "src/v2_code.js"`, { cwd: tempDir }).toString();
@@ -208,7 +213,6 @@ V2 authentication description.
   console.log('✓ Query successfully resolved concept via sources.resource.');
 
   // 9d. Modify v2 code to trigger drift comparing against generated.at
-  execSync('node -e "setTimeout(() => {}, 1000)"');
   fs.writeFileSync(mockV2CodeFile, 'console.log("v2 code updated");');
   execSync('git add . && git commit -m "fix: update v2 code"', { cwd: tempDir, stdio: 'ignore' });
 
@@ -2931,6 +2935,40 @@ Body.
       assert.ok(relP.endsWith('.md'), `mdCommits must store only .md co-modification paths, got: ${relP}`);
     }
   }
+
+  // 19r. Test root hygiene / dotfile handling in okf-query (Tier 2B root-config fallback + zero query_miss telemetry)
+  //      and in okf-learn (isRootHygieneQueryTarget filtering).
+  assert.equal(queryMod.isRootHygieneFile('.gitignore'), true, 'isRootHygieneFile must recognize .gitignore');
+  assert.equal(learnMod.isRootHygieneQueryTarget('.gitignore'), true, 'isRootHygieneQueryTarget must recognize .gitignore');
+  assert.equal(learnMod.isRootHygieneQueryTarget('src/unmapped.ts'), false, 'isRootHygieneQueryTarget must not ignore source code files');
+
+  const dotfileTelPath = path.join(tempDir, 'dotfile-tel.jsonl');
+  const dotfileQueryOut = execSync(`node "${scripts.query}" --file .gitignore --telemetry "${dotfileTelPath}"`, {
+    cwd: flatOkfWs
+  }).toString();
+  assert.ok(
+    dotfileQueryOut.includes('repository hygiene/config file'),
+    'okf-query --file .gitignore in bundle without root/git concept must note repository hygiene/config status'
+  );
+  const dotfileTelLines = fs.readFileSync(dotfileTelPath, 'utf8').trim().split(/\r?\n/).map(l => JSON.parse(l));
+  assert.equal(
+    dotfileTelLines[0].anomalies.includes('query_miss'),
+    false,
+    'okf-query --file .gitignore must not record a query_miss telemetry anomaly'
+  );
+
+  fs.writeFileSync(
+    path.join(flatOkfWs, 'okf', 'git-workflow.md'),
+    '---\ntype: Playbook\ntitle: Git Workflow\ndescription: Branch and PR rules\ntags: [git, workflow]\ngenerated:\n  by: Claude/4.0\n  at: 2026-11-11T00:00:00Z\n---\n# Git Workflow\nUse feature branches.\n',
+    'utf8'
+  );
+  const gitHygieneMatchOut = execSync(`node "${scripts.query}" --file .gitignore --telemetry "${dotfileTelPath}"`, {
+    cwd: flatOkfWs
+  }).toString();
+  assert.ok(
+    gitHygieneMatchOut.includes('[Concept: Git Workflow]'),
+    'okf-query --file .gitignore must resolve git/workflow concept via Tier 2B root-config fallback'
+  );
 
   console.log('✓ okf-learn session audit, learning signals extraction, and --bind auto-remediation verified.');
   console.log('✓ Concept verification (--verify, --stale-after, --all-stale, --clear-stale) and consolidated --prune/--upgrade verified.');

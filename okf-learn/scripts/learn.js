@@ -292,8 +292,27 @@ function getCachedBundleConcepts(bundleRoot) {
   return bundleConceptsCache.get(key);
 }
 
+const ROOT_HYGIENE_FILES = new Set([
+  '.gitignore', '.gitattributes', '.gitmodules', '.editorconfig',
+  '.nvmrc', '.node-version', '.npmrc', '.yarnrc', '.yarnrc.yml',
+  '.prettierignore', '.eslintignore', '.dockerignore', '.stylelintignore',
+  'license', 'license.md', 'license.txt', 'skills-lock.json'
+]);
+
+function isRootHygieneQueryTarget(rawTarget) {
+  if (!rawTarget || typeof rawTarget !== 'string') return false;
+  const cleanedTarget = rawTarget.replace(/\s*\(repository hygiene\/config file[^)]*\)\s*$/i, '').trim();
+  const parts = cleanedTarget.split(',').map(s => s.trim()).filter(Boolean);
+  if (parts.length === 0) return false;
+  return parts.every(part => {
+    const base = path.basename(part.replace(/\\/g, '/')).toLowerCase();
+    return ROOT_HYGIENE_FILES.has(base);
+  });
+}
+
 function isQueryMissResolvedInBundle(mode, rawTarget, workspaceDir) {
   if (!rawTarget || typeof rawTarget !== 'string') return false;
+  if (mode !== 'search' && isRootHygieneQueryTarget(rawTarget)) return true;
   const candidateBundleRoots = [];
   const addWorkspaceCandidates = ws => {
     if (!ws || typeof ws !== 'string') return;
@@ -1916,6 +1935,7 @@ module.exports = {
   isUserCorrectionTurn,
   hasConceptCitation,
   collectWorkspaceConceptHints,
+  isRootHygieneQueryTarget,
   measureOkfContextBlockBytes,
   bindSourceToConcept,
   recordTelemetry,
