@@ -296,7 +296,8 @@ const ROOT_HYGIENE_FILES = new Set([
   '.gitignore', '.gitattributes', '.gitmodules', '.editorconfig',
   '.nvmrc', '.node-version', '.npmrc', '.yarnrc', '.yarnrc.yml',
   '.prettierignore', '.eslintignore', '.dockerignore', '.stylelintignore',
-  'license', 'license.md', 'license.txt', 'skills-lock.json'
+  'license', 'license.md', 'license.txt', 'skills-lock.json',
+  'agents.md', 'claude.md', 'gemini.md', '.cursorrules', '.windsurfrules', '.clinerules'
 ]);
 
 function isRootHygieneQueryTarget(rawTarget) {
@@ -305,7 +306,11 @@ function isRootHygieneQueryTarget(rawTarget) {
   const parts = cleanedTarget.split(',').map(s => s.trim()).filter(Boolean);
   if (parts.length === 0) return false;
   return parts.every(part => {
-    const base = path.basename(part.replace(/\\/g, '/')).toLowerCase();
+    const norm = part.replace(/\\/g, '/').replace(/^\.?\//, '');
+    if (/(?:^|\/)(?:docs\/superpowers|\.(?:superpowers|agents|claude|gemini|scratch)|scratch)\//i.test(norm)) {
+      return true;
+    }
+    const base = path.basename(norm).toLowerCase();
     return ROOT_HYGIENE_FILES.has(base);
   });
 }
@@ -556,7 +561,8 @@ function isUserCorrectionTurn(cleanedText) {
     .replace(/\b(?:i|we|they)\s+don't\s+(?:have|know|think|see|remember|need|mind|care|just)\b/gi, ' ')
     .replace(/\bdon't\s+have\s+(?:it|that|them|the\s+\w+|any|access)\b/gi, ' ')
     .replace(/\bdon't\s+(?:seem|appear)\s+to\b/gi, ' ')
-    .replace(/\bit\s+should\s+be\s+something\b/gi, ' ');
+    .replace(/\bit\s+should\s+be\s+something\b/gi, ' ')
+    .replace(/\bshould\s+be\s+able\s+to\b/gi, ' ');
   return /\b(no[,\s]|instead\b|don't\b|wrong\b|not working\b|still broken\b|should be\b|why did you\b|why\s+(?:was\s+(?:it|that|this)\s+missed|did\s+(?:you|we)\s+miss)\b)/i.test(normalized);
 }
 
@@ -744,17 +750,20 @@ function filterRawLinesAfterReset(rawLines, resetAtMs) {
   if (!resetAtMs || !Array.isArray(rawLines) || rawLines.length === 0) return rawLines;
   const postLines = [];
   let hasAnyPost = false;
+  let hasAnyTimestamp = false;
   for (const line of rawLines) {
     try {
       const r = JSON.parse(line);
       const ms = getRecordTimestampMs(r);
+      if (ms !== null) hasAnyTimestamp = true;
       if (ms !== null && ms > resetAtMs) {
         hasAnyPost = true;
         postLines.push(line);
       }
     } catch (e) {}
   }
-  return hasAnyPost ? postLines : rawLines;
+  if (hasAnyPost) return postLines;
+  return hasAnyTimestamp ? [] : rawLines;
 }
 
 function analyzeSingleTranscript(transcriptPath, convId, options = {}) {
@@ -825,8 +834,10 @@ function analyzeSingleTranscript(transcriptPath, convId, options = {}) {
   if (resetAtMs) {
     const postRecords = [];
     const preRecords = [];
+    let hasAnyTimestamp = false;
     for (const r of parsedRecords) {
       const ms = getRecordTimestampMs(r);
+      if (ms !== null) hasAnyTimestamp = true;
       if (ms !== null && ms > resetAtMs) {
         postRecords.push(r);
       } else {
@@ -893,6 +904,8 @@ function analyzeSingleTranscript(transcriptPath, convId, options = {}) {
           }
         }
       }
+    } else if (hasAnyTimestamp) {
+      recordsToAnalyze = [];
     } else {
       let mtimeAfterReset = false;
       try {
@@ -1197,12 +1210,14 @@ function analyzeSingleTranscript(transcriptPath, convId, options = {}) {
       }
 
       if (stepContent.includes('Tool is running as a background task')) {
-        const descMatch = stepContent.match(/Task Description:\s*([^\r\n]+)/);
-        const rawDesc = descMatch ? descMatch[1].trim() : '';
+        const descMatch = stepContent.match(/Task Description:\s*([\s\S]*?)(?:\r?\n(?:Task logs are available at:|Log output:)|$)/);
+        const rawDesc = descMatch
+          ? descMatch[1].trim().split(/\r?\n/).map(s => s.trim()).filter(Boolean).join('; ')
+          : '';
         if (
           rawDesc &&
           /(?:query|maintain|lint|prune|visualize|wayfinder_taxonomy|learn|upgrade)\.js\b|\bnpm\s+run\s+okf:/i.test(rawDesc) &&
-          !/\b(?:npx\s+jest|jest\b|npm\s+(?:run\s+)?test|pytest\b|vitest\b|cargo\s+test|dotnet\s+test|git\s+(?:push|pull|fetch|clone)|gh\s+(?:pr|issue|release|run|api)\b)\b/i.test(rawDesc)
+          !/\b(?:npx\s+jest|jest\b|npm(?:\s+(?:--prefix|-C|-w|--workspace)\s+\S+)*\s+(?:(?:run\s+)?test|run\s+build)|(?:tsc|vite)\s+build|pytest\b|vitest\b|cargo\s+test|dotnet\s+test|git\s+(?:push|pull|fetch|clone|commit)|gh\s+(?:pr|issue|release|run|api)\b)\b/i.test(rawDesc)
         ) {
           conversation.friction.slowCommands.push({
             step: step.step_index,
@@ -1233,9 +1248,9 @@ function analyzeSingleTranscript(transcriptPath, convId, options = {}) {
     conversation.gateCompliance.preCompletionMaintain = true;
   }
 
-  // If resetAtMs cut through the middle of an active turn (0 new user turns in post-reset slice),
-  // carry forward pre-reset grounding queries and citations from earlier in the same session.
-  if (conversation.userTurnCount === 0 && (preSessionQueries > 0 || preSessionCitations > 0)) {
+  // If resetAtMs cut through a continued session, carry forward pre-reset grounding queries
+  // and concept citations from earlier in the same session when absent in the post-reset slice.
+  if (preSessionQueries > 0 || preSessionCitations > 0) {
     if (conversation.gateCompliance.preWorkQueries === 0 && preSessionQueries > 0) {
       conversation.gateCompliance.preWorkQueries = preSessionQueries;
     }
@@ -1375,8 +1390,9 @@ function scanTranscriptDirectory(rootDir, excludeConvId, seenPaths, candidates, 
       if (resetAtMs && mtimeMs <= resetAtMs) return;
       const rawLines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/).filter(Boolean);
       const effectiveLines = filterRawLinesAfterReset(rawLines, resetAtMs);
+      if (resetAtMs && effectiveLines.length === 0) return;
       const summary = summarizeCandidateLines(effectiveLines, rawLines);
-      if (summary.isSubagent) return;
+      if (summary.isSubagent || (resetAtMs && summary.stepCount === 0)) return;
       const isMeta = isMetaLearnTranscript(effectiveLines);
       candidates.push({
         id,
@@ -1608,7 +1624,9 @@ function evaluateSkillsPerformance(options = {}) {
         target: m.query
       }))
     ].filter(m => m.target);
-    const fileMissTargets = Array.from(new Set(allMisses.filter(m => m.mode !== 'search').map(m => m.target))).slice(0, 5);
+    const fileMissTargets = Array.from(
+      new Set(allMisses.filter(m => m.mode !== 'search').map(m => m.target.replace(/\\/g, '/')))
+    ).slice(0, 5);
     const searchMissTargets = Array.from(new Set(allMisses.filter(m => m.mode === 'search').map(m => m.target))).slice(0, 5);
     if (fileMissTargets.length > 0) {
       recommendations.push({
