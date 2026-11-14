@@ -6,7 +6,7 @@ resource: README.md
 tags: [architecture, loop, feedback]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-13T23:22:22.953Z
+  at: 2026-11-14T22:38:43.823Z
 verified:
   - by: human:eloybar
     at: 2026-11-13T23:21:18Z

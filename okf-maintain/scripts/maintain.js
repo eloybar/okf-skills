@@ -34,7 +34,8 @@ const ROOT_HYGIENE_FILES = new Set([
   '.gitignore', '.gitattributes', '.gitmodules', '.editorconfig',
   '.nvmrc', '.node-version', '.npmrc', '.yarnrc', '.yarnrc.yml',
   '.prettierignore', '.eslintignore', '.dockerignore', '.stylelintignore',
-  'license', 'license.md', 'license.txt', 'skills-lock.json'
+  'license', 'license.md', 'license.txt', 'skills-lock.json',
+  'agents.md', 'claude.md', 'gemini.md', '.cursorrules', '.windsurfrules', '.clinerules'
 ]);
 
 function isRootHygieneQueryTarget(rawTarget) {
@@ -43,7 +44,11 @@ function isRootHygieneQueryTarget(rawTarget) {
   const parts = cleanedTarget.split(',').map(s => s.trim()).filter(Boolean);
   if (parts.length === 0) return false;
   return parts.every(part => {
-    const base = path.basename(part.replace(/\\/g, '/')).toLowerCase();
+    const norm = part.replace(/\\/g, '/').replace(/^\.?\//, '');
+    if (/(?:^|\/)(?:docs\/superpowers|\.(?:superpowers|agents|claude|gemini|scratch)|scratch)\//i.test(norm)) {
+      return true;
+    }
+    const base = path.basename(norm).toLowerCase();
     return ROOT_HYGIENE_FILES.has(base);
   });
 }
@@ -1123,6 +1128,76 @@ const IGNORED_FRONTIER_FILES = new Set([
   '.cursorrules', '.windsurfrules', '.clinerules'
 ]);
 
+function compileGitignorePattern(rawLine) {
+  const line = String(rawLine || '').trim();
+  if (!line || line.startsWith('#') || line.startsWith('!')) return null;
+
+  const isAnchored = line.startsWith('/');
+  const isDirOnly = line.endsWith('/');
+  let body = line;
+  if (isAnchored) body = body.slice(1);
+  if (isDirOnly) body = body.slice(0, -1);
+  if (!body) return null;
+
+  let regexBody = '';
+  let i = 0;
+  while (i < body.length) {
+    const ch = body[i];
+    if (ch === '\\' && i + 1 < body.length) {
+      regexBody += body[i + 1].replace(/[.*+?^${}()|[\]\\/-]/g, '\\$&');
+      i += 2;
+      continue;
+    }
+    if (ch === '*') {
+      if (body[i + 1] === '*') {
+        if (body[i + 2] === '/') {
+          regexBody += '(?:[^/]+/)*';
+          i += 3;
+          continue;
+        }
+        regexBody += '.*';
+        i += 2;
+        continue;
+      }
+      regexBody += '[^/]*';
+      i += 1;
+      continue;
+    }
+    if (ch === '?') {
+      regexBody += '[^/]';
+      i += 1;
+      continue;
+    }
+    if (ch === '[') {
+      const closeIdx = body.indexOf(']', i + 1);
+      if (closeIdx !== -1 && closeIdx > i + 1) {
+        let inner = body.slice(i + 1, closeIdx);
+        if (inner.startsWith('!')) inner = '^' + inner.slice(1);
+        regexBody += '[' + inner + ']';
+        i = closeIdx + 1;
+        continue;
+      }
+      regexBody += '\\[';
+      i += 1;
+      continue;
+    }
+    if (/[-\\^$+?.()|{}]/.test(ch) || ch === ']') {
+      regexBody += '\\' + ch;
+    } else {
+      regexBody += ch;
+    }
+    i += 1;
+  }
+
+  const prefix = isAnchored ? '^' : '(?:^|/)';
+  const suffix = '(?:$|/.*$)';
+  try {
+    return new RegExp(prefix + regexBody + suffix);
+  } catch (e) {
+    return null;
+  }
+}
+
 function loadGitignorePatterns(workspaceRoot) {
   const patterns = [];
   const dirsToCheck = [];
@@ -1141,28 +1216,9 @@ function loadGitignorePatterns(workspaceRoot) {
       try {
         const content = fs.readFileSync(gitignorePath, 'utf8');
         const lines = content.split(/\r?\n/);
-        for (let line of lines) {
-          line = line.trim();
-          if (!line || line.startsWith('#') || line.startsWith('!')) continue;
-          
-          let escaped = line.replace(/[-\/\\^$*+?.()|[\]{}]/g, (match) => {
-            if (match === '*' || match === '?') return match;
-            return '\\' + match;
-          });
-          escaped = escaped.replace(/\*/g, '.*').replace(/\?/g, '.');
-          if (line.endsWith('/')) {
-            escaped = escaped + '?.*';
-          } else {
-            escaped = escaped + '$';
-          }
-          if (line.startsWith('/')) {
-            escaped = '^' + escaped.slice(1);
-          } else {
-            escaped = '(^|/)' + escaped;
-          }
-          try {
-            patterns.push(new RegExp(escaped));
-          } catch (e) {}
+        for (const line of lines) {
+          const compiled = compileGitignorePattern(line);
+          if (compiled) patterns.push(compiled);
         }
       } catch (e) {}
     }
@@ -1637,6 +1693,17 @@ function isAcknowledgedInBundle(relPath, bundleMarkdownLower) {
   const base = path.basename(norm);
   if (bundleMarkdownLower.includes(norm) || bundleMarkdownLower.includes('`' + base + '`')) {
     return true;
+  }
+  const parts = norm.split('/');
+  for (let i = 1; i < parts.length; i++) {
+    const dirPrefix = parts.slice(0, i).join('/');
+    const dirName = parts[i - 1];
+    if (
+      bundleMarkdownLower.includes('`' + dirPrefix + '/`') ||
+      bundleMarkdownLower.includes('`' + dirName + '/`')
+    ) {
+      return true;
+    }
   }
   const ellipsisRe = /`(?:\u2026|\.{3})([^`\r\n]{8,})`/g;
   let m;
@@ -2705,5 +2772,7 @@ module.exports = {
   recordTelemetry,
   evaluateSkillsPerformance,
   updateConceptVerification,
-  verifyConcepts
+  verifyConcepts,
+  loadGitignorePatterns,
+  isAcknowledgedInBundle
 };

@@ -303,6 +303,76 @@ const IGNORED_FRONTIER_FILES = new Set([
   '.clinerules'
 ]);
 
+function compileGitignorePattern(rawLine) {
+  const line = String(rawLine || '').trim();
+  if (!line || line.startsWith('#') || line.startsWith('!')) return null;
+
+  const isAnchored = line.startsWith('/');
+  const isDirOnly = line.endsWith('/');
+  let body = line;
+  if (isAnchored) body = body.slice(1);
+  if (isDirOnly) body = body.slice(0, -1);
+  if (!body) return null;
+
+  let regexBody = '';
+  let i = 0;
+  while (i < body.length) {
+    const ch = body[i];
+    if (ch === '\\' && i + 1 < body.length) {
+      regexBody += body[i + 1].replace(/[.*+?^${}()|[\]\\/-]/g, '\\$&');
+      i += 2;
+      continue;
+    }
+    if (ch === '*') {
+      if (body[i + 1] === '*') {
+        if (body[i + 2] === '/') {
+          regexBody += '(?:[^/]+/)*';
+          i += 3;
+          continue;
+        }
+        regexBody += '.*';
+        i += 2;
+        continue;
+      }
+      regexBody += '[^/]*';
+      i += 1;
+      continue;
+    }
+    if (ch === '?') {
+      regexBody += '[^/]';
+      i += 1;
+      continue;
+    }
+    if (ch === '[') {
+      const closeIdx = body.indexOf(']', i + 1);
+      if (closeIdx !== -1 && closeIdx > i + 1) {
+        let inner = body.slice(i + 1, closeIdx);
+        if (inner.startsWith('!')) inner = '^' + inner.slice(1);
+        regexBody += '[' + inner + ']';
+        i = closeIdx + 1;
+        continue;
+      }
+      regexBody += '\\[';
+      i += 1;
+      continue;
+    }
+    if (/[-\\^$+?.()|{}]/.test(ch) || ch === ']') {
+      regexBody += '\\' + ch;
+    } else {
+      regexBody += ch;
+    }
+    i += 1;
+  }
+
+  const prefix = isAnchored ? '^' : '(?:^|/)';
+  const suffix = '(?:$|/.*$)';
+  try {
+    return new RegExp(prefix + regexBody + suffix);
+  } catch (e) {
+    return null;
+  }
+}
+
 /**
  * Reads .gitignore files up to the enclosing Git root and compiles patterns to RegExp rules.
  */
@@ -324,33 +394,9 @@ function loadGitignorePatterns(workspaceRoot) {
       try {
         const content = fs.readFileSync(gitignorePath, 'utf8');
         const lines = content.split(/\r?\n/);
-        for (let line of lines) {
-          line = line.trim();
-          if (!line || line.startsWith('#') || line.startsWith('!')) continue;
-          
-          // Escape regex special chars except * and ?
-          let escaped = line.replace(/[-\/\\^$*+?.()|[\]{}]/g, (match) => {
-            if (match === '*' || match === '?') return match;
-            return '\\' + match;
-          });
-          
-          escaped = escaped.replace(/\*/g, '.*').replace(/\?/g, '.');
-          
-          if (line.endsWith('/')) {
-            escaped = escaped + '?.*';
-          } else {
-            escaped = escaped + '$';
-          }
-          
-          if (line.startsWith('/')) {
-            escaped = '^' + escaped.slice(1);
-          } else {
-            escaped = '(^|/)' + escaped;
-          }
-          
-          try {
-            patterns.push(new RegExp(escaped));
-          } catch (e) {}
+        for (const line of lines) {
+          const compiled = compileGitignorePattern(line);
+          if (compiled) patterns.push(compiled);
         }
       } catch (e) {}
     }
@@ -827,5 +873,6 @@ module.exports = {
   scanWorkspace,
   clusterFrontier,
   inspectFileTelemetry,
-  parseFrontmatter
+  parseFrontmatter,
+  loadGitignorePatterns
 };

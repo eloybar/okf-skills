@@ -2970,6 +2970,251 @@ Body.
     'okf-query --file .gitignore must resolve git/workflow concept via Tier 2B root-config fallback'
   );
 
+  // 19s. Test agent-spec/steering hygiene exemptions, .gitignore directory/char-class compilation & backticked dir acknowledgment,
+  //      post-reset timestamp-less envelope filtering & continued-session citation carry-forward, and multi-line PR / npm --prefix slowCommands
+  const wayfinderMod = require(scripts.taxonomy);
+
+  // (1) Agent planning specs & steering files exempt from query_miss + backslash/forward-slash deduplication
+  assert.equal(
+    queryMod.isRootHygieneFile('docs/superpowers/specs/2026-10-28-questionnaire-design.md'),
+    true,
+    'isRootHygieneFile must recognize docs/superpowers/ planning specs'
+  );
+  assert.equal(
+    queryMod.isRootHygieneFile('AGENTS.md'),
+    true,
+    'isRootHygieneFile must recognize steering files such as AGENTS.md'
+  );
+  assert.equal(
+    learnMod.isRootHygieneQueryTarget('docs\\superpowers\\specs\\2026-10-28-questionnaire-design.md'),
+    true,
+    'isRootHygieneQueryTarget must recognize Windows-slashed docs/superpowers/ planning specs'
+  );
+  const specTelPath = path.join(tempDir, 'spec-hygiene-tel.jsonl');
+  execSync(
+    `node "${scripts.query}" --file docs/superpowers/specs/2026-10-28-questionnaire-design.md --telemetry "${specTelPath}"`,
+    { cwd: flatOkfWs }
+  );
+  const specTelLines = fs.readFileSync(specTelPath, 'utf8').trim().split(/\r?\n/).map(l => JSON.parse(l));
+  assert.equal(
+    specTelLines[0].anomalies.includes('query_miss'),
+    false,
+    'okf-query on docs/superpowers/specs/*.md must not record query_miss'
+  );
+
+  // Deduplicate backslash vs forward-slash fileMissTargets in recommendations
+  const dedupBrain = path.join(tempDir, 'dedup-miss-brain');
+  const dedupConvId = '00000000-0000-4000-8000-00000000000d';
+  const dedupConvDir = path.join(dedupBrain, dedupConvId, '.system_generated', 'logs');
+  fs.mkdirSync(dedupConvDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dedupConvDir, 'transcript.jsonl'),
+    [
+      { step_index: 0, type: 'USER_INPUT', created_at: '2026-11-14T10:00:00Z', content: '<USER_REQUEST>Check unmapped module</USER_REQUEST>' },
+      { step_index: 1, type: 'PLANNER_RESPONSE', created_at: '2026-11-14T10:00:05Z', content: 'Querying file.' },
+      { step_index: 2, type: 'GENERIC', created_at: '2026-11-14T10:00:06Z', content: 'No matching OKF concepts found for file: src\\services\\missing_service.js' },
+      { step_index: 3, type: 'GENERIC', created_at: '2026-11-14T10:00:07Z', content: 'step 3' },
+      { step_index: 4, type: 'GENERIC', created_at: '2026-11-14T10:00:08Z', content: 'step 4' },
+      { step_index: 5, type: 'GENERIC', created_at: '2026-11-14T10:00:09Z', content: 'step 5' }
+    ].map(r => JSON.stringify(r)).join('\n') + '\n',
+    'utf8'
+  );
+  const dedupTelPath = path.join(tempDir, 'dedup-tel.jsonl');
+  fs.writeFileSync(
+    dedupTelPath,
+    JSON.stringify({
+      timestamp: '2026-11-14T10:00:06Z',
+      skill: 'okf-query',
+      workspaceRoot: flatOkfWs,
+      mode: 'file',
+      query: 'src/services/missing_service.js',
+      matchCount: 0,
+      matchTiers: [],
+      outputBytes: 0,
+      durationMs: 12,
+      anomalies: ['query_miss']
+    }) + '\n',
+    'utf8'
+  );
+  const dedupReport = learnMod.evaluateSkillsPerformance({
+    conversationId: dedupConvId,
+    brainDir: dedupBrain,
+    telemetryPath: dedupTelPath,
+    skillLearningsPath: path.join(tempDir, 'dedup-learnings.jsonl'),
+    statePath: path.join(tempDir, 'dedup-state.json'),
+    workspaceRoot: flatOkfWs,
+    bundleRoot: path.join(flatOkfWs, 'okf')
+  });
+  const covRec = dedupReport.recommendations.find(r => r.category === 'concept-coverage');
+  assert.ok(covRec, 'Expected concept-coverage recommendation for unmapped src/services/missing_service.js');
+  assert.equal(
+    (covRec.message.match(/src\/services\/missing_service\.js/g) || []).length,
+    1,
+    `Backslash and forward-slash paths must deduplicate to a single recommendation entry, got: ${covRec.message}`
+  );
+
+  // (2) .gitignore trailing-slash & character-class glob compilation + backticked ancestor directory acknowledgment
+  const giWorkspace = path.join(tempDir, 'gitignore-subdir-ws');
+  fs.mkdirSync(path.join(giWorkspace, '.git'), { recursive: true });
+  fs.mkdirSync(path.join(giWorkspace, 'webapp', 'packages', 'LibPkg'), { recursive: true });
+  fs.mkdirSync(path.join(giWorkspace, 'webapp', 'Bin'), { recursive: true });
+  fs.mkdirSync(path.join(giWorkspace, 'webapp', '.nuget'), { recursive: true });
+  fs.mkdirSync(path.join(giWorkspace, 'webapp', 'okf'), { recursive: true });
+  fs.writeFileSync(path.join(giWorkspace, '.gitignore'), 'packages/\n[Bb]in/\n', 'utf8');
+  fs.writeFileSync(path.join(giWorkspace, 'webapp', 'packages', 'LibPkg', 'foo.dll'), 'bin', 'utf8');
+  fs.writeFileSync(path.join(giWorkspace, 'webapp', 'packages', 'LibPkg', 'manifest.json'), '{}', 'utf8');
+  fs.writeFileSync(path.join(giWorkspace, 'webapp', 'Bin', 'app.cs'), '// generated', 'utf8');
+  fs.writeFileSync(path.join(giWorkspace, 'webapp', 'packages.config'), '<packages />', 'utf8');
+  fs.writeFileSync(path.join(giWorkspace, 'webapp', '.nuget', 'NuGet.targets'), '<Project />', 'utf8');
+  fs.writeFileSync(path.join(giWorkspace, 'webapp', 'okf', 'index.md'), '---\nokf_version: "0.2"\n---\n# Index\n\n## Concepts\n\n- [Overview](/overview.md)\n', 'utf8');
+  fs.writeFileSync(
+    path.join(giWorkspace, 'webapp', 'okf', 'overview.md'),
+    '---\ntype: Subsystem\ntitle: Overview\ndescription: App overview\ngenerated:\n  by: Claude/4.0\n  at: 2026-11-14T00:00:00Z\n---\n# Layout\n| Dir | Purpose |\n|---|---|\n| `packages/`, `.nuget/` | Package restore tooling |\n',
+    'utf8'
+  );
+  const mPatterns = maintainMod.loadGitignorePatterns(path.join(giWorkspace, 'webapp'));
+  const wPatterns = wayfinderMod.loadGitignorePatterns(path.join(giWorkspace, 'webapp'));
+  assert.ok(mPatterns.some(re => re.test('packages/LibPkg/manifest.json')), 'maintain loadGitignorePatterns must ignore packages/ directory contents');
+  assert.ok(mPatterns.some(re => re.test('Bin/app.cs')), 'maintain loadGitignorePatterns must respect [Bb]in/ character-class globs');
+  assert.ok(!mPatterns.some(re => re.test('packages.config')), 'maintain loadGitignorePatterns must not match packages.config via packages/');
+  assert.ok(wPatterns.some(re => re.test('packages/LibPkg/manifest.json')), 'wayfinder loadGitignorePatterns must ignore packages/ directory contents');
+  assert.ok(wPatterns.some(re => re.test('Bin/app.cs')), 'wayfinder loadGitignorePatterns must respect [Bb]in/ character-class globs');
+  assert.ok(!wPatterns.some(re => re.test('packages.config')), 'wayfinder loadGitignorePatterns must not match packages.config via packages/');
+  assert.equal(
+    maintainMod.isAcknowledgedInBundle('.nuget/NuGet.targets', '| `packages/`, `.nuget/` | package restore tooling |'),
+    true,
+    'isAcknowledgedInBundle must acknowledge files under backtick-quoted ancestor directories'
+  );
+  let giCheckOut;
+  try {
+    giCheckOut = JSON.parse(
+      execSync(`node "${scripts.maintain}" --check --json`, { cwd: path.join(giWorkspace, 'webapp'), env: learnEnv }).toString()
+    );
+  } catch (err) {
+    giCheckOut = JSON.parse((err.stdout || '').toString());
+  }
+  assert.ok(
+    giCheckOut.unindexedFrontier.includes('packages.config'),
+    `Tracked packages.config must remain in unindexedFrontier, got: ${JSON.stringify(giCheckOut.unindexedFrontier)}`
+  );
+  assert.ok(
+    !giCheckOut.unindexedFrontier.includes('.nuget/NuGet.targets'),
+    'File under backtick-quoted .nuget/ directory must be treated as acknowledged'
+  );
+
+  // (3) Pre-reset timestamp-less envelope flush filtering & continued-session multi-turn citation carry-forward
+  const postResetBrain = path.join(tempDir, 'post-reset-claude-brain');
+  fs.mkdirSync(postResetBrain, { recursive: true });
+  const staleFlushedId = '00000000-0000-4000-8000-00000000000e';
+  const staleFlushedPath = path.join(postResetBrain, `${staleFlushedId}.jsonl`);
+  const watermarkMs = new Date('2026-11-14T12:00:00Z').getTime();
+  const staleFlushedLines = [
+    JSON.stringify({ type: 'user', timestamp: '2026-11-14T11:00:00Z', sessionId: staleFlushedId, message: { role: 'user', content: 'commit' } }),
+    JSON.stringify({ type: 'assistant', timestamp: '2026-11-14T11:00:05Z', sessionId: staleFlushedId, message: { id: 'm1', role: 'assistant', content: [{ type: 'text', text: 'Done.' }] } }),
+    JSON.stringify({ type: 'user', timestamp: '2026-11-14T11:00:06Z', sessionId: staleFlushedId, message: { role: 'user', content: 'thanks' } }),
+    JSON.stringify({ type: 'assistant', timestamp: '2026-11-14T11:00:07Z', sessionId: staleFlushedId, message: { id: 'm2', role: 'assistant', content: [{ type: 'text', text: 'Welcome.' }] } }),
+    JSON.stringify({ type: 'cost-state', costUSD: 0.05 })
+  ];
+  fs.writeFileSync(staleFlushedPath, staleFlushedLines.join('\n') + '\n', 'utf8');
+  const bumpedMtime = new Date(watermarkMs + 60000);
+  fs.utimesSync(staleFlushedPath, bumpedMtime, bumpedMtime);
+
+  const postResetCands = learnMod.discoverTranscriptCandidates({
+    brainDir: postResetBrain,
+    resetAtMs: watermarkMs
+  });
+  assert.equal(
+    postResetCands.some(c => c.id === staleFlushedId),
+    false,
+    'discoverTranscriptCandidates must exclude pre-reset sessions whose mtime was only bumped by timestamp-less envelope records'
+  );
+  const directStaleEval = learnMod.analyzeSingleTranscript(staleFlushedPath, staleFlushedId, { resetAtMs: watermarkMs });
+  assert.equal(
+    directStaleEval.conversation.stepCount,
+    0,
+    'analyzeSingleTranscript must slice pre-reset timestamped records to 0 steps even when mtimeMs > resetAtMs'
+  );
+
+  // Continued multi-turn session: pre-reset had citations, post-reset has follow-up user turn + query/maintain without re-citing
+  const contMultiId = '00000000-0000-4000-8000-00000000000f';
+  const contMultiPath = path.join(postResetBrain, `${contMultiId}.jsonl`);
+  const contMultiSteps = [
+    { step_index: 0, type: 'USER_INPUT', created_at: '2026-11-14T11:30:00Z', content: '<USER_REQUEST>Investigate portal card</USER_REQUEST>' },
+    {
+      step_index: 1,
+      type: 'PLANNER_RESPONSE',
+      created_at: '2026-11-14T11:30:10Z',
+      content: 'OKF Check: [Portal Subsystem](file:///workspace/webapp/okf/portal.md).',
+      tool_calls: [{ name: 'run_command', args: { CommandLine: 'node okf-lint/scripts/lint.js --drift' } }]
+    },
+    { step_index: 2, type: 'USER_INPUT', created_at: '2026-11-14T12:05:00Z', content: '<USER_REQUEST>Apply fix</USER_REQUEST>' },
+    {
+      step_index: 3,
+      type: 'PLANNER_RESPONSE',
+      created_at: '2026-11-14T12:05:10Z',
+      content: 'Applying fix and running tests.',
+      tool_calls: [
+        { name: 'run_command', args: { CommandLine: 'node okf-query/scripts/query.js --file src/portal.ts' } },
+        { name: 'edit_file', args: { Path: '/workspace/webapp/src/portal.ts' } },
+        { name: 'run_command', args: { CommandLine: 'node okf-maintain/scripts/maintain.js' } }
+      ]
+    }
+  ];
+  fs.writeFileSync(contMultiPath, contMultiSteps.map(s => JSON.stringify(s)).join('\n') + '\n', 'utf8');
+  const contMultiEval = learnMod.analyzeSingleTranscript(contMultiPath, contMultiId, { resetAtMs: watermarkMs });
+  assert.ok(
+    contMultiEval.conversation.gateCompliance.conceptCitations > 0,
+    'Continued multi-turn session must carry forward pre-reset conceptCitations into post-reset slice'
+  );
+  assert.equal(
+    contMultiEval.conversation.gateCompliance.scorePercent,
+    100,
+    'Continued multi-turn session with pre-reset lint + citations and post-reset query + maintain must score 100%'
+  );
+
+  // (4) Multi-line PowerShell PR pipeline & npm --prefix test/build slowCommands exclusion + "should be able to" filter
+  const multiLineConvId = '00000000-0000-4000-8000-000000000010';
+  const multiLinePath = path.join(tempDir, `${multiLineConvId}.jsonl`);
+  const multiLineSteps = [
+    {
+      step_index: 0,
+      type: 'USER_INPUT',
+      created_at: '2026-11-14T13:00:00Z',
+      content: '<USER_REQUEST>when i stage an item the ui adds another automatically. we should be able to select these freely</USER_REQUEST>'
+    },
+    {
+      step_index: 1,
+      type: 'GENERIC',
+      created_at: '2026-11-14T13:01:00Z',
+      content: [
+        'Tool is running as a background task with task id: conv/task-1',
+        'Task Description: node okf-maintain/scripts/maintain.js',
+        'if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }',
+        'git push -u origin fix/branch',
+        'gh pr create --base main --head fix/branch --title "fix" --body "ok"',
+        'Task logs are available at: file:///tmp/task-1.log'
+      ].join('\n')
+    },
+    {
+      step_index: 2,
+      type: 'GENERIC',
+      created_at: '2026-11-14T13:02:00Z',
+      content: 'Tool is running as a background task\nTask Description: npm --prefix frontend test -- --run src/App.test.tsx; npm --prefix frontend run build; node okf-maintain/scripts/maintain.js'
+    }
+  ];
+  fs.writeFileSync(multiLinePath, multiLineSteps.map(s => JSON.stringify(s)).join('\n') + '\n', 'utf8');
+  const multiLineEval = learnMod.analyzeSingleTranscript(multiLinePath, multiLineConvId);
+  assert.equal(
+    multiLineEval.conversation.friction.slowCommands.length,
+    0,
+    'Backgrounded multi-line PR pipelines and npm --prefix test/build chains must not trigger slowCommands'
+  );
+  assert.equal(
+    learnMod.isUserCorrectionTurn('when i stage an item the ui adds another automatically. we should be able to select these freely'),
+    false,
+    'isUserCorrectionTurn must ignore "should be able to" feature requirement phrasing'
+  );
+
   console.log('✓ okf-learn session audit, learning signals extraction, and --bind auto-remediation verified.');
   console.log('✓ Concept verification (--verify, --stale-after, --all-stale, --clear-stale) and consolidated --prune/--upgrade verified.');
   console.log('✓ Skill self-improvement telemetry, pre-completion nudge, and --evaluate transcript analyzer verified.');

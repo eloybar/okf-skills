@@ -284,7 +284,8 @@ const ROOT_HYGIENE_FILES = new Set([
   '.gitignore', '.gitattributes', '.gitmodules', '.editorconfig',
   '.nvmrc', '.node-version', '.npmrc', '.yarnrc', '.yarnrc.yml',
   '.prettierignore', '.eslintignore', '.dockerignore', '.stylelintignore',
-  'license', 'license.md', 'license.txt', 'skills-lock.json'
+  'license', 'license.md', 'license.txt', 'skills-lock.json',
+  'agents.md', 'claude.md', 'gemini.md', '.cursorrules', '.windsurfrules', '.clinerules'
 ]);
 const GIT_HYGIENE_FILES = new Set(['.gitignore', '.gitattributes', '.gitmodules']);
 
@@ -292,6 +293,9 @@ function isRootHygieneFile(filePath) {
   if (!filePath || typeof filePath !== 'string') return false;
   const cleaned = filePath.trim().replace(/\\/g, '/').replace(/^\.?\//, '');
   if (!cleaned) return false;
+  if (/(?:^|\/)(?:docs\/superpowers|\.(?:superpowers|agents|claude|gemini|scratch)|scratch)\//i.test(cleaned)) {
+    return true;
+  }
   const base = path.basename(cleaned).toLowerCase();
   return ROOT_HYGIENE_FILES.has(base);
 }
@@ -839,7 +843,7 @@ function main() {
   if (matchedEntries.length === 0) {
     const isAllRootHygiene = fileIndex !== -1 && rawFileArgs.length > 0 && rawFileArgs.every(isRootHygieneFile);
     if (fileIndex !== -1) {
-      const relTarget = path.relative(workspaceRoot, path.resolve(workspaceRoot, rawFileArgs[0] || args[fileIndex + 1] || ''));
+      const relTarget = path.relative(workspaceRoot, path.resolve(workspaceRoot, rawFileArgs[0] || args[fileIndex + 1] || '')).replace(/\\/g, '/');
       if (isAllRootHygiene) {
         console.log(`No matching OKF concepts found for file: ${relTarget} (repository hygiene/config file — no concept binding required)`);
       } else {
