@@ -583,8 +583,114 @@
       gap: 2rem;
     }
 
+    .overview-section {
+      margin-bottom: 5.5rem;
+    }
+
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .overview-card {
+      background: var(--gradient-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 2rem 2.25rem;
+      transition: var(--transition-smooth);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .overview-card:hover {
+      border-color: var(--border-color-hover);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+    }
+
+    .overview-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      width: fit-content;
+      padding: 0.3rem 0.75rem;
+      border-radius: 9999px;
+      background: hsla(199, 89%, 48%, 0.1);
+      border: 1px solid hsla(199, 89%, 48%, 0.25);
+      color: var(--accent-sky);
+      font-family: var(--font-display);
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .overview-eyebrow.skills {
+      background: hsla(245, 82%, 67%, 0.12);
+      border-color: hsla(245, 82%, 67%, 0.3);
+      color: #a5b4fc;
+    }
+
+    .overview-card h2 {
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.25;
+    }
+
+    .overview-card p {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .overview-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      margin-top: 0.25rem;
+    }
+
+    .overview-list li {
+      color: var(--text-secondary);
+      font-size: 0.92rem;
+      padding-left: 1.15rem;
+      position: relative;
+    }
+
+    .overview-list li::before {
+      content: '▸';
+      position: absolute;
+      left: 0;
+      color: var(--accent-sky);
+      font-weight: 700;
+    }
+
+    .overview-card.skills-card .overview-list li::before {
+      color: var(--accent-indigo);
+    }
+
+    .overview-list strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .overview-list code {
+      font-family: var(--font-mono);
+      font-size: 0.84em;
+      background: hsla(222, 47%, 22%, 0.7);
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      color: #e2e8f0;
+    }
+
     @media (max-width: 768px) {
-      .features-grid {
+      .features-grid,
+      .overview-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -884,6 +990,37 @@
       <p class="lead" id="hero-lead">How integrating OKF specifications with LLM skills constructs an adaptable, zero-rot knowledge ecosystem for brownfield and greenfield repositories.</p>
       <div style="margin-top: 1.75rem; display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;"><a href="course.html" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; border-radius: 9999px; background: var(--gradient-primary); color: #fff; font-family: var(--font-display); font-weight: 600; font-size: 0.95rem; text-decoration: none; box-shadow: 0 8px 24px hsla(199, 89%, 48%, 0.25); transition: var(--transition-smooth);">🎓 Launch OKF Academy Course (v0.2 Deep Dive) →</a><a href="docs/okf/viz.html" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.4rem; border-radius: 9999px; background: var(--bg-surface); border: 1px solid var(--border-color-hover); color: var(--text-primary); font-family: var(--font-display); font-weight: 600; font-size: 0.95rem; text-decoration: none; transition: var(--transition-smooth);">🕸️ Explore Live Knowledge Graph</a></div>
     </header>
+
+    <!-- What is OKF v0.2 & What Does okf-skills Solve? -->
+    <section class="overview-section" aria-label="OKF v0.2 and okf-skills Overview">
+      <div class="overview-grid">
+        <article class="overview-card" id="overview-okf-v02">
+          <span class="overview-eyebrow">The Format Standard</span>
+          <h2>What is OKF v0.2?</h2>
+          <p>A minimal, open specification for storing curated knowledge about code, data, and systems as plain Markdown files with YAML frontmatter—human-readable, agent-parseable, Git-diffable, and portable without proprietary runtimes.</p>
+          <p>Beyond replacing fragmented wikis and locked-in agent memory with a single Git-native structure, <strong>v0.2 makes agent-maintained knowledge trustworthy</strong> through five first-class frontmatter conventions:</p>
+          <ul class="overview-list">
+            <li><strong>Provenance</strong> (<code>sources</code>, footnotes): Where did this come from?</li>
+            <li><strong>Trust</strong> (<code>generated</code>, <code>verified</code> &rarr; <code>unverified</code> / <code>machine-confirmed</code> / <code>human-reviewed</code>): How much should I trust it?</li>
+            <li><strong>Freshness</strong> (<code>stale_after</code>): Is it still current?</li>
+            <li><strong>Lifecycle</strong> (<code>status</code>: <code>draft</code> / <code>stable</code> / <code>deprecated</code>): Is this the active version?</li>
+            <li><strong>Attestation</strong> (<code>Attested Computation</code>, <code>executor</code>, <code>attester</code>): Was this number produced the sanctioned way?</li>
+          </ul>
+        </article>
+
+        <article class="overview-card skills-card" id="overview-okf-skills">
+          <span class="overview-eyebrow skills">The Operational Engine</span>
+          <h2>What does <code>okf-skills</code> solve?</h2>
+          <p>A suite of plug-and-play AI agent skills and CLI tools that turns the OKF v0.2 specification into a <strong>self-documenting, zero-rot codebase</strong>. While OKF v0.2 defines <em>how</em> knowledge lives on disk, <code>okf-skills</code> operationalizes it into a closed Knowledge Loop for coding agents:</p>
+          <ul class="overview-list">
+            <li><strong>Eliminates Cold Starts:</strong> Agents query pre-curated concepts (<code>okf-query</code>) before touching code instead of re-exploring the repo every session.</li>
+            <li><strong>Cuts Token Bloat:</strong> Injects only the architectural context bound to the files or topics being edited, rather than dumping raw source files.</li>
+            <li><strong>Prevents Documentation Rot &amp; Drift:</strong> Enforces pre-work grounding and post-edit verification gates (<code>AGENTS.md</code>, <code>okf-maintain</code>, <code>okf-lint --drift</code>) tied to Git history.</li>
+            <li><strong>Automates Lifecycle Upkeep:</strong> Handles onboarding interviews (<code>okf-wayfinder</code>), v0.1 upgrades (<code>--upgrade</code>), pruning (<code>--prune</code>), graph visualization (<code>okf-visualize</code>), and retrospective self-improvement (<code>okf-learn</code>).</li>
+          </ul>
+        </article>
+      </div>
+    </section>
 
     <!-- Pipeline Grid -->
     <section class="pipeline-section" aria-label="OKF Knowledge Pipeline Lifecycle">

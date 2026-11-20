@@ -4,7 +4,31 @@
 >
 > **🎓 OKF Academy Interactive Course (v0.2):** [👉 Launch the Interactive Web Course (`course.html`)](https://eloybar.github.io/okf-skills/course.html) | [📖 Read the 7-Module Markdown Curriculum (`docs/course/README.md`)](docs/course/README.md)
 
-Integrating Open Knowledge Format (OKF) specifications with LLM skills constructs an adaptable, zero-rot knowledge ecosystem for brownfield and greenfield repositories. 
+Integrating Open Knowledge Format (OKF) specifications with LLM skills constructs an adaptable, zero-rot knowledge ecosystem for brownfield and greenfield repositories.
+
+---
+
+## 🧭 What is OKF v0.2 & What Does `okf-skills` Solve?
+
+### What is OKF v0.2?
+**[OKF v0.2 (Open Knowledge Format)](docs/SPEC.md)** is a minimal, open specification for storing curated knowledge about code, data, and systems as a plain directory of Markdown files with YAML frontmatter—readable by humans, parseable by AI agents, diffable in Git, and portable without proprietary tooling or runtimes.
+
+It solves two core problems:
+1. **Fragmented, locked-in context** — Replaces ad-hoc wikis and incompatible agent memory formats with a single, Git-native, tool-agnostic structure (`index.md`, `log.md`, and typed concept files) that both humans and agents can produce, consume, and exchange.
+2. **Untrustworthy agent-maintained knowledge** — Plain Markdown breaks down once AI agents continuously write and update docs. v0.2 adds a minimal set of first-class frontmatter conventions to answer five operational questions without prescribing a runtime:
+   - **Provenance** (`sources`, footnote citations): *Where did this come from?*
+   - **Trust** (`generated`, `verified` → `unverified` / `machine-confirmed` / `human-reviewed`): *How much should I trust it?*
+   - **Freshness** (`stale_after`): *Is it still current?*
+   - **Lifecycle** (`status`: `draft` / `stable` / `deprecated`): *Is this the active version?*
+   - **Attestation** (`type: Attested Computation` with `executor` and deterministic `attester`): *Was this metric/number produced the sanctioned way?*
+
+### What does `okf-skills` solve?
+**`okf-skills`** is a suite of plug-and-play AI agent skills and CLI tools that turns the OKF v0.2 specification into a **self-documenting, zero-rot codebase**. While OKF v0.2 defines *how* knowledge is structured on disk, this repository operationalizes it into a closed **Knowledge Loop** that hooks directly into how coding agents (Antigravity, Claude Code, Codex, etc.) read, edit, and ship code:
+
+1. **Agent & Developer "Cold Starts"** — Instead of re-exploring a repo from scratch every session, agents query targeted, pre-curated concepts (`okf-query`) before touching code.
+2. **Token Bloat & Noisy Context** — Injects only the architectural context bound to the specific files or topics being edited, rather than dumping raw source files into the prompt.
+3. **Documentation Rot & Code-Doc Drift** — Enforces pre-work grounding and post-edit verification gates (`AGENTS.md`, `okf-maintain`, `okf-lint --drift`) so concepts are updated alongside code changes and Git-verified against drift.
+4. **Manual Maintenance Overhead** — Automates the entire lifecycle of a knowledge base: capturing tribal knowledge (`okf-wayfinder`), upgrading v0.1 bundles (`--upgrade`), pruning stale/orphaned docs (`--prune`), visualizing the graph (`okf-visualize`), and learning from session/telemetry misses (`okf-learn`).
 
 ---
 
