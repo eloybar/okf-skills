@@ -2338,7 +2338,7 @@ async function main() {
     console.log('----------------------------------------------------------');
     console.log(`Passive Telemetry:   ${t.totalEvents} CLI events recorded`);
     console.log(`  - Query misses:                 ${t.queryMisses.length} | Fallbacks used: ${t.fallbacksUsed.length}`);
-    console.log(`  - Context bloats (>40KB):       ${t.contextBloats.length} | Slow runs (>2s): ${t.slowRuns.length}`);
+    console.log(`  - Context bloats (>40KB):       ${t.contextBloats.length} | Slow runs: ${t.slowRuns.length}`);
     console.log('----------------------------------------------------------');
     console.log('Actionable Recommendations:');
     for (let i = 0; i < report.recommendations.length; i++) {
@@ -2710,7 +2710,7 @@ async function main() {
   const nudgeLine = checkSessionAnomaliesForNudge(workspaceRoot, args);
   const durationMs = Date.now() - startTime;
   const anomalies = [];
-  if (durationMs > 2000) anomalies.push('slow_exec');
+  if (durationMs > 4000) anomalies.push('slow_exec');
   if (!lintPassed) anomalies.push('lint_error');
 
   if (isJson) {

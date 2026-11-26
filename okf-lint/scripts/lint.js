@@ -1218,7 +1218,7 @@ async function main() {
   const durationMs = Date.now() - startTime;
   const driftCount = results.warnings.filter(w => w.includes('Concept drift detected') || w.includes('[Drift Warning]')).length;
   const anomalies = [];
-  if (durationMs > 2000) anomalies.push('slow_exec');
+  if (durationMs > (checkDrift ? 4000 : 2000)) anomalies.push('slow_exec');
   if (results.errors.length > 0) anomalies.push('lint_error');
   recordTelemetry({
     skill: 'okf-lint',

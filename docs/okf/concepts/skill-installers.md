@@ -6,7 +6,7 @@ resource: install.ps1
 tags: [installation, deployment, powershell, bash]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-14T22:38:43.823Z
+  at: 2026-11-26T13:54:26.668Z
 verified:
   - by: human:eloybar
     at: 2026-11-13T23:21:18Z
