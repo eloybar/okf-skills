@@ -6,7 +6,7 @@ resource: okf-lint/SKILL.md
 tags: [linter, verification, quality-gate, CI-CD]
 generated:
   by: Antigravity/4.0
-  at: 2026-11-13T23:21:18Z
+  at: 2026-11-26T13:54:26.668Z
 verified:
   - by: human:eloybar
     at: 2026-11-13T23:21:18Z

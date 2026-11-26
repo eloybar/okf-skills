@@ -557,13 +557,16 @@ function sanitizeUserTurnText(rawText) {
 
 function isUserCorrectionTurn(cleanedText) {
   if (!cleanedText || typeof cleanedText !== 'string') return false;
-  const normalized = cleanedText
-    .replace(/\b(?:i|we|they)\s+don't\s+(?:have|know|think|see|remember|need|mind|care|just)\b/gi, ' ')
+  const trimmed = cleanedText.trim();
+  if (/^\/okf-(?:wayfinder|maintain|learn|lint|query|visualize)\b/i.test(trimmed)) return false;
+  const normalized = trimmed
+    .replace(/\b(?:i|we|they)\s+(?:(?:still|just|really|actually|even)\s+)?don't\s+(?:have|know|think|see|remember|need|mind|care|just)\b/gi, ' ')
     .replace(/\bdon't\s+have\s+(?:it|that|them|the\s+\w+|any|access)\b/gi, ' ')
     .replace(/\bdon't\s+(?:seem|appear)\s+to\b/gi, ' ')
     .replace(/\bit\s+should\s+be\s+something\b/gi, ' ')
-    .replace(/\bshould\s+be\s+able\s+to\b/gi, ' ');
-  return /\b(no[,\s]|instead\b|don't\b|wrong\b|not working\b|still broken\b|should be\b|why did you\b|why\s+(?:was\s+(?:it|that|this)\s+missed|did\s+(?:you|we)\s+miss)\b)/i.test(normalized);
+    .replace(/\bshould\s+be\s+able\s+to\b/gi, ' ')
+    .replace(/\bwhich\s+(?:\w+\s+){1,4}should\s+be\b/gi, ' ');
+  return /(?:^|[.!?]\s+)no(?:,|\s+(?:that|this|it|we|you|do|don't|please|not|actually|wait)\b)|\b(no,|no\s+longer\b|instead\b|don't\b|wrong\b|not working\b|still broken\b|should be\b|why did you\b|why\s+(?:was\s+(?:it|that|this)\s+missed|did\s+(?:you|we)\s+miss)\b)/i.test(normalized);
 }
 
 function extractSearchQueryFromCommand(cmd) {
@@ -1614,25 +1617,44 @@ function evaluateSkillsPerformance(options = {}) {
     });
   }
   if (conversation.friction.queryMisses.length > 0 || telemetry.queryMisses.length > 0) {
+    const currentWsNorm = path.resolve(workspaceRoot).replace(/\\/g, '/').toLowerCase();
     const allMisses = [
       ...conversation.friction.queryMisses.map(m => ({
         mode: m.mode || (m.missedTarget === '(search query)' ? 'search' : 'file'),
-        target: m.missedTarget
+        target: m.missedTarget,
+        workspaceRoot: conversation.inferredWorkspace || null
       })),
       ...telemetry.queryMisses.map(m => ({
         mode: m.mode || 'file',
-        target: m.query
+        target: m.query,
+        workspaceRoot: m.workspaceRoot || null
       }))
     ].filter(m => m.target);
-    const fileMissTargets = Array.from(
-      new Set(allMisses.filter(m => m.mode !== 'search').map(m => m.target.replace(/\\/g, '/')))
-    ).slice(0, 5);
+    const fileMissMap = new Map();
+    for (const m of allMisses) {
+      if (m.mode === 'search') continue;
+      const normTarget = m.target.replace(/\\/g, '/');
+      const wsNorm = m.workspaceRoot ? path.resolve(m.workspaceRoot).replace(/\\/g, '/') : null;
+      const isExternal = wsNorm && wsNorm.toLowerCase() !== currentWsNorm;
+      const dedupKey = `${normTarget.toLowerCase()}|${isExternal ? wsNorm.toLowerCase() : ''}`;
+      if (!fileMissMap.has(dedupKey)) {
+        fileMissMap.set(dedupKey, { target: normTarget, workspaceRoot: isExternal ? wsNorm : null });
+      }
+    }
+    const fileMissEntries = Array.from(fileMissMap.values()).slice(0, 5);
     const searchMissTargets = Array.from(new Set(allMisses.filter(m => m.mode === 'search').map(m => m.target))).slice(0, 5);
-    if (fileMissTargets.length > 0) {
+    if (fileMissEntries.length > 0) {
+      const hasExternal = fileMissEntries.some(e => e.workspaceRoot);
+      const formattedTargets = fileMissEntries
+        .map(e => (e.workspaceRoot ? `${e.target} [in ${e.workspaceRoot}]` : e.target))
+        .join(', ');
+      const bindHint = hasExternal
+        ? 'node okf-learn/scripts/learn.js --bind <file> --concept <concept> --bundle <workspace>/docs/okf'
+        : 'node okf-learn/scripts/learn.js --bind <file> --concept <concept>';
       recommendations.push({
         priority: 'HIGH',
         category: 'concept-coverage',
-        message: `Bind missed files in docs/okf/ concepts using "node okf-learn/scripts/learn.js --bind <file> --concept <concept>" for queried paths (${fileMissTargets.join(', ')}).`
+        message: `Bind missed files in docs/okf/ concepts using "${bindHint}" for queried paths (${formattedTargets}).`
       });
     }
     if (searchMissTargets.length > 0) {
@@ -1931,7 +1953,7 @@ function main() {
   console.log('----------------------------------------------------------');
   console.log(`Passive Telemetry:   ${t.totalEvents} CLI events recorded`);
   console.log(`  - Query misses:                 ${t.queryMisses.length} | Fallbacks used: ${t.fallbacksUsed.length}`);
-  console.log(`  - Context bloats (>40KB):       ${t.contextBloats.length} | Slow runs (>2s): ${t.slowRuns.length}`);
+  console.log(`  - Context bloats (>40KB):       ${t.contextBloats.length} | Slow runs: ${t.slowRuns.length}`);
   console.log('----------------------------------------------------------');
   console.log('Actionable Recommendations:');
   for (let i = 0; i < report.recommendations.length; i++) {

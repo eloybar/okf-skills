@@ -3214,6 +3214,72 @@ Body.
     false,
     'isUserCorrectionTurn must ignore "should be able to" feature requirement phrasing'
   );
+  assert.equal(
+    learnMod.isUserCorrectionTurn('/okf-wayfinder I would like to define concepts that should be tailored to user roles'),
+    false,
+    'isUserCorrectionTurn must ignore /okf-wayfinder workflow invocations'
+  );
+  assert.equal(
+    learnMod.isUserCorrectionTurn('should we also allow overriding which endpoint should be used?'),
+    false,
+    'isUserCorrectionTurn must ignore "which ... should be" design questions'
+  );
+  assert.equal(
+    learnMod.isUserCorrectionTurn('do we have documented that no user of any level can view another tenant?'),
+    false,
+    'isUserCorrectionTurn must ignore mid-sentence determiner "no <noun>" in questions'
+  );
+  assert.equal(
+    learnMod.isUserCorrectionTurn("can you generate an image of the diagram. i still don't see it clearly"),
+    false,
+    'isUserCorrectionTurn must ignore adverb-modified "i still don\'t see" phrasing'
+  );
+  assert.equal(
+    learnMod.isUserCorrectionTurn('the service is no longer streaming events after the refactor'),
+    true,
+    'isUserCorrectionTurn must still capture "no longer" regression reports'
+  );
+  assert.equal(
+    learnMod.isUserCorrectionTurn('No, that is not what I asked for'),
+    true,
+    'isUserCorrectionTurn must still capture sentence-initial "No," corrections'
+  );
+
+  // Cross-workspace concept-coverage recommendation scoping
+  const extWs = path.join(tempDir, 'external-webapp');
+  fs.mkdirSync(path.join(extWs, 'docs', 'okf'), { recursive: true });
+  const extTelPath = path.join(tempDir, 'ext-ws-telemetry.jsonl');
+  fs.writeFileSync(
+    extTelPath,
+    JSON.stringify({
+      timestamp: '2026-11-26T08:00:00Z',
+      skill: 'okf-query',
+      workspaceRoot: extWs,
+      mode: 'file',
+      query: 'deploy-plan.sh',
+      matchCount: 0,
+      matchTiers: [],
+      outputBytes: 0,
+      durationMs: 10,
+      anomalies: ['query_miss']
+    }) + '\n',
+    'utf8'
+  );
+  const extScopeReport = learnMod.evaluateSkillsPerformance({
+    conversationId: '00000000-0000-4000-8000-000000000001',
+    brainDir: path.join(tempDir, 'empty-brain'),
+    telemetryPath: extTelPath,
+    skillLearningsPath: path.join(tempDir, 'ext-learnings.jsonl'),
+    statePath: path.join(tempDir, 'ext-state.json'),
+    workspaceRoot: flatOkfWs,
+    bundleRoot: path.join(flatOkfWs, 'okf')
+  });
+  const extCovRec = extScopeReport.recommendations.find(r => r.category === 'concept-coverage');
+  assert.ok(extCovRec, 'Expected concept-coverage recommendation for cross-workspace miss');
+  assert.ok(
+    extCovRec.message.includes('deploy-plan.sh [in ') && extCovRec.message.includes('--bundle <workspace>/docs/okf'),
+    `Cross-workspace miss recommendation must annotate external workspace and --bundle flag, got: ${extCovRec.message}`
+  );
 
   console.log('✓ okf-learn session audit, learning signals extraction, and --bind auto-remediation verified.');
   console.log('✓ Concept verification (--verify, --stale-after, --all-stale, --clear-stale) and consolidated --prune/--upgrade verified.');
